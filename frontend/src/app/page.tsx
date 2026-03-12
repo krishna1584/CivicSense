@@ -25,10 +25,10 @@ export default function LandingPage() {
       <nav className="fixed top-0 left-0 right-0 z-50 glass-panel border-b border-white/5">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-[#00FF94]/20 flex items-center justify-center">
-              <Zap size={16} className="text-[#00FF94]" />
+            <div className="w-8 h-8 rounded-lg bg-[#00aaef]/20 flex items-center justify-center">
+              <Zap size={16} className="text-[#00aaef]" />
             </div>
-            <span className="font-bold text-lg">Civic<span className="text-[#00FF94]">Sense</span></span>
+            <span className="font-bold text-lg">Civic<span className="text-[#00aaef]">Sense</span></span>
           </div>
           <div className="flex items-center gap-4">
             <Link href="/explore" className="text-[#9CA3AF] hover:text-white text-sm transition-colors">Explore</Link>
@@ -46,15 +46,15 @@ export default function LandingPage() {
 
         <div className="relative max-w-5xl mx-auto text-center">
           {/* System status badge */}
-          <div className="inline-flex items-center gap-2 bg-[#00FF94]/10 border border-[#00FF94]/20 rounded-full px-4 py-1.5 mb-8">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#00FF94] animate-pulse" />
-            <span className="text-[#00FF94] text-xs font-medium uppercase tracking-widest">System Operational</span>
+          <div className="inline-flex items-center gap-2 bg-[#00aaef]/10 border border-[#00aaef]/20 rounded-full px-4 py-1.5 mb-8">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#00aaef] animate-pulse" />
+            <span className="text-[#00aaef] text-xs font-medium uppercase tracking-widest">System Operational</span>
           </div>
 
           <h1 className="text-6xl md:text-7xl font-black mb-6 leading-[1.05] tracking-tight">
             <span className="text-gradient">Empower Your City.</span>
             <br />
-            <span className="text-[#00FF94]">In Real Time.</span>
+            <span className="text-[#00aaef]">In Real Time.</span>
           </h1>
 
           <p className="text-xl text-[#9CA3AF] max-w-2xl mx-auto mb-10 leading-relaxed">
@@ -78,7 +78,7 @@ export default function LandingPage() {
         <div className="max-w-5xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-8">
           {stats.map((s) => (
             <div key={s.label} className="text-center">
-              <div className="text-3xl font-black text-[#00FF94] mb-1">{s.value}</div>
+              <div className="text-3xl font-black text-[#00aaef] mb-1">{s.value}</div>
               <div className="label-micro">{s.label}</div>
             </div>
           ))}
@@ -89,7 +89,7 @@ export default function LandingPage() {
       <section className="py-24 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
-            <p className="label-micro mb-3 text-[#00FF94]">Platform Features</p>
+            <p className="label-micro mb-3 text-[#00aaef]">Platform Features</p>
             <h2 className="text-4xl font-bold text-gradient">Built for Civic Accountability</h2>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -97,8 +97,8 @@ export default function LandingPage() {
               const Icon = f.icon;
               return (
                 <div key={f.title} className="card card-hover p-6">
-                  <div className="w-10 h-10 rounded-xl bg-[#00FF94]/10 flex items-center justify-center mb-4">
-                    <Icon size={20} className="text-[#00FF94]" />
+                  <div className="w-10 h-10 rounded-xl bg-[#00aaef]/10 flex items-center justify-center mb-4">
+                    <Icon size={20} className="text-[#00aaef]" />
                   </div>
                   <h3 className="font-semibold text-white mb-2">{f.title}</h3>
                   <p className="text-[#9CA3AF] text-sm leading-relaxed">{f.desc}</p>
@@ -112,7 +112,7 @@ export default function LandingPage() {
       {/* CTA */}
       <section className="py-24 px-6">
         <div className="max-w-3xl mx-auto text-center card p-12 relative overflow-hidden">
-          <div className="absolute inset-0 bg-[#00FF94]/3 rounded-2xl" />
+          <div className="absolute inset-0 bg-[#00aaef]/3 rounded-2xl" />
           <div className="relative">
             <h2 className="text-4xl font-bold mb-4 text-gradient">Ready to Make Your Voice Count?</h2>
             <p className="text-[#9CA3AF] mb-8">Join thousands of citizens driving civic change through data and transparency.</p>
@@ -127,7 +127,7 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="border-t border-white/5 py-8 px-6">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <span className="font-bold">Civic<span className="text-[#00FF94]">Sense</span></span>
+          <span className="font-bold">Civic<span className="text-[#00aaef]">Sense</span></span>
           <p className="text-[#9CA3AF] text-sm">© 2026 CivicSense. All rights reserved.</p>
         </div>
       </footer>
