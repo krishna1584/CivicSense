@@ -27,7 +27,7 @@ export default function MyReportsPage() {
       <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gradient flex items-center gap-2">
-            <FileText size={26} className="text-[#00FF94]" /> My Reports
+            <FileText size={26} className="text-[#00aaef]" /> My Reports
           </h1>
           <p className="text-[#9CA3AF] mt-1">{total} issues reported</p>
         </div>
@@ -36,7 +36,7 @@ export default function MyReportsPage() {
 
       {loading ? (
         <div className="flex items-center justify-center h-64">
-          <Loader2 size={24} className="text-[#00FF94] animate-spin" />
+          <Loader2 size={24} className="text-[#00aaef] animate-spin" />
         </div>
       ) : issues.length === 0 ? (
         <div className="card p-12 text-center">

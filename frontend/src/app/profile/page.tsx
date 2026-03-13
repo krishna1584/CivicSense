@@ -34,7 +34,7 @@ export default function ProfilePage() {
   if (!user) return (
     <AppLayout>
       <div className="flex flex-col items-center justify-center h-64 gap-4">
-        <p className="text-[#9CA3AF]">Please <Link href="/login" className="text-[#00FF94] hover:underline">sign in</Link> to view your profile.</p>
+        <p className="text-[#9CA3AF]">Please <Link href="/login" className="text-[#00aaef] hover:underline">sign in</Link> to view your profile.</p>
       </div>
     </AppLayout>
   );
@@ -45,7 +45,7 @@ export default function ProfilePage() {
     <AppLayout>
       {/* Profile Header */}
       <div className="card p-8 mb-6 flex items-start gap-6">
-        <div className="w-20 h-20 rounded-2xl bg-[#00FF94]/20 flex items-center justify-center text-[#00FF94] text-3xl font-black flex-shrink-0">
+        <div className="w-20 h-20 rounded-2xl bg-[#00aaef]/20 flex items-center justify-center text-[#00aaef] text-3xl font-black flex-shrink-0">
           {user.name[0].toUpperCase()}
         </div>
         <div className="flex-1">
@@ -68,7 +68,7 @@ export default function ProfilePage() {
               <span className="text-[#9CA3AF] text-sm">Issues Reported</span>
             </div>
             <div className="flex items-center gap-2">
-              <ThumbsUp size={16} className="text-[#00FF94]" />
+              <ThumbsUp size={16} className="text-[#00aaef]" />
               <span className="text-white font-semibold">{stats.totalVotes}</span>
               <span className="text-[#9CA3AF] text-sm">Votes Cast</span>
             </div>
@@ -90,19 +90,19 @@ export default function ProfilePage() {
       <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-semibold text-white flex items-center gap-2">
-            <FileText size={16} className="text-[#00FF94]" /> Recent Reports
+            <FileText size={16} className="text-[#00aaef]" /> Recent Reports
           </h2>
-          <Link href="/my-reports" className="text-[#00FF94] text-sm hover:underline">View all →</Link>
+          <Link href="/my-reports" className="text-[#00aaef] text-sm hover:underline">View all →</Link>
         </div>
 
         {loading ? (
           <div className="flex items-center justify-center h-32">
-            <Loader2 size={20} className="text-[#00FF94] animate-spin" />
+            <Loader2 size={20} className="text-[#00aaef] animate-spin" />
           </div>
         ) : issues.length === 0 ? (
           <div className="card p-8 text-center text-[#9CA3AF]">
             No issues reported yet.{' '}
-            <Link href="/report" className="text-[#00FF94] hover:underline">Report one now</Link>.
+            <Link href="/report" className="text-[#00aaef] hover:underline">Report one now</Link>.
           </div>
         ) : (
           <div className="card overflow-hidden">
@@ -120,14 +120,14 @@ export default function ProfilePage() {
                 {issues.map((issue) => (
                   <tr key={issue.id} className="border-b border-white/3 hover:bg-white/2 transition-colors">
                     <td className="py-3 px-4">
-                      <Link href={`/issues/${issue.id}`} className="text-white hover:text-[#00FF94] transition-colors truncate max-w-xs block">
+                      <Link href={`/issues/${issue.id}`} className="text-white hover:text-[#00aaef] transition-colors truncate max-w-xs block">
                         {issue.category_icon && <span className="mr-1">{issue.category_icon}</span>}
                         {issue.title}
                       </Link>
                     </td>
                     <td className="py-3 px-4"><StatusBadge status={issue.status} size="sm" /></td>
                     <td className="py-3 px-4"><SeverityBadge severity={issue.severity} /></td>
-                    <td className="py-3 px-4 text-[#00FF94] font-semibold">{issue.upvote_count}</td>
+                    <td className="py-3 px-4 text-[#00aaef] font-semibold">{issue.upvote_count}</td>
                     <td className="py-3 px-4 text-[#9CA3AF] text-xs">
                       {formatDistanceToNow(new Date(issue.created_at), { addSuffix: true })}
                     </td>

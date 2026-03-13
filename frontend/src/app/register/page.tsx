@@ -34,10 +34,10 @@ export default function RegisterPage() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center gap-2 mb-6">
-            <div className="w-10 h-10 rounded-xl bg-[#00FF94]/20 flex items-center justify-center">
-              <Zap size={20} className="text-[#00FF94]" />
+            <div className="w-10 h-10 rounded-xl bg-[#00aaef]/20 flex items-center justify-center">
+              <Zap size={20} className="text-[#00aaef]" />
             </div>
-            <span className="font-bold text-xl">Civic<span className="text-[#00FF94]">Sense</span></span>
+            <span className="font-bold text-xl">Civic<span className="text-[#00aaef]">Sense</span></span>
           </Link>
           <h1 className="text-2xl font-bold text-gradient">Create your account</h1>
           <p className="text-[#9CA3AF] mt-1 text-sm">Join the civic movement</p>
@@ -71,7 +71,7 @@ export default function RegisterPage() {
           </form>
           <p className="text-center text-[#9CA3AF] text-sm mt-5">
             Already have an account?{' '}
-            <Link href="/login" className="text-[#00FF94] hover:underline">Sign in</Link>
+            <Link href="/login" className="text-[#00aaef] hover:underline">Sign in</Link>
           </p>
         </div>
       </div>

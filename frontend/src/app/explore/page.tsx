@@ -137,7 +137,7 @@ const STATUS_CONFIG: Record<Status, { label: string; color: string; bg: string; 
   Reported:     { label: 'Reported',     color: 'text-[#9CA3AF]',  bg: 'bg-white/5',          dot: 'bg-[#9CA3AF]' },
   Acknowledged: { label: 'Acknowledged', color: 'text-[#61C0FF]',  bg: 'bg-[#61C0FF]/10',     dot: 'bg-[#61C0FF]' },
   'In Progress':{ label: 'In Progress',  color: 'text-[#F59E0B]',  bg: 'bg-[#F59E0B]/10',     dot: 'bg-[#F59E0B]' },
-  Resolved:     { label: 'Resolved',     color: 'text-[#00FF94]',  bg: 'bg-[#00FF94]/10',     dot: 'bg-[#00FF94]' },
+  Resolved:     { label: 'Resolved',     color: 'text-[#00aaef]',  bg: 'bg-[#00aaef]/10',     dot: 'bg-[#00aaef]' },
   Rejected:     { label: 'Rejected',     color: 'text-[#EF4444]',  bg: 'bg-[#EF4444]/10',     dot: 'bg-[#EF4444]' },
 };
 
