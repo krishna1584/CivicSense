@@ -1,0 +1,234 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  citizen
+  admin
+  department_staff
+}
+
+enum IssueStatus {
+  reported
+  acknowledged
+  in_progress
+  resolved
+  rejected
+}
+
+enum SeverityLevel {
+  low
+  medium
+  high
+  critical
+}
+
+enum VoteType {
+  upvote
+  downvote
+}
+
+enum MediaType {
+  image
+  video
+}
+
+model User {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @db.VarChar(255)
+  email       String   @unique @db.VarChar(255)
+  password_hash String  @db.VarChar(255)
+  role        UserRole @default(citizen)
+  trust_score  Int      @default(0)
+  avatar_url   String?  @db.Text
+  is_verified  Boolean  @default(false)
+  is_active    Boolean  @default(true)
+  created_at   DateTime @default(now()) @db.Timestamptz
+  updated_at   DateTime @default(now()) @updatedAt @db.Timestamptz
+
+  refreshTokens RefreshToken[]
+  issues        Issue[]
+  assignedIssues Issue[]        @relation("AssignedIssues")
+  comments      Comment[]
+  votes         Vote[]
+  follows       Follow[]
+  notifications Notification[]
+  statusHistory IssueStatusHistory[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  user_id    String   @db.Uuid
+  token     String   @unique @db.Text
+  expires_at DateTime @db.Timestamptz
+  created_at DateTime @default(now()) @db.Timestamptz
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+model Category {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @unique @db.VarChar(100)
+  slug        String   @unique @db.VarChar(100)
+  icon        String?  @db.VarChar(50)
+  description String?  @db.Text
+  created_at   DateTime @default(now()) @db.Timestamptz
+
+  subcategories Subcategory[]
+  issues        Issue[]
+
+  @@map("categories")
+}
+
+model Subcategory {
+  id         String   @id @default(uuid()) @db.Uuid
+  category_id String   @db.Uuid
+  name       String   @db.VarChar(100)
+  slug       String   @db.VarChar(100)
+  created_at  DateTime @default(now()) @db.Timestamptz
+
+  category Category @relation(fields: [category_id], references: [id], onDelete: Cascade)
+  issues   Issue[]
+
+  @@map("subcategories")
+}
+
+model Issue {
+  id             String        @id @default(uuid()) @db.Uuid
+  user_id         String        @db.Uuid
+  title          String        @db.VarChar(255)
+  description    String        @db.Text
+  category_id     String?       @db.Uuid
+  subcategory_id  String?       @db.Uuid
+  severity       SeverityLevel @default(medium)
+  status         IssueStatus   @default(reported)
+  location       String?       @db.Text // Note: Using String for geography, may need adjustment
+  address        String?       @db.Text
+  is_anonymous    Boolean       @default(false)
+  upvote_count    Int           @default(0)
+  downvote_count  Int           @default(0)
+  follow_count    Int           @default(0)
+  comment_count   Int           @default(0)
+  assigned_to     String?       @db.Uuid
+  department     String?       @db.VarChar(255)
+  sla_hours       Int?
+  sla_deadline    DateTime?     @db.Timestamptz
+  rejection_reason String?      @db.Text
+  created_at      DateTime      @default(now()) @db.Timestamptz
+  updated_at      DateTime      @default(now()) @updatedAt @db.Timestamptz
+  resolved_at     DateTime?     @db.Timestamptz
+
+  user         User         @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  category     Category?    @relation(fields: [category_id], references: [id])
+  subcategory  Subcategory? @relation(fields: [subcategory_id], references: [id])
+  assignedUser User?        @relation("AssignedIssues", fields: [assigned_to], references: [id])
+  media        IssueMedia[]
+  statusHistory IssueStatusHistory[]
+  comments     Comment[]
+  votes        Vote[]
+  follows      Follow[]
+  notifications Notification[]
+
+  @@map("issues")
+}
+
+model IssueMedia {
+  id         String    @id @default(uuid()) @db.Uuid
+  issue_id    String    @db.Uuid
+  media_url   String    @db.Text
+  public_id   String?   @db.Text
+  mediaType  MediaType @default(image)
+  uploaded_at DateTime  @default(now()) @db.Timestamptz
+
+  issue Issue @relation(fields: [issue_id], references: [id], onDelete: Cascade)
+
+  @@map("issue_media")
+}
+
+model IssueStatusHistory {
+  id        String      @id @default(uuid()) @db.Uuid
+  issue_id   String      @db.Uuid
+  old_status IssueStatus?
+  new_status IssueStatus
+  updated_by String?     @db.Uuid
+  comment   String?     @db.Text
+  is_public  Boolean     @default(true)
+  updated_at DateTime    @default(now()) @db.Timestamptz
+
+  issue   Issue @relation(fields: [issue_id], references: [id], onDelete: Cascade)
+  updater User? @relation(fields: [updated_by], references: [id])
+
+  @@map("issue_status_history")
+}
+
+model Comment {
+  id             String   @id @default(uuid()) @db.Uuid
+  issue_id        String   @db.Uuid
+  user_id         String   @db.Uuid
+  content        String   @db.Text
+  is_admin_comment Boolean  @default(false)
+  is_internal     Boolean  @default(false)
+  parent_id       String?  @db.Uuid
+  created_at      DateTime @default(now()) @db.Timestamptz
+  updated_at      DateTime @default(now()) @updatedAt @db.Timestamptz
+
+  issue   Issue     @relation(fields: [issue_id], references: [id], onDelete: Cascade)
+  user    User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  parent  Comment?  @relation("CommentReplies", fields: [parent_id], references: [id])
+  replies Comment[] @relation("CommentReplies")
+
+  @@map("comments")
+}
+
+model Vote {
+  id       String   @id @default(uuid()) @db.Uuid
+  issue_id  String   @db.Uuid
+  user_id   String   @db.Uuid
+  vote_type VoteType
+  created_at DateTime @default(now()) @db.Timestamptz
+
+  issue Issue @relation(fields: [issue_id], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([issue_id, user_id])
+  @@map("votes")
+}
+
+model Follow {
+  id       String   @id @default(uuid()) @db.Uuid
+  issue_id  String   @db.Uuid
+  user_id   String   @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz
+
+  issue Issue @relation(fields: [issue_id], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([issue_id, user_id])
+  @@map("follows")
+}
+
+model Notification {
+  id       String   @id @default(uuid()) @db.Uuid
+  user_id   String   @db.Uuid
+  issue_id  String?  @db.Uuid
+  type     String   @db.VarChar(50)
+  message  String   @db.Text
+  is_read   Boolean  @default(false)
+  created_at DateTime @default(now()) @db.Timestamptz
+
+  user  User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  issue Issue? @relation(fields: [issue_id], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
