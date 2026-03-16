@@ -33,7 +33,7 @@ export default function DashboardPage() {
   if (loading) return (
     <AppLayout>
       <div className="flex items-center justify-center h-64">
-        <div className="text-[#00FF94] animate-pulse">Loading dashboard...</div>
+        <div className="text-[#00aaef] animate-pulse">Loading dashboard...</div>
       </div>
     </AppLayout>
   );
@@ -45,7 +45,7 @@ export default function DashboardPage() {
         <div>
           <h1 className="text-3xl font-bold text-gradient">City Overview</h1>
           <div className="flex items-center gap-2 mt-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#00FF94] animate-pulse" />
+            <span className="w-1.5 h-1.5 rounded-full bg-[#00aaef] animate-pulse" />
             <span className="text-[#9CA3AF] text-sm">Live Updates Enabled</span>
           </div>
         </div>
@@ -86,7 +86,7 @@ export default function DashboardPage() {
       {/* Status Breakdown */}
       <div className="card p-6 mb-8">
         <h2 className="font-semibold text-white mb-4 flex items-center gap-2">
-          <Clock size={16} className="text-[#00FF94]" />
+          <Clock size={16} className="text-[#00aaef]" />
           My Issues by Status
         </h2>
         <div className="flex flex-wrap gap-3">
@@ -103,10 +103,10 @@ export default function DashboardPage() {
       <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-semibold text-white flex items-center gap-2">
-            <AlertTriangle size={16} className="text-[#00FF94]" />
+            <AlertTriangle size={16} className="text-[#00aaef]" />
             Recent Reports
           </h2>
-          <Link href="/my-reports" className="text-[#00FF94] text-sm hover:underline">View all →</Link>
+          <Link href="/my-reports" className="text-[#00aaef] text-sm hover:underline">View all →</Link>
         </div>
         {data?.recentIssues?.length === 0 ? (
           <div className="card p-12 text-center">

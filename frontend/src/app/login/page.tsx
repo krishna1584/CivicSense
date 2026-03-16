@@ -34,10 +34,10 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center gap-2 mb-6">
-            <div className="w-10 h-10 rounded-xl bg-[#00FF94]/20 flex items-center justify-center">
-              <Zap size={20} className="text-[#00FF94]" />
+            <div className="w-10 h-10 rounded-xl bg-[#00aaef]/20 flex items-center justify-center">
+              <Zap size={20} className="text-[#00aaef]" />
             </div>
-            <span className="font-bold text-xl">Civic<span className="text-[#00FF94]">Sense</span></span>
+            <span className="font-bold text-xl">Civic<span className="text-[#00aaef]">Sense</span></span>
           </Link>
           <h1 className="text-2xl font-bold text-gradient">Welcome back</h1>
           <p className="text-[#9CA3AF] mt-1 text-sm">Sign in to your account</p>
@@ -66,7 +66,7 @@ export default function LoginPage() {
           </form>
           <p className="text-center text-[#9CA3AF] text-sm mt-5">
             Don&apos;t have an account?{' '}
-            <Link href="/register" className="text-[#00FF94] hover:underline">Create one</Link>
+            <Link href="/register" className="text-[#00aaef] hover:underline">Create one</Link>
           </p>
         </div>
       </div>

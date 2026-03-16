@@ -9,9 +9,9 @@ import Link from 'next/link';
 import { clsx } from 'clsx';
 
 const TYPE_COLORS: Record<string, string> = {
-  status_update: 'bg-[#00FF94]/10 border-l-[#00FF94]',
+  status_update: 'bg-[#00aaef]/10 border-l-[#00aaef]',
   new_comment: 'bg-[#3B82F6]/10 border-l-[#3B82F6]',
-  resolved: 'bg-[#00FF94]/10 border-l-[#00FF94]',
+  resolved: 'bg-[#00aaef]/10 border-l-[#00aaef]',
   rejected: 'bg-[#EF4444]/10 border-l-[#EF4444]',
 };
 
@@ -30,13 +30,13 @@ export default function NotificationsPage() {
     <AppLayout>
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gradient flex items-center gap-2">
-          <Bell size={26} className="text-[#00FF94]" /> Notifications
+          <Bell size={26} className="text-[#00aaef]" /> Notifications
         </h1>
       </div>
 
       {loading ? (
         <div className="flex items-center justify-center h-64">
-          <Loader2 size={24} className="text-[#00FF94] animate-spin" />
+          <Loader2 size={24} className="text-[#00aaef] animate-spin" />
         </div>
       ) : notifications.length === 0 ? (
         <div className="card p-12 text-center text-[#9CA3AF]">No notifications yet.</div>
@@ -52,7 +52,7 @@ export default function NotificationsPage() {
                 </span>
               </div>
               {notif.issue_id && (
-                <Link href={`/issues/${notif.issue_id}`} className="text-[#00FF94] text-xs mt-2 inline-block hover:underline">
+                <Link href={`/issues/${notif.issue_id}`} className="text-[#00aaef] text-xs mt-2 inline-block hover:underline">
                   View Issue →
                 </Link>
               )}

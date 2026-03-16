@@ -158,7 +158,7 @@ export default function ReportIssuePage() {
               value={form.address}
               onChange={(e) => { setForm(f => ({ ...f, address: e.target.value })); setPreview(p => ({ ...p, address: e.target.value })); }}
             />
-            <button type="button" onClick={handleGetLocation} className="flex items-center gap-2 text-[#00FF94] text-sm hover:underline">
+            <button type="button" onClick={handleGetLocation} className="flex items-center gap-2 text-[#00aaef] text-sm hover:underline">
               <MapPin size={14} /> Use My Current Location
             </button>
             {form.latitude && form.longitude && (
@@ -173,10 +173,10 @@ export default function ReportIssuePage() {
               onDrop={handleDrop}
               onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
               onDragLeave={() => setDragging(false)}
-              className={`border-2 border-dashed rounded-xl p-8 text-center transition-all cursor-pointer ${dragging ? 'border-[#00FF94] bg-[#00FF94]/5' : 'border-white/10 hover:border-[#00FF94]/30'}`}
+              className={`border-2 border-dashed rounded-xl p-8 text-center transition-all cursor-pointer ${dragging ? 'border-[#00aaef] bg-[#00aaef]/5' : 'border-white/10 hover:border-[#00aaef]/30'}`}
               onClick={() => document.getElementById('fileInput')?.click()}
             >
-              <Upload size={24} className={`mx-auto mb-2 ${dragging ? 'text-[#00FF94]' : 'text-[#9CA3AF]'}`} />
+              <Upload size={24} className={`mx-auto mb-2 ${dragging ? 'text-[#00aaef]' : 'text-[#9CA3AF]'}`} />
               <p className="text-[#9CA3AF] text-sm">Drag & drop or click to upload</p>
               <p className="text-[#9CA3AF] text-xs mt-1">Up to 5 files · JPG, PNG, MP4 · Max 50MB each</p>
               <input id="fileInput" type="file" multiple accept="image/*,video/*" className="hidden"
@@ -196,7 +196,7 @@ export default function ReportIssuePage() {
 
           {/* Anonymous */}
           <div className="card p-4 flex items-center gap-3">
-            <input type="checkbox" id="anon" checked={form.is_anonymous} onChange={(e) => setForm(f => ({ ...f, is_anonymous: e.target.checked }))} className="w-4 h-4 accent-[#00FF94]" />
+            <input type="checkbox" id="anon" checked={form.is_anonymous} onChange={(e) => setForm(f => ({ ...f, is_anonymous: e.target.checked }))} className="w-4 h-4 accent-[#00aaef]" />
             <label htmlFor="anon" className="text-sm text-[#9CA3AF] cursor-pointer">Submit anonymously (your name won't be shown publicly)</label>
           </div>
 
@@ -208,7 +208,7 @@ export default function ReportIssuePage() {
         {/* Live Preview */}
         <div className="lg:col-span-2">
           <div className="sticky top-6">
-            <p className="label-micro mb-3 text-[#00FF94]">Live Preview</p>
+            <p className="label-micro mb-3 text-[#00aaef]">Live Preview</p>
             <div className="card p-5">
               <div className="flex items-center gap-2 mb-3">
                 <span className="text-2xl">{selCategory?.icon || '📋'}</span>
