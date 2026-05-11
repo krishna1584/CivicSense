@@ -7,7 +7,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { usersApi } from '@/lib/api';
 import { useAuthStore } from '@/lib/store';
 import { Issue, IssueStatus } from '@/types';
-import { LayoutDashboard, AlertTriangle, CheckCircle, Clock, ThumbsUp, MessageSquare, Zap } from 'lucide-react';
+import { LayoutDashboard, AlertTriangle, CheckCircle, Clock, ThumbsUp, MessageSquare, Plus } from 'lucide-react';
 import Link from 'next/link';
 
 interface DashboardData {
@@ -32,8 +32,9 @@ export default function DashboardPage() {
 
   if (loading) return (
     <AppLayout>
-      <div className="flex items-center justify-center h-64">
-        <div className="text-[#00aaef] animate-pulse">Loading dashboard...</div>
+      <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
+        <div className="w-8 h-8 border-2 border-accent-primary border-t-transparent rounded-full animate-spin"></div>
+        <div className="text-content-muted font-medium animate-pulse">Loading workspace...</div>
       </div>
     </AppLayout>
   );
@@ -41,30 +42,32 @@ export default function DashboardPage() {
   return (
     <AppLayout>
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
         <div>
-          <h1 className="text-3xl font-bold text-gradient">City Overview</h1>
-          <div className="flex items-center gap-2 mt-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#00aaef] animate-pulse" />
-            <span className="text-[#9CA3AF] text-sm">Live Updates Enabled</span>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="w-2 h-2 rounded-full bg-state-success relative">
+              <span className="absolute inset-0 rounded-full bg-state-success animate-ping opacity-50"></span>
+            </span>
+            <span className="text-content-muted text-sm font-medium">Live Overview</span>
           </div>
+          <h1 className="text-4xl font-bold text-content-primary tracking-tight">Dashboard</h1>
         </div>
-        <Link href="/report" className="btn-primary flex items-center gap-2">
-          <Zap size={16} />
-          Report Issue
+        <Link href="/report" className="btn-accent flex items-center gap-2">
+          <Plus size={18} strokeWidth={2.5} />
+          New Report
         </Link>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-10">
         <StatCard
           label="Total Reported"
           value={Object.values(data?.statusBreakdown || {}).reduce((a, b) => a + parseInt(b || '0'), 0)}
           icon={<LayoutDashboard size={18} />}
-          accent="green"
+          accent="blue"
         />
         <StatCard
-          label="Resolved"
+          label="Resolved Issues"
           value={data?.statusBreakdown?.resolved || 0}
           icon={<CheckCircle size={18} />}
           accent="green"
@@ -73,53 +76,77 @@ export default function DashboardPage() {
           label="Community Votes"
           value={data?.stats.totalVotes || 0}
           icon={<ThumbsUp size={18} />}
-          accent="blue"
+          accent="amber"
         />
         <StatCard
           label="Comments Made"
           value={data?.stats.totalComments || 0}
           icon={<MessageSquare size={18} />}
-          accent="amber"
+          accent="red"
         />
       </div>
 
-      {/* Status Breakdown */}
-      <div className="card p-6 mb-8">
-        <h2 className="font-semibold text-white mb-4 flex items-center gap-2">
-          <Clock size={16} className="text-[#00aaef]" />
-          My Issues by Status
-        </h2>
-        <div className="flex flex-wrap gap-3">
-          {statusOrder.map((s) => (
-            <div key={s} className="flex items-center gap-2 bg-[#11161D] rounded-xl px-4 py-2">
-              <StatusBadge status={s} size="sm" />
-              <span className="text-white font-semibold">{data?.statusBreakdown?.[s] || 0}</span>
+      <div className="grid lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2">
+          {/* Recent Issues */}
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-semibold text-content-primary flex items-center gap-2">
+              Recent Reports
+            </h2>
+            <Link href="/my-reports" className="text-accent-secondary text-sm font-medium hover:text-accent-secondary_hover transition-colors">
+              View all →
+            </Link>
+          </div>
+          
+          {data?.recentIssues?.length === 0 ? (
+            <div className="card p-12 text-center flex flex-col items-center justify-center border-dashed border-border-subtle bg-base-850">
+              <div className="w-16 h-16 bg-base-800 rounded-full flex items-center justify-center mb-4 text-content-muted">
+                <AlertTriangle size={24} />
+              </div>
+              <h3 className="text-lg font-semibold text-content-primary mb-2">No reports found</h3>
+              <p className="text-content-muted max-w-sm mb-6">You haven't reported any issues yet. Start by reporting your first observation.</p>
+              <Link href="/report" className="btn-secondary">Create a Report</Link>
             </div>
-          ))}
+          ) : (
+            <div className="grid sm:grid-cols-2 gap-5 items-stretch">
+              {data?.recentIssues?.map((issue) => (
+                <IssueCard key={issue.id} issue={issue} />
+              ))}
+            </div>
+          )}
         </div>
-      </div>
 
-      {/* Recent Issues */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-semibold text-white flex items-center gap-2">
-            <AlertTriangle size={16} className="text-[#00aaef]" />
-            Recent Reports
-          </h2>
-          <Link href="/my-reports" className="text-[#00aaef] text-sm hover:underline">View all →</Link>
+        <div>
+          {/* Status Breakdown Sidebar */}
+          <div className="card p-6 sticky top-6">
+            <h2 className="text-lg font-semibold text-content-primary mb-6 flex items-center gap-2">
+              <Clock size={18} className="text-content-muted" />
+              Activity Status
+            </h2>
+            <div className="space-y-3">
+              {statusOrder.map((s) => {
+                const count = parseInt(data?.statusBreakdown?.[s] || '0');
+                const total = Object.values(data?.statusBreakdown || {}).reduce((a, b) => a + parseInt(b || '0'), 0);
+                const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
+                
+                return (
+                  <div key={s} className="group p-3 rounded-xl hover:bg-base-850 transition-colors border border-transparent hover:border-border-subtle cursor-default">
+                    <div className="flex items-center justify-between mb-2">
+                      <StatusBadge status={s} size="sm" showDot={true} />
+                      <span className="text-content-primary font-bold">{count}</span>
+                    </div>
+                    <div className="w-full bg-base-900 rounded-full h-1.5 mt-2 overflow-hidden">
+                      <div 
+                        className="bg-accent-primary h-1.5 rounded-full transition-all duration-500 ease-out" 
+                        style={{ width: `${percentage}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
-        {data?.recentIssues?.length === 0 ? (
-          <div className="card p-12 text-center">
-            <p className="text-[#9CA3AF]">No issues reported yet.</p>
-            <Link href="/report" className="btn-primary inline-flex mt-4">Report Your First Issue</Link>
-          </div>
-        ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {data?.recentIssues?.map((issue) => (
-              <IssueCard key={issue.id} issue={issue} />
-            ))}
-          </div>
-        )}
       </div>
     </AppLayout>
   );

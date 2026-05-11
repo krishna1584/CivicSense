@@ -34,6 +34,7 @@ app.set('io', io);
 
 // Security
 app.use(helmet());
+console.log('🌐 CORS Origin:', process.env.CLIENT_URL || 'http://localhost:3000');
 app.use(cors({
   origin: process.env.CLIENT_URL || 'http://localhost:3000',
   credentials: true,

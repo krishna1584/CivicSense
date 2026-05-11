@@ -23,16 +23,21 @@ const loginSchema = Joi.object({
 });
 
 // Issue schemas
+// NOTE: FormData sends everything as strings, so we enable convert:true (default)
+// and handle is_anonymous as string 'true'/'false' OR boolean
 const createIssueSchema = Joi.object({
   title: Joi.string().min(5).max(255).required(),
   description: Joi.string().min(10).max(5000).required(),
   category_id: Joi.string().uuid().required(),
-  subcategory_id: Joi.string().uuid().optional(),
+  subcategory_id: Joi.string().uuid().optional().allow(''),
   severity: Joi.string().valid('low', 'medium', 'high', 'critical').required(),
   latitude: Joi.number().min(-90).max(90).required(),
   longitude: Joi.number().min(-180).max(180).required(),
-  address: Joi.string().max(500).optional(),
-  is_anonymous: Joi.boolean().default(false),
+  address: Joi.string().max(500).optional().allow(''),
+  is_anonymous: Joi.alternatives().try(
+    Joi.boolean(),
+    Joi.string().valid('true', 'false').custom((v) => v === 'true')
+  ).default(false),
 });
 
 const updateIssueStatusSchema = Joi.object({

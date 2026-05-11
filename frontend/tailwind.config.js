@@ -5,60 +5,59 @@ module.exports = {
     extend: {
       colors: {
         base: {
-          950: '#05070A',
-          900: '#0B0F14',
-          800: '#11161D',
-          850: '#0E131A',
+          950: '#0B0F14', // Primary Background
+          900: '#11161D', // Secondary Background
+          850: '#161C24', // Elevated Surface
+          800: '#1A212C', // Card Surface
         },
-        neon: {
-          green: '#00FF94',
-          blue: '#3B82F6',
-          amber: '#F59E0B',
-          red: '#EF4444',
+        border: {
+          subtle: '#273142', // Border/Subtle Divider
         },
-        muted: '#9CA3AF',
+        content: {
+          primary: '#F5F7FA', // Primary Text
+          secondary: '#A8B3C2', // Secondary Text
+          muted: '#6B7785', // Muted Text
+        },
+        accent: {
+          primary: '#7C5CFF', // Electric Indigo
+          secondary: '#4DA3FF', // Cyan Blue
+          primary_hover: '#6947FF',
+          secondary_hover: '#3691FF',
+        },
+        state: {
+          success: '#33D17A', // Emerald
+          warning: '#FFB547', // Amber
+          error: '#FF6B6B', // Soft Red
+        },
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
       },
       boxShadow: {
-        'glow-green': '0 0 20px rgba(0,255,148,0.3)',
-        'glow-blue': '0 0 20px rgba(59,130,246,0.3)',
-        'glow-amber': '0 0 20px rgba(245,158,11,0.3)',
-        'glow-red': '0 0 20px rgba(239,68,68,0.3)',
-        'card': '0 0 0 1px rgba(255,255,255,0.06)',
+        'card': '0 4px 20px -2px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.03)',
+        'card-hover': '0 8px 30px -4px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.06)',
+        'glow-primary': '0 0 20px rgba(124, 92, 255, 0.15)',
+        'glow-secondary': '0 0 20px rgba(77, 163, 255, 0.15)',
+        'dropdown': '0 10px 40px -10px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05)',
       },
       keyframes: {
-        pulse_green: {
-          '0%, 100%': { boxShadow: '0 0 8px rgba(0,255,148,0.4)' },
-          '50%': { boxShadow: '0 0 20px rgba(0,255,148,0.8)' },
-        },
         count_up: { from: { opacity: 0, transform: 'translateY(8px)' }, to: { opacity: 1, transform: 'translateY(0)' } },
-        slide_in: { from: { opacity: 0, transform: 'translateX(-12px)' }, to: { opacity: 1, transform: 'translateX(0)' } },
+        slide_in: { from: { opacity: 0, transform: 'translateX(-8px)' }, to: { opacity: 1, transform: 'translateX(0)' } },
+        slide_up: { from: { opacity: 0, transform: 'translateY(8px)' }, to: { opacity: 1, transform: 'translateY(0)' } },
         fade_in: { from: { opacity: 0 }, to: { opacity: 1 } },
-        glow_pulse: {
-          '0%, 100%': { opacity: 1 },
-          '50%': { opacity: 0.5 },
-        },
       },
       animation: {
-        pulse_green: 'pulse_green 2s ease-in-out infinite',
-        count_up: 'count_up 0.5s ease-out',
-        slide_in: 'slide_in 0.3s ease-out',
-        fade_in: 'fade_in 0.4s ease-out',
-        glow_pulse: 'glow_pulse 1.5s ease-in-out infinite',
+        count_up: 'count_up 0.5s cubic-bezier(0.16, 1, 0.3, 1)',
+        slide_in: 'slide_in 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+        slide_up: 'slide_up 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+        fade_in: 'fade_in 0.3s ease-out',
       },
       backgroundImage: {
-        'grid-dark': 'linear-gradient(rgba(0,255,148,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0,255,148,0.03) 1px, transparent 1px)',
-        'hero-glow': 'radial-gradient(ellipse 80% 60% at 50% 0%, rgba(0,255,148,0.08) 0%, transparent 70%)',
+        'grid-dark': 'linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px)',
+        'hero-gradient': 'radial-gradient(ellipse 60% 50% at 50% 0%, rgba(124, 92, 255, 0.06) 0%, transparent 80%)',
       },
       backgroundSize: {
-        grid: '40px 40px',
-      },
-      opacity: {
-        '2': '0.02',
-        '3': '0.03',
-        '8': '0.08',
+        grid: '32px 32px',
       },
     },
   },

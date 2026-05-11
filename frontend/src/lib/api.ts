@@ -1,6 +1,7 @@
 import axios from 'axios';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+console.log('🌐 Frontend API_BASE:', API_BASE);
 
 const PUBLIC_PATHS = ['/', '/login', '/register'];
 
@@ -56,6 +57,8 @@ export const commentsApi = {
   list: (issueId: string, params?: Record<string, unknown>) => api.get(`/api/issues/${issueId}/comments`, { params }),
   create: (issueId: string, data: { content: string; parent_id?: string }) =>
     api.post(`/api/issues/${issueId}/comments`, data),
+  update: (issueId: string, commentId: string, data: { content: string }) => 
+    api.patch(`/api/issues/${issueId}/comments/${commentId}`, data),
   delete: (issueId: string, commentId: string) => api.delete(`/api/issues/${issueId}/comments/${commentId}`),
 };
 

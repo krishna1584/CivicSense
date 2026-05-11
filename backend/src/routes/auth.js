@@ -56,13 +56,25 @@ router.post('/register', authLimiter, validate(registerSchema), async (req, res)
 // POST /api/auth/login
 router.post('/login', authLimiter, validate(loginSchema), async (req, res) => {
   const { email, password } = req.body;
+  console.log('🔐 Login attempt for:', email);
   try {
     const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
     const user = result.rows[0];
-    if (!user || !(await bcrypt.compare(password, user.password_hash))) {
+    console.log('👤 User found:', !!user);
+    if (!user) {
+      console.log('❌ User not found');
       return res.status(401).json({ error: 'Invalid email or password' });
     }
-    if (!user.is_active) return res.status(403).json({ error: 'Account deactivated' });
+    const passwordMatch = await bcrypt.compare(password, user.password_hash);
+    console.log('🔑 Password match:', passwordMatch);
+    if (!passwordMatch) {
+      console.log('❌ Password mismatch');
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+    if (!user.is_active) {
+      console.log('❌ Account deactivated');
+      return res.status(403).json({ error: 'Account deactivated' });
+    }
 
     const { accessToken, refreshToken } = signTokens(user.id);
     const refreshId = uuidv4();
@@ -73,9 +85,10 @@ router.post('/login', authLimiter, validate(loginSchema), async (req, res) => {
 
     res.cookie('accessToken', accessToken, { ...cookieOptions, maxAge: 15 * 60 * 1000 });
     res.cookie('refreshToken', refreshToken, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 });
+    console.log('✅ Login successful for:', email);
     res.json({ user: { id: user.id, name: user.name, email: user.email, role: user.role, trust_score: user.trust_score }, accessToken });
   } catch (err) {
-    console.error(err);
+    console.error('❌ Login error:', err);
     res.status(500).json({ error: 'Login failed' });
   }
 });

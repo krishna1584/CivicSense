@@ -17,7 +17,7 @@ router.get('/me/issues', auth, async (req, res) => {
 
     const [result, countResult] = await Promise.all([
       pool.query(`
-        SELECT i.id, i.title, i.status, i.severity, i.upvote_count, i.comment_count,
+        SELECT i.id, i.title, i.description, i.status, i.severity, i.upvote_count, i.comment_count,
                i.follow_count, i.address, i.is_anonymous, i.created_at, i.updated_at, i.resolved_at,
                c.name AS category_name, c.icon AS category_icon, c.slug AS category_slug
         FROM issues i

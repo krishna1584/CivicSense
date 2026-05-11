@@ -68,6 +68,34 @@ router.post('/', auth, validate(createCommentSchema), async (req, res) => {
   }
 });
 
+// PATCH /api/issues/:issueId/comments/:commentId
+router.patch('/:commentId', auth, async (req, res) => {
+  try {
+    const { content } = req.body;
+    if (!content || typeof content !== 'string' || content.trim().length === 0) {
+      return res.status(400).json({ error: 'Comment content is required' });
+    }
+
+    const result = await pool.query('SELECT * FROM comments WHERE id = $1 AND issue_id = $2', [req.params.commentId, req.params.issueId]);
+    if (!result.rows[0]) return res.status(404).json({ error: 'Comment not found' });
+
+    const comment = result.rows[0];
+    if (comment.user_id !== req.user.id) {
+      return res.status(403).json({ error: 'Only the comment author can edit this comment' });
+    }
+
+    const updated = await pool.query(
+      'UPDATE comments SET content = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
+      [content.trim(), req.params.commentId]
+    );
+
+    res.json({ comment: updated.rows[0] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to update comment' });
+  }
+});
+
 // DELETE /api/issues/:issueId/comments/:commentId
 router.delete('/:commentId', auth, async (req, res) => {
   try {
@@ -75,15 +103,23 @@ router.delete('/:commentId', auth, async (req, res) => {
     if (!result.rows[0]) return res.status(404).json({ error: 'Comment not found' });
 
     const comment = result.rows[0];
-    const isOwner = comment.user_id === req.user.id;
+    const isCommentOwner = comment.user_id === req.user.id;
     const isAdmin = ['admin'].includes(req.user.role);
-    if (!isOwner && !isAdmin) return res.status(403).json({ error: 'Cannot delete this comment' });
+
+    // Also allow issue author to delete comments
+    const issueResult = await pool.query('SELECT user_id FROM issues WHERE id = $1', [req.params.issueId]);
+    const isIssueOwner = issueResult.rows[0] && issueResult.rows[0].user_id === req.user.id;
+
+    if (!isCommentOwner && !isAdmin && !isIssueOwner) {
+      return res.status(403).json({ error: 'Cannot delete this comment' });
+    }
 
     await pool.query('DELETE FROM comments WHERE id = $1', [req.params.commentId]);
     await pool.query('UPDATE issues SET comment_count = GREATEST(comment_count - 1, 0) WHERE id = $1', [req.params.issueId]);
 
     res.json({ message: 'Comment deleted' });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Failed to delete comment' });
   }
 });
