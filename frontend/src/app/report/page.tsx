@@ -1,232 +1,264 @@
 'use client';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { issuesApi } from '@/lib/api';
+import { useAuthStore } from '@/lib/store';
 import { Category } from '@/types';
-import { Upload, MapPin, AlertTriangle, Loader2 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { AlertTriangle, CheckCircle2, Loader2, Zap } from 'lucide-react';
 
-const SEVERITY_OPTIONS = [
-  { value: 'low', label: 'Low', color: 'text-emerald-400 border-emerald-400/30 bg-emerald-400/10' },
-  { value: 'medium', label: 'Medium', color: 'text-[#F59E0B] border-[#F59E0B]/30 bg-[#F59E0B]/10' },
-  { value: 'high', label: 'High', color: 'text-orange-400 border-orange-400/30 bg-orange-400/10' },
-  { value: 'critical', label: 'Critical', color: 'text-[#EF4444] border-[#EF4444]/30 bg-[#EF4444]/10 shadow-glow-red' },
-];
+import { StepIndicator }  from './_components/StepIndicator';
+import { StepDetails }    from './_components/StepDetails';
+import { StepLocation }   from './_components/StepLocation';
+import { StepEvidence }   from './_components/StepEvidence';
+import { StepReview }     from './_components/StepReview';
+import { LivePreview }    from './_components/LivePreview';
+import { DEFAULT_FORM, ReportForm, STEPS } from './_components/types';
 
+// ── Validation per step ───────────────────────────────────────────────────────
+function validateStep(step: number, form: ReportForm, files: File[]): string | null {
+  if (step === 0) {
+    if (!form.title.trim() || form.title.length < 5)        return 'Title must be at least 5 characters.';
+    if (!form.description.trim() || form.description.length < 10) return 'Description must be at least 10 characters.';
+    if (!form.category_id)                                  return 'Please select a category.';
+  }
+  if (step === 1) {
+    if (!form.address.trim())                               return 'Please enter a location description.';
+    if (!form.latitude || !form.longitude)                  return 'Please set GPS coordinates (use the GPS button or enter them manually).';
+    const lat = parseFloat(form.latitude);
+    const lng = parseFloat(form.longitude);
+    if (isNaN(lat) || lat < -90  || lat > 90)  return 'Latitude must be between −90 and 90.';
+    if (isNaN(lng) || lng < -180 || lng > 180) return 'Longitude must be between −180 and 180.';
+  }
+  if (step === 2) {
+    if (!files || files.length === 0) {
+      return 'Evidence is mandatory. Please upload at least one image or video showing the issue.';
+    }
+  }
+  return null;
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
 export default function ReportIssuePage() {
-  const router = useRouter();
+  const router  = useRouter();
+  const { user, isLoading: authLoading } = useAuthStore();
+
+  const [step,       setStep]       = useState(0);
+  const [form,       setForm]       = useState<ReportForm>(DEFAULT_FORM);
+  const [files,      setFiles]      = useState<File[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [files, setFiles] = useState<File[]>([]);
-  const [dragging, setDragging] = useState(false);
-  const [preview, setPreview] = useState({
-    title: '', description: '', severity: 'medium', category: '', address: ''
-  });
+  const [catLoading, setCatLoading] = useState(true);
+  const [error,      setError]      = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted,  setSubmitted]  = useState(false);
 
-  const [form, setForm] = useState({
-    title: '', description: '', category_id: '', severity: 'medium',
-    latitude: '', longitude: '', address: '', is_anonymous: false,
-  });
-
+  // Auth guard
   useEffect(() => {
-    issuesApi.categories().then((r) => setCategories(r.data.categories)).catch(console.error);
+    if (!authLoading && !user) router.push('/login?redirect=/report');
+  }, [user, authLoading, router]);
+
+  // Load categories
+  useEffect(() => {
+    issuesApi.categories()
+      .then(r => { if (r.data.categories?.length) setCategories(r.data.categories); })
+      .catch(() => {})
+      .finally(() => setCatLoading(false));
   }, []);
 
-  const handleGetLocation = () => {
-    if (!navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setForm((f) => ({ ...f, latitude: pos.coords.latitude.toString(), longitude: pos.coords.longitude.toString() }));
-      },
-      (err) => setError('Could not get location: ' + err.message)
-    );
+  // Derive first image preview URL for the sidebar
+  const previewUrl = useMemo(() => {
+    const imageFile = files.find(f => f.type.startsWith('image/'));
+    if (!imageFile) return null;
+    const url = URL.createObjectURL(imageFile);
+    return url;
+  }, [files]);
+
+  // Clean up preview URL
+  useEffect(() => {
+    return () => { if (previewUrl) URL.revokeObjectURL(previewUrl); };
+  }, [previewUrl]);
+
+  const setField = (field: keyof ReportForm, value: string | boolean) => {
+    setForm(f => ({ ...f, [field]: value }));
+    setError('');
   };
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setDragging(false);
-    const dropped = Array.from(e.dataTransfer.files).slice(0, 5);
-    setFiles((prev) => [...prev, ...dropped].slice(0, 5));
-  }, []);
+  const handleNext = () => {
+    const err = validateStep(step, form, files);
+    if (err) { setError(err); return; }
+    setError('');
+    setStep(s => s + 1);
+  };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.latitude || !form.longitude) return setError('Please set a location');
-    setLoading(true);
+  const handleBack = (target?: number) => {
+    setError('');
+    setStep(target !== undefined ? target : s => s - 1);
+  };
+
+  const handleSubmit = async () => {
+    setSubmitting(true);
     setError('');
     try {
       const fd = new FormData();
-      Object.entries(form).forEach(([k, v]) => fd.append(k, String(v)));
-      files.forEach((f) => fd.append('media', f));
+      fd.append('title',        form.title);
+      fd.append('description',  form.description);
+      fd.append('category_id',  form.category_id);
+      fd.append('severity',     form.severity);
+      fd.append('latitude',     form.latitude);
+      fd.append('longitude',    form.longitude);
+      fd.append('address',      form.address);
+      fd.append('is_anonymous', String(form.is_anonymous));
+      files.forEach(f => fd.append('media', f));
+
       const res = await issuesApi.create(fd);
-      router.push(`/issues/${res.data.issue.id}`);
+      setSubmitted(true);
+      setTimeout(
+        () => router.push(res.data?.issue?.id ? `/issues/${res.data.issue.id}` : '/my-reports'),
+        1800
+      );
     } catch (err: unknown) {
-      const e = err as { response?: { data?: { error?: string } } };
-      setError(e?.response?.data?.error || 'Failed to submit issue');
+      const e = err as { response?: { status?: number; data?: { error?: string; errors?: { message: string }[] } } };
+      if (e.response?.status === 401) {
+        setError('Session expired — please log in again.');
+        setTimeout(() => router.push('/login?redirect=/report'), 2000);
+      } else {
+        setError(
+          e.response?.data?.errors?.[0]?.message ||
+          e.response?.data?.error ||
+          'Failed to submit. Please try again.'
+        );
+      }
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
-  const selCategory = categories.find((c) => c.id === form.category_id);
+  // ── Loading / auth guard ────────────────────────────────────────────────────
+  if (authLoading) return (
+    <AppLayout>
+      <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
+        <div className="w-8 h-8 border-2 border-accent-primary border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    </AppLayout>
+  );
+  if (!user) return null;
 
+  // ── Success screen ──────────────────────────────────────────────────────────
+  if (submitted) return (
+    <AppLayout>
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6 animate-fade_in">
+        <div className="w-20 h-20 rounded-2xl flex items-center justify-center bg-state-success/10 border border-state-success/20 shadow-[0_0_40px_rgba(51,209,122,0.15)]">
+          <CheckCircle2 size={44} className="text-state-success" strokeWidth={2} />
+        </div>
+        <div className="text-center">
+          <h2 className="text-3xl font-bold text-content-primary mb-3">Report Submitted</h2>
+          <p className="text-content-secondary max-w-md">
+            Thank you, {user.name}. Your report has been securely filed. Redirecting to issue details...
+          </p>
+        </div>
+      </div>
+    </AppLayout>
+  );
+
+  // ── Main render ─────────────────────────────────────────────────────────────
   return (
     <AppLayout>
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gradient">Report an Issue</h1>
-        <p className="text-[#9CA3AF] mt-1">Document a civic problem and track its resolution.</p>
+      {/* Header */}
+      <div className="mb-10 max-w-3xl mx-auto text-center">
+        <h1 className="text-3xl font-bold text-content-primary mb-3 tracking-tight">Report a Civic Issue</h1>
+        <p className="text-content-secondary text-base">
+          Document a problem in your community to notify the right authorities.
+        </p>
       </div>
 
-      <div className="grid lg:grid-cols-5 gap-6">
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="lg:col-span-3 space-y-5">
-          {error && (
-            <div className="bg-[#EF4444]/10 border border-[#EF4444]/30 rounded-xl p-4 flex items-center gap-2 text-[#EF4444]">
-              <AlertTriangle size={16} /> {error}
-            </div>
-          )}
+      {/* Step indicator */}
+      <StepIndicator current={step} onBack={handleBack} />
 
-          {/* Title */}
-          <div className="card p-5">
-            <label className="label-micro block mb-2">Issue Title *</label>
-            <input
-              className="input-dark"
-              placeholder="Brief description of the problem..."
-              value={form.title}
-              onChange={(e) => { setForm(f => ({ ...f, title: e.target.value })); setPreview(p => ({ ...p, title: e.target.value })); }}
-              required
-            />
+      {/* Error banner */}
+      {error && (
+        <div className="max-w-5xl mx-auto flex items-start gap-3 rounded-xl p-4 mb-6 text-sm bg-state-error/10 border border-state-error/20 text-state-error animate-fade_in">
+          <AlertTriangle size={18} className="flex-shrink-0 mt-0.5" strokeWidth={2.5} />
+          <span className="font-medium">{error}</span>
+        </div>
+      )}
+
+      <div className="max-w-5xl mx-auto grid lg:grid-cols-5 gap-8">
+        {/* ── Step content ─────────────────────────────────────────────── */}
+        <div className="lg:col-span-3 space-y-6 animate-fade_in">
+          <div className="bg-base-800 rounded-2xl border border-border-subtle p-6 shadow-card">
+            {step === 0 && (
+              <StepDetails
+                form={form}
+                categories={categories}
+                catLoading={catLoading}
+                onChange={setField}
+              />
+            )}
+            {step === 1 && (
+              <StepLocation
+                form={form}
+                onChange={setField}
+                onError={setError}
+              />
+            )}
+            {step === 2 && (
+              <StepEvidence
+                files={files}
+                onFilesChange={setFiles}
+              />
+            )}
+            {step === 3 && (
+              <StepReview
+                form={form}
+                categories={categories}
+                files={files}
+                userName={user.name}
+              />
+            )}
           </div>
 
-          {/* Description */}
-          <div className="card p-5">
-            <label className="label-micro block mb-2">Detailed Description *</label>
-            <textarea
-              className="input-dark resize-none"
-              rows={5}
-              placeholder="Describe the issue in detail. Include any relevant observations..."
-              value={form.description}
-              onChange={(e) => { setForm(f => ({ ...f, description: e.target.value })); setPreview(p => ({ ...p, description: e.target.value })); }}
-              required
-            />
-          </div>
-
-          {/* Category + Severity */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="card p-5">
-              <label className="label-micro block mb-2">Category *</label>
-              <select
-                className="input-dark"
-                value={form.category_id}
-                onChange={(e) => { setForm(f => ({ ...f, category_id: e.target.value })); setPreview(p => ({ ...p, category: categories.find(c=>c.id===e.target.value)?.name || '' })); }}
-                required
+          {/* Navigation */}
+          <div className="flex gap-4">
+            {step > 0 && (
+              <button
+                onClick={() => handleBack()}
+                className="btn-secondary flex-1"
               >
-                <option value="">Select category...</option>
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
-                ))}
-              </select>
-            </div>
-            <div className="card p-5">
-              <label className="label-micro block mb-2">Severity *</label>
-              <div className="grid grid-cols-2 gap-2">
-                {SEVERITY_OPTIONS.map((s) => (
-                  <button
-                    key={s.value}
-                    type="button"
-                    onClick={() => { setForm(f => ({ ...f, severity: s.value })); setPreview(p => ({ ...p, severity: s.value })); }}
-                    className={`px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${s.color} ${form.severity === s.value ? 'ring-1 ring-current' : 'opacity-50'}`}
-                  >
-                    {s.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
+                Go Back
+              </button>
+            )}
 
-          {/* Location */}
-          <div className="card p-5">
-            <label className="label-micro block mb-3">Location *</label>
-            <div className="grid grid-cols-2 gap-3 mb-3">
-              <input className="input-dark" placeholder="Latitude" value={form.latitude} onChange={(e) => setForm(f => ({ ...f, latitude: e.target.value }))} required />
-              <input className="input-dark" placeholder="Longitude" value={form.longitude} onChange={(e) => setForm(f => ({ ...f, longitude: e.target.value }))} required />
-            </div>
-            <input
-              className="input-dark mb-3"
-              placeholder="Address (optional)"
-              value={form.address}
-              onChange={(e) => { setForm(f => ({ ...f, address: e.target.value })); setPreview(p => ({ ...p, address: e.target.value })); }}
-            />
-            <button type="button" onClick={handleGetLocation} className="flex items-center gap-2 text-[#00aaef] text-sm hover:underline">
-              <MapPin size={14} /> Use My Current Location
-            </button>
-            {form.latitude && form.longitude && (
-              <p className="text-emerald-400 text-xs mt-2">✓ Location set: {parseFloat(form.latitude).toFixed(5)}, {parseFloat(form.longitude).toFixed(5)}</p>
+            {step < STEPS.length - 1 ? (
+              <button
+                onClick={handleNext}
+                className="btn-primary flex-1"
+              >
+                Continue
+              </button>
+            ) : (
+              <button
+                onClick={handleSubmit}
+                disabled={submitting}
+                className={`btn-accent flex-1 flex items-center justify-center gap-2 ${submitting ? 'opacity-70 cursor-not-allowed shadow-none' : ''}`}
+              >
+                {submitting
+                  ? <><Loader2 size={18} className="animate-spin" /> Submitting…</>
+                  : <><Zap size={18} fill="currentColor" /> Submit Report</>
+                }
+              </button>
             )}
           </div>
+        </div>
 
-          {/* Media Upload */}
-          <div className="card p-5">
-            <label className="label-micro block mb-3">Media Evidence (optional)</label>
-            <div
-              onDrop={handleDrop}
-              onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-              onDragLeave={() => setDragging(false)}
-              className={`border-2 border-dashed rounded-xl p-8 text-center transition-all cursor-pointer ${dragging ? 'border-[#00aaef] bg-[#00aaef]/5' : 'border-white/10 hover:border-[#00aaef]/30'}`}
-              onClick={() => document.getElementById('fileInput')?.click()}
-            >
-              <Upload size={24} className={`mx-auto mb-2 ${dragging ? 'text-[#00aaef]' : 'text-[#9CA3AF]'}`} />
-              <p className="text-[#9CA3AF] text-sm">Drag & drop or click to upload</p>
-              <p className="text-[#9CA3AF] text-xs mt-1">Up to 5 files · JPG, PNG, MP4 · Max 50MB each</p>
-              <input id="fileInput" type="file" multiple accept="image/*,video/*" className="hidden"
-                onChange={(e) => setFiles(Array.from(e.target.files || []).slice(0, 5))} />
-            </div>
-            {files.length > 0 && (
-              <div className="mt-3 space-y-1">
-                {files.map((f, i) => (
-                  <div key={i} className="flex items-center justify-between text-sm bg-[#11161D] rounded-lg px-3 py-2">
-                    <span className="text-white truncate">{f.name}</span>
-                    <button type="button" onClick={() => setFiles(files.filter((_, j) => j !== i))} className="text-[#EF4444] text-xs ml-2">✕</button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Anonymous */}
-          <div className="card p-4 flex items-center gap-3">
-            <input type="checkbox" id="anon" checked={form.is_anonymous} onChange={(e) => setForm(f => ({ ...f, is_anonymous: e.target.checked }))} className="w-4 h-4 accent-[#00aaef]" />
-            <label htmlFor="anon" className="text-sm text-[#9CA3AF] cursor-pointer">Submit anonymously (your name won't be shown publicly)</label>
-          </div>
-
-          <button type="submit" disabled={loading} className="btn-primary w-full py-3.5 flex items-center justify-center gap-2 text-base">
-            {loading ? <><Loader2 size={18} className="animate-spin" /> Submitting...</> : 'Submit Issue Report'}
-          </button>
-        </form>
-
-        {/* Live Preview */}
-        <div className="lg:col-span-2">
-          <div className="sticky top-6">
-            <p className="label-micro mb-3 text-[#00aaef]">Live Preview</p>
-            <div className="card p-5">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-2xl">{selCategory?.icon || '📋'}</span>
-                <span className="label-micro">{preview.category || 'Category'}</span>
-              </div>
-              <h3 className="font-semibold text-white mb-2">{preview.title || 'Issue title will appear here...'}</h3>
-              <p className="text-[#9CA3AF] text-sm mb-4 line-clamp-3">{preview.description || 'Description preview...'}</p>
-              {preview.address && (
-                <p className="text-[#9CA3AF] text-xs flex items-center gap-1 mb-3"><MapPin size={11} />{preview.address}</p>
-              )}
-              <div className="flex items-center gap-2">
-                <span className={`px-2 py-0.5 rounded-lg border text-xs font-semibold ${SEVERITY_OPTIONS.find(s=>s.value===preview.severity)?.color}`}>
-                  {preview.severity.toUpperCase()}
-                </span>
-                <span className="px-2 py-0.5 rounded-lg border border-[#9CA3AF]/20 bg-[#9CA3AF]/10 text-[#9CA3AF] text-xs">Reported</span>
-              </div>
-            </div>
-          </div>
+        {/* ── Live preview sidebar ──────────────────────────────────────── */}
+        <div className="lg:col-span-2 hidden lg:block animate-fade_in">
+          <LivePreview
+            form={form}
+            categories={categories}
+            files={files}
+            previewUrl={previewUrl}
+            userName={user.name}
+          />
         </div>
       </div>
     </AppLayout>
