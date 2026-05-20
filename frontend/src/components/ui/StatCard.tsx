@@ -12,36 +12,36 @@ interface StatCardProps {
 }
 
 const accentMap = {
-  green: { color: '#00FF94', var: '#00FF94' },
-  blue: { color: '#3B82F6', var: '#3B82F6' },
-  amber: { color: '#F59E0B', var: '#F59E0B' },
-  red: { color: '#EF4444', var: '#EF4444' },
+  green: { color: 'text-state-success', bg: 'bg-state-success/10' },
+  blue: { color: 'text-accent-secondary', bg: 'bg-accent-secondary/10' },
+  amber: { color: 'text-state-warning', bg: 'bg-state-warning/10' },
+  red: { color: 'text-state-error', bg: 'bg-state-error/10' },
 };
 
 export function StatCard({ label, value, icon, trend, accent = 'green', suffix }: StatCardProps) {
   const ac = accentMap[accent];
   return (
-    <div
-      className="stat-card"
-      style={{ '--accent': ac.var } as React.CSSProperties}
-    >
-      <div className="flex items-start justify-between mb-4">
-        <p className="label-micro">{label}</p>
-        {icon && <span className="text-[#9CA3AF] opacity-60">{icon}</span>}
+    <div className="card p-5 group flex flex-col justify-between min-h-[140px] relative overflow-hidden bg-base-800">
+      <div className="flex items-start justify-between mb-2 relative z-10">
+        <p className="text-[13px] font-medium text-content-secondary tracking-wide">{label}</p>
+        {icon && (
+          <div className={clsx("w-8 h-8 rounded-lg flex items-center justify-center transition-colors", ac.bg, ac.color)}>
+            {icon}
+          </div>
+        )}
       </div>
-      <div className="flex items-end gap-2">
-        <span
-          className="text-3xl font-bold animate-count_up"
-          style={{ color: ac.color }}
-        >
+      
+      <div className="flex items-baseline gap-2 relative z-10 mt-auto">
+        <span className="text-3xl font-bold text-content-primary tracking-tight animate-count_up">
           {value}
         </span>
-        {suffix && <span className="text-[#9CA3AF] text-sm mb-1">{suffix}</span>}
+        {suffix && <span className="text-content-muted text-sm font-medium">{suffix}</span>}
       </div>
+      
       {trend !== undefined && (
-        <div className={clsx('flex items-center gap-1 mt-2 text-xs', trend >= 0 ? 'text-[#00FF94]' : 'text-[#EF4444]')}>
-          {trend >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-          <span>{Math.abs(trend)}% this week</span>
+        <div className={clsx('flex items-center gap-1.5 mt-3 text-[13px] font-medium relative z-10', trend >= 0 ? 'text-state-success' : 'text-state-error')}>
+          {trend >= 0 ? <TrendingUp size={14} strokeWidth={2.5} /> : <TrendingDown size={14} strokeWidth={2.5} />}
+          <span>{Math.abs(trend)}% <span className="text-content-muted font-normal">vs last week</span></span>
         </div>
       )}
     </div>

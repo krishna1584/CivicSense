@@ -1,6 +1,8 @@
 'use client';
 import Link from 'next/link';
 import { ArrowRight, MapPin, TrendingUp, Shield, Zap, BarChart3, Globe } from 'lucide-react';
+import { useAuthStore } from '@/lib/store';
+import { authApi } from '@/lib/api';
 
 const features = [
   { icon: MapPin, title: 'Location-Based Reporting', desc: 'GPS-powered issue pinning with reverse geocoding and proximity search.' },
@@ -19,6 +21,17 @@ const stats = [
 ];
 
 export default function LandingPage() {
+  const { user, setUser, isLoading } = useAuthStore();
+
+  const handleLogout = async () => {
+    try {
+      await authApi.logout();
+    } catch (err) {
+      console.error('Logout failed:', err);
+    }
+    setUser(null);
+  };
+
   return (
     <div className="min-h-screen bg-[#05070A] text-white">
       {/* Navbar */}
@@ -32,8 +45,29 @@ export default function LandingPage() {
           </div>
           <div className="flex items-center gap-4">
             <Link href="/explore" className="text-[#9CA3AF] hover:text-white text-sm transition-colors">Explore</Link>
-            <Link href="/login" className="btn-outline text-sm py-2 px-4">Sign In</Link>
-            <Link href="/register" className="btn-primary text-sm py-2 px-4">Get Started</Link>
+            {isLoading ? (
+              <div className="w-24 h-8 rounded-lg bg-white/5 animate-pulse" />
+            ) : user ? (
+              <>
+                <Link
+                  href={user.role === 'admin' || user.role === 'department_staff' ? '/admin' : '/dashboard'}
+                  className="btn-primary text-sm py-2 px-4"
+                >
+                  Dashboard
+                </Link>
+                <button
+                  onClick={handleLogout}
+                  className="btn-outline text-sm py-2 px-4 transition-colors"
+                >
+                  Sign Out
+                </button>
+              </>
+            ) : (
+              <>
+                <Link href="/login" className="btn-outline text-sm py-2 px-4">Sign In</Link>
+                <Link href="/register" className="btn-primary text-sm py-2 px-4">Get Started</Link>
+              </>
+            )}
           </div>
         </div>
       </nav>
@@ -61,11 +95,20 @@ export default function LandingPage() {
             Report public infrastructure issues, track government response, and demand transparency—all in one civic intelligence platform.
           </p>
 
-          <div className="flex items-center justify-center gap-4 flex-wrap">
-            <Link href="/report" className="btn-primary flex items-center gap-2 text-base py-3 px-8">
-              Report an Issue
-              <ArrowRight size={18} />
-            </Link>
+          <div className="flex items-center justify-center gap-4 flex-wrap text-center">
+            {isLoading ? (
+              <div className="w-44 h-12 rounded-xl bg-white/5 animate-pulse" />
+            ) : user ? (
+              <Link href={user.role === 'admin' || user.role === 'department_staff' ? '/admin' : '/dashboard'} className="btn-primary flex items-center gap-2 text-base py-3 px-8">
+                Go to Dashboard
+                <ArrowRight size={18} />
+              </Link>
+            ) : (
+              <Link href="/report" className="btn-primary flex items-center gap-2 text-base py-3 px-8">
+                Report an Issue
+                <ArrowRight size={18} />
+              </Link>
+            )}
             <Link href="/explore" className="btn-outline flex items-center gap-2 text-base py-3 px-8">
               Explore Issues
             </Link>
@@ -114,12 +157,31 @@ export default function LandingPage() {
         <div className="max-w-3xl mx-auto text-center card p-12 relative overflow-hidden">
           <div className="absolute inset-0 bg-[#00aaef]/3 rounded-2xl" />
           <div className="relative">
-            <h2 className="text-4xl font-bold mb-4 text-gradient">Ready to Make Your Voice Count?</h2>
-            <p className="text-[#9CA3AF] mb-8">Join thousands of citizens driving civic change through data and transparency.</p>
-            <Link href="/register" className="btn-primary inline-flex items-center gap-2 text-base py-3 px-10">
-              Start Reporting Free
-              <ArrowRight size={18} />
-            </Link>
+            {isLoading ? (
+              <div className="space-y-4 flex flex-col items-center">
+                <div className="h-10 w-64 bg-white/5 rounded-lg animate-pulse" />
+                <div className="h-4 w-96 bg-white/5 rounded-lg animate-pulse" />
+                <div className="h-12 w-48 bg-white/5 rounded-xl animate-pulse mt-4" />
+              </div>
+            ) : user ? (
+              <>
+                <h2 className="text-4xl font-bold mb-4 text-gradient">Welcome back, {user.name}!</h2>
+                <p className="text-[#9CA3AF] mb-8">Access your personalized dashboard to track issues and browse notifications.</p>
+                <Link href={user.role === 'admin' || user.role === 'department_staff' ? '/admin' : '/dashboard'} className="btn-primary inline-flex items-center gap-2 text-base py-3 px-10">
+                  Go to Dashboard
+                  <ArrowRight size={18} />
+                </Link>
+              </>
+            ) : (
+              <>
+                <h2 className="text-4xl font-bold mb-4 text-gradient">Ready to Make Your Voice Count?</h2>
+                <p className="text-[#9CA3AF] mb-8">Join thousands of citizens driving civic change through data and transparency.</p>
+                <Link href="/register" className="btn-primary inline-flex items-center gap-2 text-base py-3 px-10">
+                  Start Reporting Free
+                  <ArrowRight size={18} />
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </section>
