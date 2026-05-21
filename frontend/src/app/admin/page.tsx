@@ -1,18 +1,36 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import {
   LayoutDashboard, List, BarChart2, Settings, Zap, Bell,
   Moon, Sun, TrendingUp, TrendingDown, AlertTriangle, Clock,
   ThumbsUp, MessageSquare, Search, Filter, ChevronDown,
   Download, Eye, CheckCircle2, XCircle, Loader2, Users,
-  Activity, ArrowUpRight, MapPin, ChevronRight, X
+  Activity, ArrowUpRight, MapPin, ChevronRight, X, ClipboardList, Camera
 } from 'lucide-react';
+import { adminApi, issuesApi, usersApi, commentsApi } from '@/lib/api';
+import { formatDistanceToNow } from 'date-fns';
+import { AppLayout } from '@/components/layout/AppLayout';
+import { Sidebar } from '@/components/layout/Sidebar';
+import { TopBar } from '@/components/layout/TopBar';
+import Link from 'next/link';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { useAuthStore } from '@/lib/store';
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+const formatMediaUrl = (url: string) => {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+  const cleanBase = base.endsWith('/') ? base.slice(0, -1) : base;
+  const cleanPath = url.startsWith('/') ? url : `/${url}`;
+  return `${cleanBase}${cleanPath}`;
+};
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type Status = 'Reported' | 'Acknowledged' | 'In Progress' | 'Resolved' | 'Rejected';
+type Status = 'Reported' | 'Acknowledged' | 'In Progress' | 'Resolved' | 'Rejected' | 'Pending Verification';
 type Severity = 'Critical' | 'High' | 'Medium' | 'Low';
-type AdminView = 'dashboard' | 'issues' | 'analytics' | 'settings';
+type AdminView = 'dashboard' | 'issues' | 'analytics' | 'users' | 'logs' | 'settings';
 
 interface Issue {
   id: number;
@@ -27,17 +45,7 @@ interface Issue {
   image: string;
 }
 
-// ─── Mock Data ─────────────────────────────────────────────────────────────────
-const ALL_ISSUES: Issue[] = [
-  { id: 1, title: 'Large pothole on Main Street',         category: 'Roads',       severity: 'High',     status: 'In Progress',  department: 'Public Works',       upvotes: 156, comments: 38, created_at: '5d ago', image: 'https://images.unsplash.com/photo-1515162305285-0293e4b4e81e?w=80&q=70' },
-  { id: 2, title: 'Broken streetlight on Park Avenue',    category: 'Streetlights',severity: 'Medium',   status: 'Acknowledged', department: 'Utilities',          upvotes: 28,  comments: 8,  created_at: '3d ago', image: 'https://images.unsplash.com/photo-1520052205864-92d242b3a76b?w=80&q=70' },
-  { id: 3, title: 'Overflowing garbage bins at City Park',category: 'Garbage',     severity: 'High',     status: 'Reported',     department: '—',                  upvotes: 92,  comments: 24, created_at: '2d ago', image: 'https://images.unsplash.com/photo-1590496793929-36417d3117de?w=80&q=70' },
-  { id: 4, title: 'Water main leak on Oak Street',        category: 'Water',       severity: 'Critical', status: 'In Progress',  department: 'Water Authority',    upvotes: 196, comments: 38, created_at: '1d ago', image: 'https://images.unsplash.com/photo-1504328345606-18bbc8c9d7d1?w=80&q=70' },
-  { id: 5, title: 'Damaged playground equipment',         category: 'Parks',       severity: 'High',     status: 'Acknowledged', department: 'Parks & Recreation', upvotes: 54,  comments: 15, created_at: '4d ago', image: 'https://images.unsplash.com/photo-1575783970733-1aaedde1db74?w=80&q=70' },
-  { id: 6, title: 'Graffiti on community center wall',    category: 'Buildings',   severity: 'Medium',   status: 'Resolved',     department: 'Building Maintenance',upvotes: 23, comments: 8,  created_at: '7d ago', image: 'https://images.unsplash.com/photo-1533073526757-2c8ca1df9f1c?w=80&q=70' },
-  { id: 7, title: 'Faded stop sign at school crossing',   category: 'Traffic',     severity: 'High',     status: 'Reported',     department: '—',                  upvotes: 118, comments: 31, created_at: '6h ago', image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=80&q=70' },
-  { id: 8, title: 'Illegal dumping on vacant lot',        category: 'Garbage',     severity: 'Medium',   status: 'Acknowledged', department: 'Sanitation',         upvotes: 41,  comments: 7,  created_at: '2d ago', image: 'https://images.unsplash.com/photo-1530587191325-3db32d826c18?w=80&q=70' },
-];
+// Mock data removed in favor of dynamic API endpoints
 
 // ─── Badge configs ─────────────────────────────────────────────────────────────
 const STATUS_CFG: Record<Status, { color: string; bg: string; dot: string }> = {
@@ -46,6 +54,7 @@ const STATUS_CFG: Record<Status, { color: string; bg: string; dot: string }> = {
   'In Progress': { color: 'text-[#F59E0B]', bg: 'bg-[#F59E0B]/10',  dot: 'bg-[#F59E0B]' },
   Resolved:      { color: 'text-[#00FF94]', bg: 'bg-[#00FF94]/10',  dot: 'bg-[#00FF94]' },
   Rejected:      { color: 'text-[#EF4444]', bg: 'bg-[#EF4444]/10',  dot: 'bg-[#EF4444]' },
+  'Pending Verification': { color: 'text-[#A855F7]', bg: 'bg-[#A855F7]/10', dot: 'bg-[#A855F7]' },
 };
 const SEV_CFG: Record<Severity, { color: string; bg: string }> = {
   Critical: { color: 'text-[#EF4444]', bg: 'bg-[#EF4444]/15' },
@@ -73,9 +82,8 @@ function SevBadge({ severity }: { severity: Severity }) {
 }
 
 // ─── Tiny SVG Charts ───────────────────────────────────────────────────────────
-function BarChart({ data, color = '#61C0FF' }: { data: number[]; color?: string }) {
+function BarChart({ data, labels = ['Roads', 'Garbage', 'Parks', 'Traffic', 'Water', 'Lights', 'Buildings'], color = '#61C0FF' }: { data: number[]; labels?: string[]; color?: string }) {
   const max = Math.max(...data);
-  const labels = ['Roads', 'Garbage', 'Parks', 'Traffic', 'Water', 'Lights', 'Buildings'];
   return (
     <div className="w-full h-full flex flex-col">
       <div className="flex-1 flex items-end gap-2 pb-2">
@@ -215,77 +223,51 @@ function StatCard({ label, value, sub, subUp, icon: Icon, color, delay = 0 }:
   );
 }
 
-// ─── Sidebar ───────────────────────────────────────────────────────────────────
-function AdminSidebar({ view, setView }: { view: AdminView; setView: (v: AdminView) => void }) {
-  const nav = [
-    { key: 'dashboard' as AdminView, label: 'Dashboard',        icon: LayoutDashboard },
-    { key: 'issues'    as AdminView, label: 'Issue Management',  icon: List },
-    { key: 'analytics' as AdminView, label: 'Analytics',         icon: BarChart2 },
-    { key: 'settings'  as AdminView, label: 'Settings',          icon: Settings },
-  ];
-  return (
-    <aside className="hidden md:flex flex-col w-52 shrink-0 border-r border-white/5 bg-[#05070A] fixed left-0 top-0 bottom-0 z-40">
-      <div className="h-14 flex items-center px-5 border-b border-white/5">
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-[#61C0FF]/20 flex items-center justify-center">
-            <Zap size={13} className="text-[#61C0FF]" />
-          </div>
-          <span className="font-bold text-sm">Civic<span className="text-[#61C0FF]">Sense</span></span>
-        </div>
-      </div>
-      <nav className="flex-1 p-2.5 space-y-0.5 pt-4">
-        {nav.map(({ key, label, icon: Icon }) => (
-          <button key={key} onClick={() => setView(key)} className={`sidebar-item w-full text-left ${view === key ? 'active' : ''}`}>
-            <Icon size={15} />
-            <span className="text-sm font-medium">{label}</span>
-          </button>
-        ))}
-      </nav>
-    </aside>
-  );
-}
-
-// ─── Top Bar ───────────────────────────────────────────────────────────────────
-function TopBar({ title, sub, darkMode, toggleDark }: { title: string; sub: string; darkMode: boolean; toggleDark: () => void }) {
-  return (
-    <header className="sticky top-0 z-30 glass-panel border-b border-white/5 h-14 flex items-center px-6 gap-4">
-      <div className="flex-1">
-        <h1 className="font-bold text-base text-white leading-tight">{title}</h1>
-        <p className="text-[10px] text-[#9CA3AF]">{sub}</p>
-      </div>
-      <button onClick={toggleDark} className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors">
-        {darkMode ? <Sun size={14} className="text-[#9CA3AF]" /> : <Moon size={14} className="text-[#9CA3AF]" />}
-      </button>
-      <button className="relative w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors">
-        <Bell size={14} className="text-[#9CA3AF]" />
-        <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#EF4444] text-[9px] font-bold flex items-center justify-center">3</span>
-      </button>
-      <div className="flex items-center gap-2.5 cursor-pointer hover:opacity-80 transition-opacity">
-        <div className="w-8 h-8 rounded-full bg-[#61C0FF]/20 flex items-center justify-center text-xs font-bold text-[#61C0FF]">AU</div>
-        <div className="hidden sm:block">
-          <div className="text-xs font-semibold text-white leading-tight">Admin User</div>
-          <div className="text-[10px] text-[#9CA3AF]">Admin</div>
-        </div>
-      </div>
-    </header>
-  );
-}
+// Shared TopBar component imported from '@/components/layout/TopBar'
 
 // ════════════════════════════════════════════════════════════════════════════════
 // VIEW: DASHBOARD
 // ════════════════════════════════════════════════════════════════════════════════
 function DashboardView({ setView }: { setView: (v: AdminView) => void }) {
-  const criticalIssues = ALL_ISSUES.filter(i => i.severity === 'Critical' || (i.severity === 'High' && i.status !== 'Resolved')).slice(0, 3);
-  const recentIssues = [...ALL_ISSUES].sort(() => 0).slice(0, 3);
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    adminApi.dashboard().then(res => {
+      setData(res.data);
+      setLoading(false);
+    }).catch(err => {
+      console.error(err);
+      setLoading(false);
+    });
+  }, []);
+
+  if (loading || !data) {
+    return <div className="p-10 flex justify-center"><Loader2 className="animate-spin text-[#61C0FF]" /></div>;
+  }
+
+  const { overview, byStatus, bySeverity, byCategory, slaViolations, recentIssues } = data;
+
+  const barData = byCategory.map((c: any) => parseInt(c.count)).slice(0, 7);
+  const barLabels = byCategory.map((c: any) => c.name).slice(0, 7);
+
+  const pieColors: Record<string, string> = {
+    'reported': '#9CA3AF', 'acknowledged': '#61C0FF', 'in_progress': '#F59E0B', 'resolved': '#00FF94', 'rejected': '#EF4444'
+  };
+  const pieSlices = byStatus.map((s: any) => ({
+    value: parseInt(s.count), color: pieColors[s.status] || '#9CA3AF', label: s.status.replace('_', ' ')
+  }));
+
+  const criticalIssues = recentIssues.filter((i: any) => i.severity === 'critical' || i.severity === 'high').slice(0, 3);
 
   return (
     <div className="p-6 space-y-6" style={{ animation: 'fadeUp 0.3s ease-out' }}>
       {/* Stat cards */}
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-        <StatCard label="Total Issues"    value="1,247" sub="All time"                  icon={Activity}    color="#61C0FF"  delay={0} />
-        <StatCard label="Open Issues"     value="355"   sub="Requires attention"        icon={AlertTriangle} color="#F59E0B" subUp={false} delay={1} />
-        <StatCard label="Avg Resolution"  value="4.2d"  sub="↑ 12% from last month"    icon={Clock}       color="#00FF94"  subUp={true}  delay={2} />
-        <StatCard label="SLA Breaches"    value="23"    sub="Needs attention"           icon={XCircle}     color="#EF4444"  subUp={false} delay={3} />
+        <StatCard label="Total Issues"    value={overview.total || '0'} sub="All time"                  icon={Activity}    color="#61C0FF"  delay={0} />
+        <StatCard label="Open Issues"     value={overview.active || '0'} sub="Requires attention"        icon={AlertTriangle} color="#F59E0B" subUp={false} delay={1} />
+        <StatCard label="Avg Resolution"  value={`${overview.avg_resolution_hours || '0'}h`}  sub="Resolution time" icon={Clock} color="#00FF94" subUp={true} delay={2} />
+        <StatCard label="SLA Breaches"    value={slaViolations?.length?.toString() || '0'} sub="Needs attention" icon={XCircle} color="#EF4444" subUp={false} delay={3} />
       </div>
 
       {/* Charts row */}
@@ -294,10 +276,9 @@ function DashboardView({ setView }: { setView: (v: AdminView) => void }) {
         <div className="card p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-white text-sm">Issues by Category</h3>
-            <span className="label-micro text-[#9CA3AF]">This month</span>
           </div>
           <div className="h-52">
-            <BarChart data={[22, 18, 14, 12, 10, 9, 8]} color="#61C0FF" />
+            {barData.length > 0 ? <BarChart data={barData} labels={barLabels} color="#61C0FF" /> : <div className="text-[#9CA3AF] text-sm h-full flex items-center justify-center">No data</div>}
           </div>
         </div>
 
@@ -305,15 +286,9 @@ function DashboardView({ setView }: { setView: (v: AdminView) => void }) {
         <div className="card p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-white text-sm">Status Distribution</h3>
-            <span className="label-micro text-[#9CA3AF]">Live</span>
           </div>
           <div className="flex items-center justify-center h-52">
-            <PieChart slices={[
-              { value: 155, color: '#F59E0B', label: 'In progress' },
-              { value: 89,  color: '#61C0FF', label: 'Acknowledged' },
-              { value: 67,  color: '#9CA3AF', label: 'Reported' },
-              { value: 44,  color: '#00FF94', label: 'Resolved' },
-            ]} />
+            {pieSlices.length > 0 ? <PieChart slices={pieSlices} /> : <div className="text-[#9CA3AF] text-sm h-full flex items-center justify-center">No data</div>}
           </div>
         </div>
       </div>
@@ -332,20 +307,19 @@ function DashboardView({ setView }: { setView: (v: AdminView) => void }) {
             </button>
           </div>
           <div className="space-y-3">
-            {criticalIssues.map(issue => (
-              <div key={issue.id} className="flex items-center gap-3 p-3 rounded-xl bg-[#0E131A] border border-white/5 hover:border-white/10 transition-colors cursor-pointer group">
-                <img src={issue.image} alt="" className="w-12 h-12 rounded-lg object-cover shrink-0" />
+            {criticalIssues.map((issue: any) => (
+              <Link href={`/issues/${issue.id}`} key={issue.id} className="flex items-center gap-3 p-3 rounded-xl bg-[#0E131A] border border-white/5 hover:border-white/10 transition-colors cursor-pointer group">
+                <img src={formatMediaUrl(issue.media?.[0]?.url) || 'https://images.unsplash.com/photo-1515162305285-0293e4b4e81e?w=80&q=70'} alt="" className="w-12 h-12 rounded-lg object-cover shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-white truncate group-hover:text-[#61C0FF] transition-colors">{issue.title}</p>
                   <div className="flex items-center gap-3 mt-1 text-[#9CA3AF] text-xs">
-                    <span className="flex items-center gap-1"><ThumbsUp size={10} />{issue.upvotes}</span>
-                    <span className="flex items-center gap-1"><MessageSquare size={10} />{issue.comments}</span>
-                    <span className="flex items-center gap-1"><Clock size={10} />{issue.created_at}</span>
+                    <span className="flex items-center gap-1"><Clock size={10} />{formatDistanceToNow(new Date(issue.created_at))} ago</span>
                   </div>
                 </div>
-                <StatusBadge status={issue.status} />
-              </div>
+                <StatusBadge status={issue.status === 'resolved' ? 'Resolved' : issue.status === 'in_progress' ? 'In Progress' : issue.status === 'acknowledged' ? 'Acknowledged' : issue.status === 'rejected' ? 'Rejected' : 'Reported'} />
+              </Link>
             ))}
+            {criticalIssues.length === 0 && <div className="text-xs text-[#9CA3AF] p-2 text-center">No critical issues</div>}
           </div>
         </div>
 
@@ -361,22 +335,21 @@ function DashboardView({ setView }: { setView: (v: AdminView) => void }) {
             </button>
           </div>
           <div className="space-y-3">
-            {recentIssues.map(issue => (
-              <div key={issue.id} className="flex items-center gap-3 p-3 rounded-xl bg-[#0E131A] border border-white/5 hover:border-white/10 transition-colors cursor-pointer group">
-                <img src={issue.image} alt="" className="w-12 h-12 rounded-lg object-cover shrink-0" />
+            {recentIssues.slice(0, 3).map((issue: any) => (
+              <Link href={`/issues/${issue.id}`} key={issue.id} className="flex items-center gap-3 p-3 rounded-xl bg-[#0E131A] border border-white/5 hover:border-white/10 transition-colors cursor-pointer group">
+                <img src={formatMediaUrl(issue.media?.[0]?.url) || 'https://images.unsplash.com/photo-1520052205864-92d242b3a76b?w=80&q=70'} alt="" className="w-12 h-12 rounded-lg object-cover shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-white truncate group-hover:text-[#61C0FF] transition-colors">
-                    {issue.title.split(' ').slice(0, 2).join(' ')}
+                    {issue.title}
                   </p>
                   <div className="flex items-center gap-3 mt-1 text-[#9CA3AF] text-xs">
-                    <span className="flex items-center gap-1"><ThumbsUp size={10} />{issue.upvotes}</span>
-                    <span className="flex items-center gap-1"><MessageSquare size={10} />{issue.comments}</span>
-                    <span className="flex items-center gap-1"><Clock size={10} />{issue.created_at}</span>
+                    <span className="flex items-center gap-1"><Clock size={10} />{formatDistanceToNow(new Date(issue.created_at))} ago</span>
                   </div>
                 </div>
-                <StatusBadge status={issue.status} />
-              </div>
+                <StatusBadge status={issue.status === 'resolved' ? 'Resolved' : issue.status === 'in_progress' ? 'In Progress' : issue.status === 'acknowledged' ? 'Acknowledged' : issue.status === 'rejected' ? 'Rejected' : 'Reported'} />
+              </Link>
             ))}
+            {recentIssues.length === 0 && <div className="text-xs text-[#9CA3AF] p-2 text-center">No recent issues</div>}
           </div>
         </div>
       </div>
@@ -388,22 +361,63 @@ function DashboardView({ setView }: { setView: (v: AdminView) => void }) {
 // VIEW: ISSUE MANAGEMENT
 // ════════════════════════════════════════════════════════════════════════════════
 function IssueManagementView() {
+  const router = useRouter();
+  const [issues, setIssues] = useState<any[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [filterStatus, setFilterStatus] = useState<Status | 'All'>('All');
+  const [filterStatus, setFilterStatus] = useState<Status | 'All' | 'Unresolved'>('All');
   const [filterSev, setFilterSev] = useState<Severity | 'All'>('All');
   const [showFilters, setShowFilters] = useState(false);
   const [selected, setSelected] = useState<number[]>([]);
 
-  const filtered = ALL_ISSUES.filter(i => {
-    const s = search.toLowerCase();
-    const matchSearch = !s || i.title.toLowerCase().includes(s) || i.category.toLowerCase().includes(s);
-    const matchStatus = filterStatus === 'All' || i.status === filterStatus;
-    const matchSev = filterSev === 'All' || i.severity === filterSev;
-    return matchSearch && matchStatus && matchSev;
-  });
+  const fetchIssues = () => {
+    setLoading(true);
+    adminApi.issues({
+      page,
+      limit: 25,
+      search: search || undefined,
+      status: filterStatus === 'All' ? undefined : (filterStatus === 'Unresolved' ? 'unresolved' : filterStatus.toLowerCase().replace(' ', '_')),
+      severity: filterSev === 'All' ? undefined : filterSev.toLowerCase()
+    }).then(res => {
+      setIssues(res.data.issues);
+      setTotal(res.data.total);
+      setLoading(false);
+    }).catch(err => {
+      console.error(err);
+      setLoading(false);
+    });
+  };
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      fetchIssues();
+    }, 500);
+    return () => clearTimeout(timeoutId);
+  }, [page, search, filterStatus, filterSev]);
 
   const toggle = (id: number) => setSelected(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
-  const toggleAll = () => setSelected(p => p.length === filtered.length ? [] : filtered.map(i => i.id));
+  const toggleAll = () => setSelected(p => p.length === issues.length ? [] : issues.map(i => i.id));
+
+  const handleBulkAction = async (status: string) => {
+    if (!selected.length) return;
+    try {
+      await adminApi.bulkStatus(selected.map(String), status);
+      setSelected([]);
+      fetchIssues();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const totalPages = Math.ceil(total / 25) || 1;
+
+  const mapStatus = (s: string): Status => {
+    if (s === 'pending_verification') return 'Pending Verification';
+    return s === 'resolved' ? 'Resolved' : s === 'in_progress' ? 'In Progress' : s === 'acknowledged' ? 'Acknowledged' : s === 'rejected' ? 'Rejected' : 'Reported';
+  };
+  const mapSev = (s: string): Severity => s === 'critical' ? 'Critical' : s === 'high' ? 'High' : s === 'medium' ? 'Medium' : 'Low';
 
   return (
     <div className="p-6 space-y-5" style={{ animation: 'fadeUp 0.3s ease-out' }}>
@@ -413,15 +427,34 @@ function IssueManagementView() {
           <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
           <input
             type="text" placeholder="Search issues..."
-            value={search} onChange={e => setSearch(e.target.value)}
+            value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
             className="input-dark pl-9 h-10 text-sm w-full"
           />
           {search && (
-            <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-white">
+            <button onClick={() => { setSearch(''); setPage(1); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-white">
               <X size={12} />
             </button>
           )}
         </div>
+        
+        {/* Shortcut Filter: Unresolved Only */}
+        <button
+          onClick={() => {
+            setFilterStatus(prev => prev === 'Unresolved' ? 'All' : 'Unresolved');
+            setPage(1);
+          }}
+          className="h-10 px-4 flex items-center gap-2 rounded-xl text-sm font-semibold transition-all duration-250 active:scale-[0.97]"
+          style={{
+            background: filterStatus === 'Unresolved' ? 'rgba(56,189,248,0.12)' : 'rgba(255,255,255,0.03)',
+            border: filterStatus === 'Unresolved' ? '1px solid rgba(56,189,248,0.4)' : '1px solid rgba(255,255,255,0.06)',
+            color: filterStatus === 'Unresolved' ? '#38BDF8' : '#9CA3AF',
+            boxShadow: filterStatus === 'Unresolved' ? '0 0 15px rgba(56,189,248,0.15)' : 'none',
+          }}
+        >
+          <span className={`w-1.5 h-1.5 rounded-full ${filterStatus === 'Unresolved' ? 'bg-[#38BDF8] animate-pulse' : 'bg-[#9CA3AF]/40'}`} />
+          Unresolved Only
+        </button>
+
         <button
           onClick={() => setShowFilters(v => !v)}
           className={`btn-outline h-10 flex items-center gap-2 text-sm px-4 ${showFilters ? 'border-[#61C0FF]/40 text-[#61C0FF]' : ''}`}
@@ -436,8 +469,8 @@ function IssueManagementView() {
           <div>
             <p className="label-micro mb-2">Status</p>
             <div className="flex flex-wrap gap-2">
-              {(['All', 'Reported', 'Acknowledged', 'In Progress', 'Resolved', 'Rejected'] as (Status | 'All')[]).map(s => (
-                <button key={s} onClick={() => setFilterStatus(s)}
+              {(['All', 'Unresolved', 'Reported', 'Acknowledged', 'In Progress', 'Pending Verification', 'Resolved', 'Rejected'] as (Status | 'All' | 'Unresolved')[]) .map(s => (
+                <button key={s} onClick={() => { setFilterStatus(s); setPage(1); }}
                   className={`px-3 py-1 rounded-lg text-xs font-medium border transition-all ${filterStatus === s ? 'border-[#61C0FF]/40 bg-[#61C0FF]/10 text-[#61C0FF]' : 'border-white/5 text-[#9CA3AF] hover:border-white/10 hover:text-white'}`}>
                   {s}
                 </button>
@@ -448,7 +481,7 @@ function IssueManagementView() {
             <p className="label-micro mb-2">Severity</p>
             <div className="flex flex-wrap gap-2">
               {(['All', 'Critical', 'High', 'Medium', 'Low'] as (Severity | 'All')[]).map(s => (
-                <button key={s} onClick={() => setFilterSev(s)}
+                <button key={s} onClick={() => { setFilterSev(s); setPage(1); }}
                   className={`px-3 py-1 rounded-lg text-xs font-medium border transition-all ${filterSev === s ? 'border-[#61C0FF]/40 bg-[#61C0FF]/10 text-[#61C0FF]' : 'border-white/5 text-[#9CA3AF] hover:border-white/10 hover:text-white'}`}>
                   {s}
                 </button>
@@ -463,9 +496,9 @@ function IssueManagementView() {
         <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-[#61C0FF]/10 border border-[#61C0FF]/20">
           <span className="text-sm text-[#61C0FF] font-medium">{selected.length} selected</span>
           <div className="flex-1" />
-          {['Acknowledge', 'Mark In Progress', 'Resolve', 'Reject'].map(a => (
-            <button key={a} className="btn-outline text-xs py-1 px-3 h-7">{a}</button>
-          ))}
+          <button onClick={() => handleBulkAction('acknowledged')} className="btn-outline text-xs py-1 px-3 h-7">Acknowledge</button>
+          <button onClick={() => handleBulkAction('in_progress')} className="btn-outline text-xs py-1 px-3 h-7">Mark In Progress</button>
+          <button onClick={() => handleBulkAction('rejected')} className="btn-outline text-xs py-1 px-3 h-7">Reject</button>
           <button onClick={() => setSelected([])} className="text-[#9CA3AF] hover:text-white transition-colors">
             <X size={14} />
           </button>
@@ -473,13 +506,18 @@ function IssueManagementView() {
       )}
 
       {/* Table */}
-      <div className="card overflow-hidden">
+      <div className="card overflow-hidden relative min-h-[300px]">
+        {loading && (
+          <div className="absolute inset-0 bg-[#05070A]/50 backdrop-blur-sm flex items-center justify-center z-10">
+            <Loader2 className="animate-spin text-[#61C0FF]" />
+          </div>
+        )}
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-white/5">
                 <th className="px-4 py-3 text-left w-10">
-                  <input type="checkbox" checked={selected.length === filtered.length && filtered.length > 0}
+                  <input type="checkbox" checked={selected.length === issues.length && issues.length > 0}
                     onChange={toggleAll}
                     className="w-3.5 h-3.5 rounded border-white/20 bg-transparent accent-[#61C0FF] cursor-pointer" />
                 </th>
@@ -489,13 +527,14 @@ function IssueManagementView() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((issue, idx) => (
+              {issues.map((issue, idx) => (
                 <tr
                   key={issue.id}
+                  onClick={() => router.push(`/issues/${issue.id}`)}
                   className={`border-b border-white/5 last:border-0 hover:bg-white/[0.02] transition-colors cursor-pointer group ${selected.includes(issue.id) ? 'bg-[#61C0FF]/5' : ''}`}
                   style={{ animation: `fadeUp 0.3s ease-out ${idx * 40}ms both` }}
                 >
-                  <td className="px-4 py-3.5">
+                  <td className="px-4 py-3.5" onClick={(e) => e.stopPropagation()}>
                     <input type="checkbox" checked={selected.includes(issue.id)}
                       onChange={() => toggle(issue.id)}
                       className="w-3.5 h-3.5 rounded border-white/20 bg-transparent accent-[#61C0FF] cursor-pointer" />
@@ -509,16 +548,20 @@ function IssueManagementView() {
                     </span>
                   </td>
                   <td className="px-4 py-3.5">
-                    <span className="text-sm text-[#9CA3AF]">{issue.category}</span>
+                    <span className="text-sm text-[#9CA3AF]">{issue.category_name}</span>
                   </td>
                   <td className="px-4 py-3.5">
-                    <SevBadge severity={issue.severity} />
+                    <SevBadge severity={mapSev(issue.severity)} />
                   </td>
                   <td className="px-4 py-3.5">
-                    <StatusBadge status={issue.status} />
+                    <StatusBadge status={mapStatus(issue.status)} />
                   </td>
                   <td className="px-4 py-3.5">
-                    <span className="text-sm text-[#9CA3AF]">{issue.department}</span>
+                    {issue.department ? (
+                      <span className="text-sm text-[#9CA3AF]">{issue.department}</span>
+                    ) : (
+                      <span className="text-xs text-[#9CA3AF]/40 italic">Unassigned</span>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -526,7 +569,7 @@ function IssueManagementView() {
           </table>
         </div>
 
-        {filtered.length === 0 && (
+        {!loading && issues.length === 0 && (
           <div className="py-16 text-center">
             <Search size={28} className="mx-auto mb-3 opacity-10" />
             <p className="text-white font-semibold mb-1">No issues found</p>
@@ -536,11 +579,16 @@ function IssueManagementView() {
 
         {/* Pagination footer */}
         <div className="px-4 py-3 border-t border-white/5 flex items-center justify-between">
-          <span className="text-xs text-[#9CA3AF]">Showing {filtered.length} of {ALL_ISSUES.length} issues</span>
+          <span className="text-xs text-[#9CA3AF]">Showing {issues.length} of {total} issues</span>
           <div className="flex gap-1">
-            {[1, 2, 3].map(p => (
-              <button key={p} className={`w-7 h-7 rounded-lg text-xs font-medium transition-all ${p === 1 ? 'bg-[#61C0FF]/10 text-[#61C0FF]' : 'text-[#9CA3AF] hover:bg-white/5 hover:text-white'}`}>{p}</button>
-            ))}
+            {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
+              let p = i + 1;
+              if (totalPages > 5 && page > 3) p = page - 2 + i;
+              if (p > totalPages) return null;
+              return (
+                <button key={p} onClick={() => setPage(p)} className={`w-7 h-7 rounded-lg text-xs font-medium transition-all ${p === page ? 'bg-[#61C0FF]/10 text-[#61C0FF]' : 'text-[#9CA3AF] hover:bg-white/5 hover:text-white'}`}>{p}</button>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -552,14 +600,46 @@ function IssueManagementView() {
 // VIEW: ANALYTICS
 // ════════════════════════════════════════════════════════════════════════════════
 function AnalyticsView() {
-  const deptData = [
-    { name: 'Public Works',    resolved: 38, pending: 12, days: 3.5 },
-    { name: 'Utilities',       resolved: 29, pending: 8,  days: 4.2 },
-    { name: 'Sanitation',      resolved: 41, pending: 6,  days: 2.8 },
-    { name: 'Water Authority', resolved: 18, pending: 14, days: 5.1 },
-    { name: 'Parks & Rec',     resolved: 22, pending: 9,  days: 4.8 },
-  ];
-  const maxDays = 6;
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    adminApi.analytics().then(res => {
+      setData(res.data);
+      setLoading(false);
+    }).catch(err => {
+      console.error(err);
+      setLoading(false);
+    });
+  }, []);
+
+  if (loading || !data) {
+    return <div className="p-10 flex justify-center"><Loader2 className="animate-spin text-[#61C0FF]" /></div>;
+  }
+
+  const { resolutionTrend, categoryTrend, departmentPerf } = data;
+
+  const deptData = departmentPerf.map((d: any) => ({
+    name: d.department,
+    resolved: parseInt(d.resolved),
+    pending: parseInt(d.total) - parseInt(d.resolved),
+    days: parseFloat(d.avg_hours) / 24 || 0
+  }));
+  const maxDays = Math.max(...deptData.map((d: any) => d.days), 6);
+
+  const trendData = resolutionTrend.map((t: any) => parseInt(t.resolved) || 0);
+
+  const pieColors: Record<string, string> = {
+    'Garbage': '#61C0FF', 'Water': '#F59E0B', 'Parks': '#00FF94', 'Traffic': '#EF4444', 'Buildings': '#8B5CF6', 'Streetlights': '#EC4899', 'Roads': '#06B6D4'
+  };
+  const pieSlices = categoryTrend.map((c: any) => ({
+    value: parseInt(c.total), color: pieColors[c.name] || '#9CA3AF', label: c.name
+  }));
+
+  const totalIssues = categoryTrend.reduce((acc: number, c: any) => acc + parseInt(c.total), 0);
+  const resolvedIssues = categoryTrend.reduce((acc: number, c: any) => acc + parseInt(c.resolved), 0);
+  const resolutionRate = totalIssues ? Math.round((resolvedIssues / totalIssues) * 100) : 0;
+  const avgResolutionHours = departmentPerf.reduce((acc: number, d: any) => acc + parseFloat(d.avg_hours || 0), 0) / (departmentPerf.length || 1);
 
   return (
     <div className="p-6 space-y-5" style={{ animation: 'fadeUp 0.3s ease-out' }}>
@@ -575,21 +655,21 @@ function AnalyticsView() {
 
       {/* KPI row */}
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-        <StatCard label="Total Issues"    value="1,247" sub="↑ 10% from last week"  icon={Activity}    color="#61C0FF" subUp={true}  />
-        <StatCard label="Resolved"        value="892"   sub="↑ 4% resolution rate"  icon={CheckCircle2} color="#00FF94" subUp={true}  />
-        <StatCard label="Avg Resolution"  value="4.2d"  sub="↑ 12% faster"         icon={Clock}       color="#61C0FF" subUp={true}  />
-        <StatCard label="Resolution Rate" value="71.5%" sub="Above target"          icon={TrendingUp}  color="#00FF94" subUp={true}  />
+        <StatCard label="Total Issues"    value={totalIssues.toString()} sub="All time"  icon={Activity}    color="#61C0FF" subUp={true}  />
+        <StatCard label="Resolved"        value={resolvedIssues.toString()}   sub="Issues resolved"  icon={CheckCircle2} color="#00FF94" subUp={true}  />
+        <StatCard label="Avg Resolution"  value={`${(avgResolutionHours / 24).toFixed(1)}d`}  sub="Resolution time"         icon={Clock}       color="#61C0FF" subUp={true}  />
+        <StatCard label="Resolution Rate" value={`${resolutionRate}%`} sub="Current rate"          icon={TrendingUp}  color="#00FF94" subUp={true}  />
       </div>
 
       {/* Charts row 1 */}
       <div className="grid lg:grid-cols-2 gap-4">
         <div className="card p-5">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="font-semibold text-white text-sm">Resolution Time Trend</h3>
+            <h3 className="font-semibold text-white text-sm">Resolution Trend (Last 30 Days)</h3>
           </div>
-          <LineChart data={[5.8, 5.1, 4.9, 4.6, 4.3, 4.2]} color="#61C0FF" />
+          {trendData.length > 0 ? <LineChart data={trendData} color="#61C0FF" /> : <div className="text-[#9CA3AF] text-sm h-20 flex items-center justify-center">No data</div>}
           <p className="text-[11px] text-[#9CA3AF] mt-2 flex items-center gap-1">
-            <span className="w-2 h-0.5 bg-[#61C0FF] inline-block rounded" /> Avg Days to Resolve
+            <span className="w-2 h-0.5 bg-[#61C0FF] inline-block rounded" /> Issues Resolved
           </p>
         </div>
 
@@ -597,50 +677,45 @@ function AnalyticsView() {
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-white text-sm">Issues by Category</h3>
           </div>
-          <PieChart slices={[
-            { value: 3, color: '#61C0FF', label: 'Garbage' },
-            { value: 2, color: '#F59E0B', label: 'Water' },
-            { value: 1, color: '#00FF94', label: 'Parks' },
-            { value: 1, color: '#EF4444', label: 'Traffic' },
-            { value: 1, color: '#8B5CF6', label: 'Buildings' },
-            { value: 1, color: '#EC4899', label: 'Streetlights' },
-            { value: 1, color: '#06B6D4', label: 'Roads' },
-          ]} />
+          <div className="h-44 flex items-center justify-center">
+            {pieSlices.length > 0 ? <PieChart slices={pieSlices} /> : <div className="text-[#9CA3AF] text-sm h-full flex items-center justify-center">No data</div>}
+          </div>
         </div>
       </div>
 
       {/* Department Performance */}
       <div className="card p-5">
         <h3 className="font-semibold text-white text-sm mb-5">Department Performance</h3>
-        <div className="flex items-end gap-3 h-44">
-          {deptData.map((d, i) => {
-            const total = d.resolved + d.pending;
-            const maxTotal = Math.max(...deptData.map(x => x.resolved + x.pending));
-            return (
-              <div key={d.name} className="flex-1 flex flex-col items-center gap-1">
-                <div className="w-full flex flex-col justify-end gap-0.5 flex-1">
-                  <div
-                    className="w-full rounded-t-sm"
-                    style={{
-                      height: `${(d.pending / maxTotal) * 100}%`,
-                      background: '#F59E0B88',
-                      minHeight: 4,
-                    }}
-                  />
-                  <div
-                    className="w-full rounded-t-md"
-                    style={{
-                      height: `${(d.resolved / maxTotal) * 100}%`,
-                      background: 'linear-gradient(180deg, #00FF94 0%, #00FF9488 100%)',
-                      minHeight: 4,
-                    }}
-                  />
+        {deptData.length > 0 ? (
+          <div className="flex items-end gap-3 h-44">
+            {deptData.map((d: any, i: number) => {
+              const maxTotal = Math.max(...deptData.map((x: any) => x.resolved + x.pending));
+              return (
+                <div key={d.name || i} className="flex-1 flex flex-col items-center gap-1">
+                  <div className="w-full flex flex-col justify-end gap-0.5 flex-1">
+                    <div
+                      className="w-full rounded-t-sm"
+                      style={{
+                        height: `${(d.pending / maxTotal) * 100}%`,
+                        background: '#F59E0B88',
+                        minHeight: 4,
+                      }}
+                    />
+                    <div
+                      className="w-full rounded-t-md"
+                      style={{
+                        height: `${(d.resolved / maxTotal) * 100}%`,
+                        background: 'linear-gradient(180deg, #00FF94 0%, #00FF9488 100%)',
+                        minHeight: 4,
+                      }}
+                    />
+                  </div>
+                  <span className="text-[9px] text-[#9CA3AF] text-center leading-tight w-full truncate">{d.name?.split(' ')[0] || 'Unknown'}</span>
                 </div>
-                <span className="text-[9px] text-[#9CA3AF] text-center leading-tight w-full truncate">{d.name.split(' ')[0]}</span>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        ) : <div className="text-[#9CA3AF] text-sm h-44 flex items-center justify-center">No department data</div>}
         <div className="flex items-center gap-4 mt-3">
           <span className="flex items-center gap-1.5 text-xs text-[#9CA3AF]"><span className="w-3 h-2 rounded-sm bg-[#00FF94] inline-block" />Resolved</span>
           <span className="flex items-center gap-1.5 text-xs text-[#9CA3AF]"><span className="w-3 h-2 rounded-sm bg-[#F59E0B88] inline-block" />Pending</span>
@@ -653,11 +728,11 @@ function AnalyticsView() {
         <div className="card p-5">
           <h3 className="font-semibold text-white text-sm mb-4">SLA Compliance Rate</h3>
           <div className="flex items-center gap-6">
-            <DonutChart pct={92} color="#00FF94" label="On-time resolution rate" />
+            <DonutChart pct={Math.round((resolvedIssues / (totalIssues || 1)) * 100) || 0} color="#00FF94" label="Resolution rate" />
             <div className="flex-1 space-y-3">
               {[
-                { label: 'On Time',  val: 849, color: '#00FF94' },
-                { label: 'Breached', val: 43,  color: '#EF4444' },
+                { label: 'Resolved',  val: resolvedIssues, color: '#00FF94' },
+                { label: 'Pending', val: totalIssues - resolvedIssues,  color: '#EF4444' },
               ].map(r => (
                 <div key={r.label} className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: r.color }} />
@@ -665,7 +740,7 @@ function AnalyticsView() {
                   <span className="text-xs font-bold text-white ml-auto">{r.val}</span>
                 </div>
               ))}
-              <p className="text-[10px] text-[#9CA3AF] pt-1 border-t border-white/5">92.6% on-time resolution rate</p>
+              <p className="text-[10px] text-[#9CA3AF] pt-1 border-t border-white/5">{Math.round((resolvedIssues / (totalIssues || 1)) * 100) || 0}% resolution rate</p>
             </div>
           </div>
         </div>
@@ -674,17 +749,17 @@ function AnalyticsView() {
         <div className="card p-5">
           <h3 className="font-semibold text-white text-sm mb-4">Department Resolution Times</h3>
           <div className="space-y-3">
-            {deptData.map(d => (
+            {deptData.map((d: any) => (
               <div key={d.name}>
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs text-[#9CA3AF]">{d.name}</span>
-                  <span className="text-xs font-semibold text-white">{d.days} days</span>
+                  <span className="text-xs text-[#9CA3AF]">{d.name || 'Unknown'}</span>
+                  <span className="text-xs font-semibold text-white">{d.days.toFixed(1)} days</span>
                 </div>
                 <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all duration-1000"
                     style={{
-                      width: `${(d.days / maxDays) * 100}%`,
+                      width: `${(d.days / (maxDays || 1)) * 100}%`,
                       background: d.days <= 3 ? '#00FF94' : d.days <= 4.5 ? '#61C0FF' : '#F59E0B',
                     }}
                   />
@@ -703,17 +778,616 @@ function AnalyticsView() {
 }
 
 // ════════════════════════════════════════════════════════════════════════════════
+// VIEW: USERS MANAGEMENT
+// ════════════════════════════════════════════════════════════════════════════════
+function UsersManagementView() {
+  const [users, setUsers] = useState<any[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [modalLoading, setModalLoading] = useState(false);
+  const [editRole, setEditRole] = useState('');
+  const [editActive, setEditActive] = useState(true);
+  const [editAvatarFile, setEditAvatarFile] = useState<File | null>(null);
+  const [editAvatarPreview, setEditAvatarPreview] = useState<string | null>(null);
+
+  const fetchUsers = () => {
+    setLoading(true);
+    adminApi.users({ page, limit: 25, search: search || undefined })
+      .then(res => {
+        setUsers(res.data.users);
+        setTotal(res.data.total);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error(err);
+        setLoading(false);
+      });
+  };
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => fetchUsers(), 500);
+    return () => clearTimeout(timeoutId);
+  }, [page, search]);
+
+  const openUserModal = (user: any) => {
+    setSelectedUser(user);
+    setEditRole(user.role);
+    setEditActive(user.is_active);
+    setEditAvatarFile(null);
+    setEditAvatarPreview(null);
+  };
+
+  const closeModal = () => {
+    if (editAvatarPreview) {
+      URL.revokeObjectURL(editAvatarPreview);
+    }
+    setSelectedUser(null);
+    setEditAvatarFile(null);
+    setEditAvatarPreview(null);
+  };
+
+  const handleSaveUser = async () => {
+    if (!selectedUser) return;
+    setModalLoading(true);
+    try {
+      const fd = new FormData();
+      fd.append('role', editRole);
+      fd.append('is_active', String(editActive));
+      if (editAvatarFile) {
+        fd.append('avatar', editAvatarFile);
+      }
+
+      await adminApi.updateUser(selectedUser.id, fd);
+      closeModal();
+      fetchUsers();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setModalLoading(false);
+    }
+  };
+
+  const handleDeleteUser = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this user? This cannot be undone.')) return;
+    try {
+      await adminApi.deleteUser(id);
+      fetchUsers();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const totalPages = Math.ceil(total / 25) || 1;
+
+  return (
+    <div className="p-6 space-y-5" style={{ animation: 'fadeUp 0.3s ease-out' }}>
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1 max-w-md">
+          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
+          <input
+            type="text" placeholder="Search users by name or email..."
+            value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
+            className="input-dark pl-9 h-10 text-sm w-full"
+          />
+          {search && (
+            <button onClick={() => { setSearch(''); setPage(1); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-white">
+              <X size={12} />
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="card overflow-hidden relative min-h-[300px]">
+        {loading && (
+          <div className="absolute inset-0 bg-[#05070A]/50 backdrop-blur-sm flex items-center justify-center z-10">
+            <Loader2 className="animate-spin text-[#61C0FF]" />
+          </div>
+        )}
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-white/5">
+                {['Photo', 'Name', 'Email', 'Role', 'Status', 'Issues', 'Join Date', 'Actions'].map(h => (
+                  <th key={h} className="px-4 py-3 text-left label-micro text-[#9CA3AF]">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {users.map((user, idx) => (
+                <tr key={user.id} className="border-b border-white/5 last:border-0 hover:bg-white/[0.02] transition-colors" style={{ animation: `fadeUp 0.3s ease-out ${idx * 40}ms both` }}>
+                  <td className="px-4 py-3.5">
+                    <div className="w-8 h-8 rounded-full overflow-hidden bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
+                      {user.avatar_url ? (
+                        <img src={formatMediaUrl(user.avatar_url)} alt={user.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-[10px] font-bold text-[#61C0FF]">{user.name?.[0]?.toUpperCase()}</span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3.5">
+                    <span className="text-sm font-medium text-white">{user.name}</span>
+                  </td>
+                  <td className="px-4 py-3.5"><span className="text-sm text-[#9CA3AF]">{user.email}</span></td>
+                  <td className="px-4 py-3.5">
+                    <span className={`text-xs px-2 py-1 rounded border ${user.role === 'admin' ? 'border-[#EF4444]/30 text-[#EF4444] bg-[#EF4444]/10' : user.role === 'department_staff' ? 'border-[#00FF94]/30 text-[#00FF94] bg-[#00FF94]/10' : 'border-white/10 text-[#9CA3AF] bg-white/5'}`}>
+                      {user.role}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3.5">
+                    {user.is_active ? <span className="text-xs text-[#00FF94]">Active</span> : <span className="text-xs text-[#EF4444]">Suspended</span>}
+                  </td>
+                  <td className="px-4 py-3.5"><span className="text-sm text-[#9CA3AF]">{user.issue_count}</span></td>
+                  <td className="px-4 py-3.5"><span className="text-sm text-[#9CA3AF]">{new Date(user.created_at).toLocaleDateString()}</span></td>
+                  <td className="px-4 py-3.5">
+                    <div className="flex gap-3">
+                      <button onClick={() => openUserModal(user)} className="text-[#61C0FF] hover:text-white transition-colors text-xs">Edit</button>
+                      <button onClick={() => handleDeleteUser(user.id)} className="text-[#EF4444] hover:text-white transition-colors text-xs">Delete</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination footer */}
+        <div className="px-4 py-3 border-t border-white/5 flex items-center justify-between">
+          <span className="text-xs text-[#9CA3AF]">Showing {users.length} of {total} users</span>
+          <div className="flex gap-1">
+            {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
+              let p = i + 1;
+              if (totalPages > 5 && page > 3) p = page - 2 + i;
+              if (p > totalPages) return null;
+              return (
+                <button key={p} onClick={() => setPage(p)} className={`w-7 h-7 rounded-lg text-xs font-medium transition-all ${p === page ? 'bg-[#61C0FF]/10 text-[#61C0FF]' : 'text-[#9CA3AF] hover:bg-white/5 hover:text-white'}`}>{p}</button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Edit User Modal */}
+      {selectedUser && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#0A0D14] border border-white/10 rounded-2xl w-full max-w-sm shadow-2xl p-5" style={{ animation: 'fadeUp 0.2s ease-out' }}>
+            <div className="flex justify-between items-center mb-5">
+              <h3 className="text-lg font-semibold text-white">Edit User</h3>
+              <button onClick={closeModal} className="text-[#9CA3AF] hover:text-white"><X size={18} /></button>
+            </div>
+            
+            <div className="space-y-4">
+              {/* Profile Photo selector with ambient design */}
+              <div className="flex flex-col items-center gap-3 pb-4 border-b border-white/5">
+                <div className="relative group w-20 h-20 rounded-full overflow-hidden bg-white/5 border border-white/10 flex items-center justify-center">
+                  {editAvatarPreview ? (
+                    <img src={editAvatarPreview} alt={selectedUser.name} className="w-full h-full object-cover" />
+                  ) : selectedUser.avatar_url ? (
+                    <img src={formatMediaUrl(selectedUser.avatar_url)} alt={selectedUser.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-2xl font-bold text-[#61C0FF]">{selectedUser.name?.[0]?.toUpperCase()}</span>
+                  )}
+                  <label className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-1 cursor-pointer transition-opacity text-white text-[10px] font-semibold">
+                    <Camera size={16} />
+                    Change
+                    <input 
+                      type="file" 
+                      accept="image/*"
+                      onChange={e => {
+                        if (e.target.files?.[0]) {
+                          const file = e.target.files[0];
+                          setEditAvatarFile(file);
+                          if (editAvatarPreview) {
+                            URL.revokeObjectURL(editAvatarPreview);
+                          }
+                          setEditAvatarPreview(URL.createObjectURL(file));
+                        }
+                      }}
+                      className="hidden" 
+                    />
+                  </label>
+                </div>
+                <span className="text-xs text-[#9CA3AF]">{selectedUser.name}</span>
+              </div>
+
+              <div>
+                <label className="label-micro mb-2 block">Role</label>
+                <select value={editRole} onChange={e => setEditRole(e.target.value)} className="input-dark h-10 w-full text-sm">
+                  <option value="citizen">Citizen</option>
+                  <option value="department_staff">Department Staff</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+              
+              <div className="flex items-center justify-between p-3 border border-white/5 rounded-lg bg-white/[0.02]">
+                <span className="text-sm font-medium">Account Active</span>
+                <input type="checkbox" checked={editActive} onChange={e => setEditActive(e.target.checked)} className="w-4 h-4 accent-[#61C0FF] bg-transparent border-white/20 rounded cursor-pointer" />
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button onClick={closeModal} className="btn-outline h-9 px-4 text-sm">Cancel</button>
+              <button onClick={handleSaveUser} disabled={modalLoading} className="bg-[#61C0FF] hover:bg-[#61C0FF]/90 text-black h-9 px-4 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50 flex items-center justify-center min-w-[100px]">
+                {modalLoading ? <Loader2 className="animate-spin" size={14} /> : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════════════
+// VIEW: AUDIT LOGS
+// ════════════════════════════════════════════════════════════════════════════════
+function LogsView() {
+  const [logs, setLogs] = useState<any[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    adminApi.logs({ page, limit: 50 }).then(res => {
+      setLogs(res.data.logs);
+      setTotal(res.data.total);
+      setLoading(false);
+    }).catch(err => {
+      console.error(err);
+      setLoading(false);
+    });
+  }, [page]);
+
+  const totalPages = Math.ceil(total / 50) || 1;
+
+  return (
+    <div className="p-6 space-y-5" style={{ animation: 'fadeUp 0.3s ease-out' }}>
+      <div className="card overflow-hidden relative min-h-[400px]">
+        {loading && (
+          <div className="absolute inset-0 bg-[#05070A]/50 backdrop-blur-sm flex items-center justify-center z-10">
+            <Loader2 className="animate-spin text-[#61C0FF]" />
+          </div>
+        )}
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-white/5">
+                {['Timestamp', 'Admin', 'Action', 'Target', 'Details'].map(h => (
+                  <th key={h} className="px-4 py-3 text-left label-micro text-[#9CA3AF]">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {logs.map((log, idx) => (
+                <tr key={log.id} className="border-b border-white/5 last:border-0 hover:bg-white/[0.02] transition-colors" style={{ animation: `fadeUp 0.3s ease-out ${idx * 30}ms both` }}>
+                  <td className="px-4 py-3.5"><span className="text-xs text-[#9CA3AF]">{new Date(log.created_at).toLocaleString()}</span></td>
+                  <td className="px-4 py-3.5">
+                    <span className="text-sm text-white font-medium block">{log.admin_name}</span>
+                    <span className="text-[10px] text-[#9CA3AF]">{log.admin_email}</span>
+                  </td>
+                  <td className="px-4 py-3.5">
+                    <span className={`text-xs px-2 py-1 rounded border ${log.action.includes('DELETE') ? 'border-[#EF4444]/30 text-[#EF4444] bg-[#EF4444]/10' : 'border-[#00FF94]/30 text-[#00FF94] bg-[#00FF94]/10'}`}>
+                      {log.action}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3.5"><span className="text-xs text-[#9CA3AF] font-mono">{log.entity_type} #{log.entity_id.slice(0, 8)}</span></td>
+                  <td className="px-4 py-3.5">
+                    <span className="text-xs text-[#9CA3AF] truncate max-w-[200px] block">{log.details ? log.details : '—'}</span>
+                  </td>
+                </tr>
+              ))}
+              {logs.length === 0 && !loading && (
+                <tr>
+                  <td colSpan={5} className="py-10 text-center text-[#9CA3AF] text-sm">No audit logs found.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination footer */}
+        <div className="px-4 py-3 border-t border-white/5 flex items-center justify-between">
+          <span className="text-xs text-[#9CA3AF]">Showing {logs.length} of {total} logs</span>
+          <div className="flex gap-1">
+            {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
+              let p = i + 1;
+              if (totalPages > 5 && page > 3) p = page - 2 + i;
+              if (p > totalPages) return null;
+              return (
+                <button key={p} onClick={() => setPage(p)} className={`w-7 h-7 rounded-lg text-xs font-medium transition-all ${p === page ? 'bg-[#61C0FF]/10 text-[#61C0FF]' : 'text-[#9CA3AF] hover:bg-white/5 hover:text-white'}`}>{p}</button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════════════
 // VIEW: SETTINGS (placeholder)
 // ════════════════════════════════════════════════════════════════════════════════
 function SettingsView() {
-  return (
-    <div className="p-6 space-y-4" style={{ animation: 'fadeUp 0.3s ease-out' }}>
-      <div className="card p-8 text-center">
-        <Settings size={36} className="mx-auto mb-4 opacity-10" />
-        <p className="font-semibold text-white mb-1">Settings</p>
-        <p className="text-sm text-[#9CA3AF]">Admin configuration panel — coming soon</p>
+  const [settings, setSettings] = useState({
+    systemName: '',
+    supportEmail: '',
+    enableRegistration: true,
+    minUpvotesForAutoAcknowledge: 5,
+    enableAnonymousReporting: true,
+    allowGuestComments: false,
+    enableAlertBanner: false,
+    alertBannerText: '',
+    alertBannerType: 'warning'
+  });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    adminApi.getSettings()
+      .then(res => {
+        setSettings(res.data);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error(err);
+        setError('Failed to load settings');
+        setLoading(false);
+      });
+  }, []);
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setSuccess(false);
+    setError(null);
+    try {
+      const res = await adminApi.updateSettings(settings);
+      setSettings(res.data);
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 3000);
+    } catch (err) {
+      console.error(err);
+      setError('Failed to save settings');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="p-10 flex justify-center">
+        <Loader2 className="animate-spin text-[#61C0FF]" />
       </div>
-    </div>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSave} className="p-6 space-y-6 max-w-4xl" style={{ animation: 'fadeUp 0.35s ease-out' }}>
+      {/* Header Info */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-bold text-white">System Settings</h2>
+          <p className="text-xs text-[#9CA3AF] mt-1">Configure global application rules, registration preferences, and municipal broadcasts.</p>
+        </div>
+      </div>
+
+      {error && (
+        <div className="p-4 rounded-xl border border-red-500/20 bg-red-500/10 text-red-400 text-xs flex items-center gap-2">
+          <AlertTriangle size={14} />
+          {error}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        
+        {/* Panel 1: General Settings */}
+        <div className="card p-6 flex flex-col gap-4">
+          <div className="flex items-center gap-2 pb-3 border-b border-white/5">
+            <div className="w-8 h-8 rounded-lg bg-[#61C0FF]/15 flex items-center justify-center">
+              <Settings size={15} className="text-[#61C0FF]" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-white">General Platform</h3>
+              <p className="text-[10px] text-[#9CA3AF]">Customize public naming and contacts</p>
+            </div>
+          </div>
+
+          <div className="space-y-3.5">
+            <div>
+              <label className="block text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1.5">Municipality / Platform Name</label>
+              <input 
+                type="text" 
+                value={settings.systemName} 
+                onChange={e => setSettings(s => ({ ...s, systemName: e.target.value }))}
+                required
+                className="w-full h-10 px-3.5 rounded-xl text-xs text-white placeholder-white/20 bg-[#0E131A] border border-white/5 focus:border-[#61C0FF]/30 outline-none transition-all"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1.5">Support Contact Email</label>
+              <input 
+                type="email" 
+                value={settings.supportEmail} 
+                onChange={e => setSettings(s => ({ ...s, supportEmail: e.target.value }))}
+                required
+                className="w-full h-10 px-3.5 rounded-xl text-xs text-white placeholder-white/20 bg-[#0E131A] border border-white/5 focus:border-[#61C0FF]/30 outline-none transition-all"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Panel 2: Community Rules & Automations */}
+        <div className="card p-6 flex flex-col gap-4">
+          <div className="flex items-center gap-2 pb-3 border-b border-white/5">
+            <div className="w-8 h-8 rounded-lg bg-[#00FF94]/15 flex items-center justify-center">
+              <Zap size={15} className="text-[#00FF94]" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-white">Community & Automation Rules</h3>
+              <p className="text-[10px] text-[#9CA3AF]">Submission logic and user privileges</p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <div className="flex justify-between items-center mb-1">
+                <label className="block text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-wider">Auto-Acknowledge Upvote Threshold</label>
+                <span className="text-xs font-bold text-[#00FF94] bg-[#00FF94]/10 px-2 py-0.5 rounded-full">{settings.minUpvotesForAutoAcknowledge} upvotes</span>
+              </div>
+              <p className="text-[10px] text-[#9CA3AF] mb-2 leading-relaxed">Issues receiving this many upvotes will automatically transition to "Acknowledged" status.</p>
+              <input 
+                type="range" 
+                min="1" 
+                max="50" 
+                value={settings.minUpvotesForAutoAcknowledge} 
+                onChange={e => setSettings(s => ({ ...s, minUpvotesForAutoAcknowledge: parseInt(e.target.value) }))}
+                className="w-full accent-[#00FF94]"
+              />
+            </div>
+
+            <div className="space-y-3 pt-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-medium text-white block">Enable Public Registration</span>
+                  <span className="text-[9px] text-[#9CA3AF]">Allow new citizens to sign up on the platform</span>
+                </div>
+                <button 
+                  type="button"
+                  onClick={() => setSettings(s => ({ ...s, enableRegistration: !s.enableRegistration }))}
+                  className={`w-11 h-6 rounded-full transition-colors relative flex items-center px-[3px] border ${settings.enableRegistration ? 'bg-[#00FF94]/20 border-[#00FF94]/40' : 'bg-white/5 border-white/10'}`}
+                >
+                  <span className={`w-4 h-4 rounded-full transition-transform ${settings.enableRegistration ? 'bg-[#00FF94] translate-x-5' : 'bg-[#9CA3AF] translate-x-0'} shadow-md`} />
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-medium text-white block">Allow Anonymous Reporting</span>
+                  <span className="text-[9px] text-[#9CA3AF]">Citizens can choose to hide their name on issues</span>
+                </div>
+                <button 
+                  type="button"
+                  onClick={() => setSettings(s => ({ ...s, enableAnonymousReporting: !s.enableAnonymousReporting }))}
+                  className={`w-11 h-6 rounded-full transition-colors relative flex items-center px-[3px] border ${settings.enableAnonymousReporting ? 'bg-[#00FF94]/20 border-[#00FF94]/40' : 'bg-white/5 border-white/10'}`}
+                >
+                  <span className={`w-4 h-4 rounded-full transition-transform ${settings.enableAnonymousReporting ? 'bg-[#00FF94] translate-x-5' : 'bg-[#9CA3AF] translate-x-0'} shadow-md`} />
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-medium text-white block">Allow Guest Comments</span>
+                  <span className="text-[9px] text-[#9CA3AF]">Allow comments from users without verified profiles</span>
+                </div>
+                <button 
+                  type="button"
+                  onClick={() => setSettings(s => ({ ...s, allowGuestComments: !s.allowGuestComments }))}
+                  className={`w-11 h-6 rounded-full transition-colors relative flex items-center px-[3px] border ${settings.allowGuestComments ? 'bg-[#00FF94]/20 border-[#00FF94]/40' : 'bg-white/5 border-white/10'}`}
+                >
+                  <span className={`w-4 h-4 rounded-full transition-transform ${settings.allowGuestComments ? 'bg-[#00FF94] translate-x-5' : 'bg-[#9CA3AF] translate-x-0'} shadow-md`} />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Panel 3: Broadcast Emergency Alert (Span full width) */}
+        <div className="card p-6 flex flex-col gap-4 md:col-span-2">
+          <div className="flex items-center justify-between pb-3 border-b border-white/5">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-[#EF4444]/15 flex items-center justify-center">
+                <AlertTriangle size={15} className="text-[#EF4444]" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-white">Emergency Broadcast Alert System</h3>
+                <p className="text-[10px] text-[#9CA3AF]">Broadcast notices across all citizen dashboard pages</p>
+              </div>
+            </div>
+            <button 
+              type="button"
+              onClick={() => setSettings(s => ({ ...s, enableAlertBanner: !s.enableAlertBanner }))}
+              className={`w-11 h-6 rounded-full transition-colors relative flex items-center px-[3px] border ${settings.enableAlertBanner ? 'bg-[#EF4444]/20 border-[#EF4444]/40' : 'bg-white/5 border-white/10'}`}
+            >
+              <span className={`w-4 h-4 rounded-full transition-transform ${settings.enableAlertBanner ? 'bg-[#EF4444] translate-x-5' : 'bg-[#9CA3AF] translate-x-0'} shadow-md`} />
+            </button>
+          </div>
+
+          <div className={`space-y-4 transition-all duration-300 ${settings.enableAlertBanner ? 'opacity-100 max-h-[500px]' : 'opacity-40 pointer-events-none max-h-[500px]'}`}>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="sm:col-span-2">
+                <label className="block text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1.5">Broadcast Alert Message</label>
+                <textarea 
+                  value={settings.alertBannerText}
+                  onChange={e => setSettings(s => ({ ...s, alertBannerText: e.target.value }))}
+                  required={settings.enableAlertBanner}
+                  placeholder="e.g. Due to severe water maintenance, street block 4 will experience low pressure until 5 PM today."
+                  rows={3}
+                  className="w-full p-3 rounded-xl text-xs text-white placeholder-white/20 bg-[#0E131A] border border-white/5 focus:border-[#EF4444]/30 outline-none transition-all resize-none leading-relaxed"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1.5">Severity Type</label>
+                <div className="flex flex-col gap-2">
+                  {[
+                    { value: 'info', label: 'Info (Blue)', border: 'border-[#61C0FF]/25', color: '#61C0FF' },
+                    { value: 'warning', label: 'Warning (Amber)', border: 'border-[#F59E0B]/25', color: '#F59E0B' },
+                    { value: 'critical', label: 'Critical (Crimson)', border: 'border-[#EF4444]/25', color: '#EF4444' }
+                  ].map(t => (
+                    <button
+                      key={t.value}
+                      type="button"
+                      onClick={() => setSettings(s => ({ ...s, alertBannerType: t.value }))}
+                      className={`h-9 px-3.5 rounded-xl border text-xs font-semibold flex items-center gap-2 transition-all ${settings.alertBannerType === t.value ? 'bg-white/5' : 'bg-transparent border-white/5 opacity-55 hover:opacity-100'}`}
+                      style={{ borderColor: settings.alertBannerType === t.value ? t.color : '' }}
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full" style={{ background: t.color }} />
+                      <span style={{ color: settings.alertBannerType === t.value ? t.color : '#F5F7FA' }}>{t.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      {/* Save Button Footer */}
+      <div className="flex justify-end pt-3 gap-3 items-center border-t border-white/5">
+        {success && (
+          <span className="text-xs font-semibold text-[#00FF94] flex items-center gap-1.5 animate-pulse">
+            <CheckCircle2 size={13} />
+            Settings saved successfully!
+          </span>
+        )}
+        <button
+          type="submit"
+          disabled={saving}
+          className="h-10 px-6 rounded-xl text-xs font-bold text-[#05070A] transition-all flex items-center gap-2 select-none"
+          style={{ 
+            background: saving ? 'rgba(97,192,255,0.2)' : 'linear-gradient(135deg,#00aaef,#61C0FF)',
+            boxShadow: saving ? 'none' : '0 4px 16px rgba(0,170,239,0.2)',
+            cursor: saving ? 'not-allowed' : 'pointer'
+          }}
+        >
+          {saving ? (
+            <>
+              <Loader2 size={14} className="animate-spin text-[#05070A]" />
+              Saving Changes...
+            </>
+          ) : (
+            'Save Changes'
+          )}
+        </button>
+      </div>
+    </form>
   );
 }
 
@@ -724,12 +1398,37 @@ const VIEW_META: Record<AdminView, { title: string; sub: string }> = {
   dashboard: { title: 'Admin Dashboard',   sub: 'City Command Center – Monitor and manage all issues' },
   issues:    { title: 'Issue Management',  sub: 'Manage and resolve reported issues' },
   analytics: { title: 'Analytics',         sub: 'Insights and performance metrics' },
+  users:     { title: 'User Management',   sub: 'Manage registered citizens and staff' },
+  logs:      { title: 'Audit Logs',        sub: 'Security trail of all administrative actions' },
   settings:  { title: 'Settings',          sub: 'Platform configuration' },
 };
 
-export default function AdminDashboard() {
+function AdminDashboardContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const viewParam = searchParams.get('view') as AdminView;
+  const { user } = useAuthStore();
+
   const [view, setView] = useState<AdminView>('dashboard');
   const [darkMode, setDarkMode] = useState(true);
+
+  useEffect(() => {
+    if (viewParam && ['dashboard', 'issues', 'analytics', 'users', 'logs', 'settings'].includes(viewParam)) {
+      // Prevent non-admin staff from accessing restricted views
+      if (['users', 'logs', 'settings'].includes(viewParam) && user?.role !== 'admin') {
+        setView('dashboard');
+      } else {
+        setView(viewParam);
+      }
+    } else {
+      setView('dashboard');
+    }
+  }, [viewParam, user]);
+
+  const handleSetView = (newView: AdminView) => {
+    setView(newView);
+    router.push(`/admin?view=${newView}`);
+  };
 
   return (
     <>
@@ -740,10 +1439,13 @@ export default function AdminDashboard() {
         }
       `}</style>
 
-      <div className="min-h-screen bg-[#05070A] text-white flex">
-        <AdminSidebar view={view} setView={setView} />
+      <div className="flex min-h-screen bg-base-950">
+        <Sidebar />
 
-        <main className="flex-1 md:ml-52 min-h-screen flex flex-col">
+        <main className="flex-1 ml-64 min-h-screen relative overflow-hidden flex flex-col">
+          {/* Subtle background glow effect */}
+          <div className="absolute top-0 inset-x-0 h-[500px] bg-hero-gradient pointer-events-none opacity-50" />
+
           <TopBar
             title={VIEW_META[view].title}
             sub={VIEW_META[view].sub}
@@ -751,14 +1453,29 @@ export default function AdminDashboard() {
             toggleDark={() => setDarkMode(v => !v)}
           />
 
-          <div className="flex-1 overflow-y-auto">
-            {view === 'dashboard'  && <DashboardView setView={setView} />}
+          <div className="flex-1 overflow-y-auto relative z-10">
+            {view === 'dashboard'  && <DashboardView setView={handleSetView} />}
             {view === 'issues'     && <IssueManagementView />}
             {view === 'analytics'  && <AnalyticsView />}
+            {view === 'users'      && <UsersManagementView />}
+            {view === 'logs'       && <LogsView />}
             {view === 'settings'   && <SettingsView />}
           </div>
         </main>
       </div>
     </>
+  );
+}
+
+export default function AdminDashboard() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-base-950 flex flex-col items-center justify-center gap-4">
+        <Loader2 className="animate-spin text-accent-primary" size={32} />
+        <div className="text-content-muted font-medium animate-pulse">Loading Command Center...</div>
+      </div>
+    }>
+      <AdminDashboardContent />
+    </Suspense>
   );
 }

@@ -14,22 +14,35 @@ const fileFilter = (req, file, cb) => {
   else cb(new Error('Invalid file type. Only images and videos are allowed.'), false);
 };
 
-// Use memory storage, then stream to Cloudinary
+const fs = require('fs');
+const path = require('path');
+
+const uploadDir = path.join(__dirname, '../../public/uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const ext = file.originalname.split('.').pop();
+    const filename = `issue_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    cb(null, filename);
+  }
+});
+
+// Use disk storage
 const upload = multer({
-  storage: multer.memoryStorage(),
+  storage,
   fileFilter,
   limits: { fileSize: 50 * 1024 * 1024, files: 5 },
 });
 
-// Upload a buffer to Cloudinary and return result
-const uploadToCloudinary = (buffer, options) => {
-  return new Promise((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream(options, (error, result) => {
-      if (error) return reject(error);
-      resolve(result);
-    });
-    Readable.from(buffer).pipe(stream);
-  });
+// Upload a local file to Cloudinary and return result
+const uploadToCloudinary = (filePath, options) => {
+  return cloudinary.uploader.upload(filePath, options);
 };
 
 const deleteMedia = async (publicId, resourceType = 'image') => {
