@@ -13,18 +13,16 @@ interface IssueCardProps {
 
 export function IssueCard({ issue, compact = false }: IssueCardProps) {
   return (
-    <Link href={`/issues/${issue.id}`} className="block h-full outline-none">
+    <Link href={`/issues/${issue.id}`}>
       <div className={clsx(
-        'card card-hover flex flex-col cursor-pointer group h-full',
+        'card card-hover p-5 cursor-pointer group transition-all duration-200',
         compact ? 'p-4' : 'p-5'
       )}>
         {/* Header */}
-        <div className="flex items-start justify-between gap-3 mb-4">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-base-850 border border-border-subtle flex items-center justify-center text-lg">
-              {issue.category_icon || '📋'}
-            </div>
-            <span className="text-[13px] font-semibold text-content-secondary">{issue.category_name || 'Issue'}</span>
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">{issue.category_icon || '📋'}</span>
+            <span className="label-micro">{issue.category_name || 'Issue'}</span>
           </div>
           <div className="flex items-center gap-2">
             <SeverityBadge severity={issue.severity} />
@@ -33,54 +31,47 @@ export function IssueCard({ issue, compact = false }: IssueCardProps) {
         </div>
 
         {/* Title */}
-        <h3 className="font-semibold text-content-primary group-hover:text-accent-secondary transition-colors line-clamp-2 mb-2 text-base leading-snug">
+        <h3 className="font-semibold text-white group-hover:text-[#00FF94] transition-colors line-clamp-2 mb-2 text-base">
           {issue.title}
         </h3>
 
-        {issue.department && (
-          <div className="text-[11px] font-semibold text-accent-secondary/90 mb-3 flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-accent-secondary" />
-            {issue.status === 'resolved' ? `Resolved by: ${issue.department}` : `Assigned: ${issue.department}`}
-          </div>
-        )}
-
         {!compact && (
-          <p className="text-content-secondary text-sm line-clamp-2 mb-4 leading-relaxed">
+          <p className="text-[#9CA3AF] text-sm line-clamp-2 mb-4">
             {issue.description}
           </p>
         )}
 
         {/* Location */}
         {issue.address && (
-          <div className="flex items-start gap-1.5 text-content-muted text-[13px] mb-4 mt-auto">
-            <MapPin size={14} className="mt-0.5 shrink-0" />
-            <span className="line-clamp-1">{issue.address}</span>
+          <div className="flex items-center gap-1.5 text-[#9CA3AF] text-xs mb-3">
+            <MapPin size={12} />
+            <span className="truncate">{issue.address}</span>
           </div>
         )}
 
         {/* Footer */}
-        <div className="flex items-center justify-between pt-4 border-t border-border-subtle/60 mt-auto">
-          <div className="flex items-center gap-4 text-content-muted text-[13px] font-medium">
-            <span className="flex items-center gap-1.5 hover:text-content-primary transition-colors">
-              <ThumbsUp size={14} />
+        <div className="flex items-center justify-between pt-3 border-t border-white/5">
+          <div className="flex items-center gap-4 text-[#9CA3AF] text-xs">
+            <span className="flex items-center gap-1">
+              <ThumbsUp size={12} />
               {issue.upvote_count}
             </span>
-            <span className="flex items-center gap-1.5 hover:text-content-primary transition-colors">
-              <MessageSquare size={14} />
+            <span className="flex items-center gap-1">
+              <MessageSquare size={12} />
               {issue.comment_count}
             </span>
-            <span className="flex items-center gap-1.5 hover:text-content-primary transition-colors">
-              <Users size={14} />
+            <span className="flex items-center gap-1">
+              <Users size={12} />
               {issue.follow_count}
             </span>
-            {issue.distance !== undefined && (
-              <span className="flex items-center gap-1.5">
-                <MapPin size={14} />
+            {issue.distance && (
+              <span className="flex items-center gap-1">
+                <MapPin size={12} />
                 {(issue.distance / 1000).toFixed(1)}km
               </span>
             )}
           </div>
-          <span className="flex items-center gap-1.5 text-content-muted text-[12px] font-medium">
+          <span className="flex items-center gap-1 text-[#9CA3AF] text-xs">
             <Clock size={12} />
             {formatDistanceToNow(new Date(issue.created_at), { addSuffix: true })}
           </span>

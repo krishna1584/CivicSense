@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { usersApi } from '@/lib/api';
 import { Notification } from '@/types';
-import { useNotificationStore } from '@/lib/store';
 import { Bell, Loader2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import Link from 'next/link';
@@ -19,17 +18,13 @@ const TYPE_COLORS: Record<string, string> = {
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
-  const { setUnreadCount } = useNotificationStore();
 
   useEffect(() => {
     usersApi.notifications()
-      .then((res) => {
-        setNotifications(res.data.notifications);
-        setUnreadCount(0);
-      })
+      .then((res) => setNotifications(res.data.notifications))
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [setUnreadCount]);
+  }, []);
 
   return (
     <AppLayout>
