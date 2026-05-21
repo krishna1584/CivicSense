@@ -5,14 +5,7 @@ const setupSocket = (io) => {
   // Auth middleware for socket connections
   io.use(async (socket, next) => {
     try {
-      const getCookie = (cookieStr, key) => {
-        if (!cookieStr) return null;
-        const match = cookieStr.match(new RegExp('(^|;)\\s*' + key + '\\s*=\\s*([^;]+)'));
-        return match ? match[2] : null;
-      };
-      const token = socket.handshake.auth?.token || 
-                    socket.handshake.headers?.authorization?.split(' ')[1] ||
-                    getCookie(socket.handshake.headers?.cookie, 'accessToken');
+      const token = socket.handshake.auth?.token || socket.handshake.headers?.authorization?.split(' ')[1];
       if (token) {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         const result = await pool.query('SELECT id, name, role FROM users WHERE id = $1', [decoded.userId]);
@@ -23,6 +16,8 @@ const setupSocket = (io) => {
   });
 
   io.on('connection', (socket) => {
+    console.log(`[Socket] Connected: ${socket.id} | User: ${socket.user?.name || 'guest'}`);
+
     // Join issue room for real-time updates
     socket.on('join_issue', (issueId) => {
       socket.join(`issue_${issueId}`);
@@ -42,7 +37,9 @@ const setupSocket = (io) => {
       socket.join('admin_room');
     }
 
-    socket.on('disconnect', () => {});
+    socket.on('disconnect', () => {
+      console.log(`[Socket] Disconnected: ${socket.id}`);
+    });
   });
 
   return io;

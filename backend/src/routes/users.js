@@ -1,7 +1,6 @@
 const express = require('express');
 const pool = require('../db/pool');
 const { auth, requireRole } = require('../middleware/auth');
-const { upload } = require('../middleware/upload');
 
 const router = express.Router();
 
@@ -18,7 +17,7 @@ router.get('/me/issues', auth, async (req, res) => {
 
     const [result, countResult] = await Promise.all([
       pool.query(`
-        SELECT i.id, i.title, i.description, i.status, i.severity, i.upvote_count, i.comment_count,
+        SELECT i.id, i.title, i.status, i.severity, i.upvote_count, i.comment_count,
                i.follow_count, i.address, i.is_anonymous, i.created_at, i.updated_at, i.resolved_at,
                c.name AS category_name, c.icon AS category_icon, c.slug AS category_slug
         FROM issues i
@@ -102,20 +101,6 @@ router.get('/me/notifications', auth, async (req, res) => {
   }
 });
 
-// GET /api/users/me/notifications/unread-count
-router.get('/me/notifications/unread-count', auth, async (req, res) => {
-  try {
-    const result = await pool.query(
-      'SELECT COUNT(*) FROM notifications WHERE user_id = $1 AND is_read = FALSE',
-      [req.user.id]
-    );
-    res.json({ unreadCount: parseInt(result.rows[0].count) });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Failed to fetch unread notifications count' });
-  }
-});
-
 // GET /api/users/:id/profile
 router.get('/:id/profile', async (req, res) => {
   try {
@@ -136,79 +121,6 @@ router.get('/:id/profile', async (req, res) => {
     res.json({ user: user.rows[0], stats: stats.rows[0] });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch profile' });
-  }
-});
-
-// PATCH /api/users/me
-router.patch('/me', auth, upload.single('avatar'), async (req, res) => {
-  const { name, address } = req.body;
-  const userId = req.user.id;
-  let avatarUrl = null;
-
-  try {
-    const updates = [];
-    const values = [];
-    let idx = 1;
-
-    if (name !== undefined) {
-      updates.push(`name = $${idx++}`);
-      values.push(name);
-    }
-
-    if (address !== undefined) {
-      updates.push(`address = $${idx++}`);
-      values.push(address);
-    }
-
-    if (req.file) {
-      const cloudinaryConfigured = process.env.CLOUDINARY_CLOUD_NAME &&
-        process.env.CLOUDINARY_CLOUD_NAME !== 'your_cloud_name';
-
-      if (cloudinaryConfigured) {
-        const { uploadToCloudinary } = require('../middleware/upload');
-        const fs = require('fs');
-        try {
-          const result = await uploadToCloudinary(req.file.path, {
-            folder: 'civicsense/avatars',
-            resource_type: 'image',
-            public_id: `avatar_${userId}_${Date.now()}`,
-          });
-          avatarUrl = result.secure_url;
-          fs.unlinkSync(req.file.path);
-        } catch (err) {
-          console.warn('Cloudinary upload failed for avatar, using local path:', err.message);
-          avatarUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
-        }
-      } else {
-        avatarUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
-      }
-
-      updates.push(`avatar_url = $${idx++}`);
-      values.push(avatarUrl);
-    }
-
-    if (updates.length === 0) {
-      return res.status(400).json({ error: 'No fields to update' });
-    }
-
-    values.push(userId);
-    const query = `
-      UPDATE users 
-      SET ${updates.join(', ')}, updated_at = NOW() 
-      WHERE id = $${idx} 
-      RETURNING id, name, email, role, trust_score, avatar_url, address, created_at
-    `;
-
-    const result = await pool.query(query, values);
-    const updatedUser = result.rows[0];
-
-    res.json({
-      message: 'Profile updated successfully',
-      user: updatedUser,
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Failed to update profile' });
   }
 });
 
