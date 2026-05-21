@@ -1,0 +1,11 @@
+{
+  "systemName": "CivicSense Command Center",
+  "supportEmail": "support@civicsense.gov",
+  "enableRegistration": true,
+  "minUpvotesForAutoAcknowledge": 5,
+  "enableAnonymousReporting": true,
+  "allowGuestComments": false,
+  "enableAlertBanner": false,
+  "alertBannerText": "",
+  "alertBannerType": "warning"
+}
