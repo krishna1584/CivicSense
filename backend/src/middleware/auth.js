@@ -7,7 +7,7 @@ const auth = async (req, res, next) => {
     if (!token) return res.status(401).json({ error: 'Access token required' });
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const result = await pool.query('SELECT id, name, email, role, trust_score, is_active FROM users WHERE id = $1', [decoded.userId]);
+    const result = await pool.query('SELECT id, name, email, role, trust_score, avatar_url, is_verified, is_active FROM users WHERE id = $1', [decoded.userId]);
 
     if (!result.rows[0]) return res.status(401).json({ error: 'User not found' });
     if (!result.rows[0].is_active) return res.status(403).json({ error: 'Account is deactivated' });
@@ -31,7 +31,7 @@ const optionalAuth = async (req, res, next) => {
     const token = req.cookies?.accessToken || req.headers.authorization?.split(' ')[1];
     if (token) {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      const result = await pool.query('SELECT id, name, email, role, trust_score FROM users WHERE id = $1', [decoded.userId]);
+      const result = await pool.query('SELECT id, name, email, role, trust_score, avatar_url, is_verified FROM users WHERE id = $1', [decoded.userId]);
       if (result.rows[0]) req.user = result.rows[0];
     }
   } catch (_) {}

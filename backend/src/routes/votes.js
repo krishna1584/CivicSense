@@ -37,7 +37,8 @@ router.post('/', auth, async (req, res) => {
         action = 'changed';
       }
     } else {
-      await client.query('INSERT INTO votes (issue_id, user_id, vote_type) VALUES ($1, $2, $3)', [req.params.issueId, req.user.id, vote_type]);
+      const voteId = require('crypto').randomUUID();
+      await client.query('INSERT INTO votes (id, issue_id, user_id, vote_type) VALUES ($1, $2, $3, $4)', [voteId, req.params.issueId, req.user.id, vote_type]);
       const col = vote_type === 'upvote' ? 'upvote_count' : 'downvote_count';
       await client.query(`UPDATE issues SET ${col} = ${col} + 1 WHERE id = $1`, [req.params.issueId]);
     }
@@ -71,7 +72,8 @@ router.post('/follow', auth, async (req, res) => {
       await client.query('UPDATE issues SET follow_count = GREATEST(follow_count - 1, 0) WHERE id = $1', [req.params.issueId]);
       following = false;
     } else {
-      await client.query('INSERT INTO follows (issue_id, user_id) VALUES ($1, $2)', [req.params.issueId, req.user.id]);
+      const followId = require('crypto').randomUUID();
+      await client.query('INSERT INTO follows (id, issue_id, user_id) VALUES ($1, $2, $3)', [followId, req.params.issueId, req.user.id]);
       await client.query('UPDATE issues SET follow_count = follow_count + 1 WHERE id = $1', [req.params.issueId]);
       following = true;
     }

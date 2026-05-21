@@ -10,9 +10,7 @@ export const getSocket = (token?: string): Socket => {
       autoConnect: true,
     });
 
-    socket.on('connect', () => console.log('[Socket] Connected:', socket?.id));
-    socket.on('disconnect', () => console.log('[Socket] Disconnected'));
-    socket.on('connect_error', (err) => console.error('[Socket] Error:', err.message));
+    socket.on('connect_error', (err) => console.error('[Socket] Connection error:', err.message));
   }
   return socket;
 };
