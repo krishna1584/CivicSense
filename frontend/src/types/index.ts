@@ -10,6 +10,8 @@ export interface User {
   role: UserRole;
   trust_score: number;
   avatar_url?: string;
+  address?: string;
+  is_verified?: boolean;
   created_at: string;
 }
 
