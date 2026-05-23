@@ -77,7 +77,7 @@ const STATUS_CONFIG: Record<Status, { color: string; bg: string; dot: string; ic
   'In Progress': { color: 'text-state-warning', bg: 'bg-state-warning/10', dot: 'bg-state-warning', icon: Loader2 },
   Resolved: { color: 'text-state-success', bg: 'bg-state-success/10', dot: 'bg-state-success', icon: CheckCircle2 },
   Rejected: { color: 'text-state-error', bg: 'bg-state-error/10', dot: 'bg-state-error', icon: XCircle },
-  'Pending Verification': { color: 'text-[#A855F7]', bg: 'bg-[#A855F7]/10', dot: 'bg-[#A855F7]', icon: Eye },
+  'Pending Verification': { color: 'text-accent-secondary', bg: 'bg-accent-secondary/10', dot: 'bg-accent-secondary', icon: Eye },
 };
 
 const SEVERITY_CONFIG: Record<Severity, { color: string; bg: string; border: string }> = {
@@ -294,7 +294,7 @@ export default function IssueDetailPage() {
           id: c.id,
           author: c.author_name || 'Anonymous',
           initials: (c.author_name || 'A').substring(0, 2).toUpperCase(),
-          avatarColor: '#7C5CFF', // using primary accent
+          avatarColor: '#6366F1', // using primary accent
           content: c.content,
           created_at: c.created_at,
           isOwn: user?.id === c.user_id,
@@ -353,7 +353,7 @@ export default function IssueDetailPage() {
           id: c.id,
           author: c.author_name || 'Anonymous',
           initials: (c.author_name || 'A').substring(0, 2).toUpperCase(),
-          avatarColor: '#7C5CFF',
+          avatarColor: '#6366F1',
           content: c.content,
           created_at: c.created_at,
           isOwn: true,
@@ -544,18 +544,18 @@ export default function IssueDetailPage() {
               <div className="flex-1 min-w-0">
                 {/* 🔍 CITIZEN RESOLUTION VERIFICATION PANEL */}
                 {showPurplePanel && (
-                  <div className="mb-8 relative overflow-hidden p-6 rounded-2xl bg-[#A855F7]/5 border border-[#A855F7]/20 shadow-xl animate-fade_in">
-                    <div className="absolute -top-20 -right-20 w-40 h-40 rounded-full bg-[#A855F7]/10 blur-[50px] pointer-events-none" />
+                  <div className="mb-8 relative overflow-hidden p-6 rounded-2xl bg-accent-secondary/5 border border-accent-secondary/20 shadow-xl animate-fade_in">
+                    <div className="absolute -top-20 -right-20 w-40 h-40 rounded-full bg-accent-secondary/10 blur-[50px] pointer-events-none" />
                     
                     <div className="flex items-start gap-4 mb-5 relative z-10">
-                      <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-[#A855F7]/20 text-[#A855F7] border border-[#A855F7]/30 shrink-0">
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-accent-secondary/20 text-accent-secondary border border-accent-secondary/30 shrink-0">
                         <CheckCircle2 size={20} strokeWidth={2.5} />
                       </div>
                       <div>
                         <h3 className="text-lg font-bold text-white mb-1">
                           {issue.department ? `Verify ${issue.department} Resolution` : 'Verify Admin Resolution'}
                         </h3>
-                        <p className="text-sm text-[#D8B4FE] leading-relaxed">
+                        <p className="text-sm text-accent-secondary/80 leading-relaxed">
                           {issue.department 
                             ? `The ${issue.department} has marked this issue as resolved. Please review the proof below and approve or reject the resolution.`
                             : 'An administrator has marked this issue as resolved. Please review the proof below and approve or reject the resolution.'}
@@ -566,10 +566,10 @@ export default function IssueDetailPage() {
                     {/* Show Resolution Media inside the card */}
                     {issue.media?.some((m: any) => m.is_resolution) && (
                       <div className="mb-5 relative z-10">
-                        <p className="text-[11px] font-bold uppercase text-[#A855F7] tracking-wider mb-2.5">Resolution Evidence</p>
+                        <p className="text-[11px] font-bold uppercase text-accent-secondary tracking-wider mb-2.5">Resolution Evidence</p>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           {issue.media.filter((m: any) => m.is_resolution).map((m: any, i: number) => (
-                            <div key={i} className="relative rounded-xl overflow-hidden border border-white/10 bg-black/40 flex items-center justify-center group shadow-inner aspect-[4/3]">
+                            <div key={i} className="relative rounded-xl overflow-hidden border border-border-subtle bg-base-900 flex items-center justify-center group shadow-inner aspect-[4/3]">
                               {m.type === 'video' ? (
                                 <video src={formatMediaUrl(m.url)} controls className="w-full h-full object-contain" />
                               ) : (
@@ -583,12 +583,12 @@ export default function IssueDetailPage() {
 
                     {showRejectInput && (
                       <div className="mb-5 relative z-10 animate-fade_in">
-                        <label className="block text-[11px] font-bold uppercase text-[#D8B4FE] mb-2">Reason for Rejection</label>
+                        <label className="block text-[11px] font-bold uppercase text-accent-secondary/80 mb-2">Reason for Rejection</label>
                         <textarea
                           placeholder="Describe why this issue isn't fully fixed yet..."
                           value={rejectComment}
                           onChange={e => setRejectComment(e.target.value)}
-                          className="w-full bg-base-900 border border-border-subtle focus:border-[#A855F7]/50 rounded-xl p-3.5 text-sm text-white h-24 transition-colors resize-none outline-none placeholder:text-[#9CA3AF]/50 shadow-inner"
+                          className="w-full bg-base-900 border border-border-subtle focus:border-accent-secondary/50 rounded-xl p-3.5 text-sm text-white h-24 transition-colors resize-none outline-none placeholder:text-content-muted/50 shadow-inner"
                         />
                       </div>
                     )}
@@ -617,7 +617,7 @@ export default function IssueDetailPage() {
                           <button
                             onClick={() => handleVerifyAction(true)}
                             disabled={verifying}
-                            className="bg-[#00FF94] hover:bg-[#00FF94]/90 text-black px-5 py-2.5 rounded-xl text-[13px] font-extrabold flex items-center gap-2 active:scale-[0.98] shadow-[0_4px_20px_rgba(0,255,148,0.2)] hover:shadow-[0_4px_25px_rgba(0,255,148,0.35)] transition-all disabled:opacity-50"
+                            className="bg-state-success hover:bg-state-success/90 text-black px-5 py-2.5 rounded-xl text-[13px] font-extrabold flex items-center gap-2 active:scale-[0.98] shadow-[0_4px_20px_rgba(74,222,128,0.2)] hover:shadow-[0_4px_25px_rgba(74,222,128,0.35)] transition-all disabled:opacity-50"
                           >
                             {verifying ? <Loader2 className="animate-spin" size={14} /> : <CheckCircle2 size={14} />}
                             Accept & Close Issue
@@ -625,7 +625,7 @@ export default function IssueDetailPage() {
                           <button
                             onClick={() => setShowRejectInput(true)}
                             disabled={verifying}
-                            className="bg-transparent border border-[#A855F7]/30 text-white hover:bg-[#A855F7]/10 px-5 py-2.5 rounded-xl text-[13px] font-bold flex items-center gap-2 active:scale-[0.98] transition-all disabled:opacity-50"
+                            className="bg-transparent border border-accent-secondary/30 text-white hover:bg-accent-secondary/10 px-5 py-2.5 rounded-xl text-[13px] font-bold flex items-center gap-2 active:scale-[0.98] transition-all disabled:opacity-50"
                           >
                             <XCircle size={14} />
                             Reject Resolution
@@ -640,7 +640,7 @@ export default function IssueDetailPage() {
                 {reportedMedia.length > 0 && (
                   <div className="relative mb-8 group rounded-2xl overflow-hidden bg-base-900 border border-border-subtle shadow-card select-none animate-fade_in">
                     {/* Dynamic Evidence Label */}
-                    <div className="absolute top-4 left-4 z-10 bg-base-950/80 backdrop-blur-md border border-white/5 rounded-full px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider text-content-secondary flex items-center gap-1.5 shadow-lg">
+                    <div className="absolute top-4 left-4 z-10 bg-base-950/80 backdrop-blur-md border border-border-subtle rounded-full px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider text-content-secondary flex items-center gap-1.5 shadow-lg">
                       <div className="w-1.5 h-1.5 rounded-full bg-accent-secondary animate-pulse" />
                       Reported Evidence
                     </div>
@@ -679,12 +679,12 @@ export default function IssueDetailPage() {
                         </button>
 
                         {/* Progress Dots */}
-                        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 bg-black/40 backdrop-blur-sm px-2.5 py-1.5 rounded-full border border-white/10">
+                        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 bg-base-900/80 backdrop-blur-sm px-2.5 py-1.5 rounded-full border border-border-subtle">
                           {reportedMedia.map((_: any, idx: number) => (
                             <button
                               key={idx}
                               onClick={() => setActiveMediaIndex(idx)}
-                              className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${idx === activeMediaIndex ? 'w-4 bg-accent-secondary' : 'bg-white/40 hover:bg-white/70'}`}
+                              className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${idx === activeMediaIndex ? 'w-4 bg-accent-secondary' : 'bg-content-muted/40 hover:bg-content-muted/70'}`}
                             />
                           ))}
                         </div>
@@ -705,7 +705,7 @@ export default function IssueDetailPage() {
                         </div>
                         <div>
                           <h3 className="text-base font-extrabold text-white leading-none mb-1.5">Official Resolution Proof</h3>
-                          <p className="text-[12px] font-semibold text-[#A3E635]/80">
+                          <p className="text-[12px] font-semibold text-state-success/80">
                             {issue.department 
                               ? `Verified evidence uploaded by the ${issue.department}` 
                               : 'Verified evidence uploaded by administrator'}
@@ -720,7 +720,7 @@ export default function IssueDetailPage() {
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 relative z-10">
                       {resolutionMedia.map((m: any, i: number) => (
-                        <div key={i} className="group relative aspect-[16/10] sm:aspect-[4/3] overflow-hidden rounded-xl bg-black/60 border border-white/10 shadow-inner hover:border-[#00FF94]/30 transition-all duration-300">
+                        <div key={i} className="group relative aspect-[16/10] sm:aspect-[4/3] overflow-hidden rounded-xl bg-base-900 border border-border-subtle shadow-inner hover:border-state-success/30 transition-all duration-300">
                           {m.type === 'video' ? (
                             <video src={formatMediaUrl(m.url)} controls className="w-full h-full object-contain bg-black" />
                           ) : (

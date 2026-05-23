@@ -1,9 +1,44 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --base-950: 255 255 255;
+    --base-900: 248 250 252;
+    --base-850: 241 245 249;
+    --base-800: 255 255 255;
+    --border-subtle: 226 232 240;
+    --content-primary: 15 23 42;
+    --content-secondary: 71 85 105;
+    --content-muted: 148 163 184;
+    --accent-primary: 59 130 246;
+    --accent-secondary: 99 102 241;
+    --accent-primary-hover: 37 99 235;
+    --accent-secondary-hover: 79 70 229;
+    --state-success: 34 197 94;
+    --state-warning: 245 158 11;
+    --state-error: 239 68 68;
+  }
+
+  .dark {
+    --base-950: 9 9 11;
+    --base-900: 24 24 27;
+    --base-850: 39 39 42;
+    --base-800: 24 24 27;
+    --border-subtle: 63 63 70;
+    --content-primary: 250 250 250;
+    --content-secondary: 161 161 170;
+    --content-muted: 113 113 122;
+    --accent-primary: 96 165 250;
+    --accent-secondary: 129 140 248;
+    --accent-primary-hover: 59 130 246;
+    --accent-secondary-hover: 99 102 241;
+    --state-success: 74 222 128;
+    --state-warning: 251 191 36;
+    --state-error: 251 113 133;
+  }
+
   * {
     box-sizing: border-box;
   }
@@ -18,8 +53,8 @@
   }
 
   ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 5px;
+    height: 5px;
   }
 
   ::-webkit-scrollbar-track {
@@ -27,48 +62,43 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    background: #273142;
+    background: rgb(var(--border-subtle));
     border-radius: 4px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: #3A475C;
+    background: rgb(var(--content-muted));
   }
 }
 
 @layer components {
-  /* Surface and layout utilities */
+  .glass-panel {
+    @apply bg-base-900/80 backdrop-blur-xl border-b border-border-subtle;
+  }
+
   .card {
-    @apply bg-base-800 border border-border-subtle rounded-2xl shadow-card transition-all duration-300;
+    @apply bg-base-800 border border-border-subtle rounded-xl shadow-card transition-all duration-200;
   }
 
   .card-hover {
-    @apply hover:-translate-y-0.5 hover:shadow-card-hover hover:border-accent-primary/20;
+    @apply hover:-translate-y-0.5 hover:shadow-card-hover;
   }
 
-  .glass-panel {
-    background: rgba(26, 33, 44, 0.6);
-    backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-  }
-
-  /* Buttons */
   .btn-primary {
     @apply inline-flex items-center justify-center bg-content-primary text-base-950 font-semibold px-5 py-2.5 rounded-xl transition-all duration-200;
-    @apply hover:bg-white hover:scale-[1.02] active:scale-[0.98] shadow-[0_2px_10px_rgba(255,255,255,0.1)];
+    @apply hover:opacity-90 active:scale-[0.98] shadow-sm;
   }
 
   .btn-secondary {
     @apply inline-flex items-center justify-center bg-base-850 border border-border-subtle text-content-primary font-medium px-5 py-2.5 rounded-xl transition-all duration-200;
-    @apply hover:bg-base-800 hover:border-content-secondary/40 active:scale-[0.98];
+    @apply hover:bg-base-800 active:scale-[0.98];
   }
 
   .btn-accent {
     @apply inline-flex items-center justify-center bg-accent-primary text-white font-semibold px-5 py-2.5 rounded-xl transition-all duration-200;
-    @apply hover:bg-accent-primary_hover hover:shadow-glow-primary hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98];
+    @apply hover:opacity-90 hover:shadow-glow-primary active:scale-[0.98];
   }
 
-  /* Form Elements */
   .input-dark {
     @apply bg-base-950 border border-border-subtle rounded-xl px-4 py-3 text-content-primary placeholder-content-muted w-full transition-all duration-200;
     @apply hover:border-content-muted/30;
@@ -80,12 +110,10 @@
     @apply hover:border-content-muted/30 focus:outline-none focus:border-accent-primary/50 focus:ring-2 focus:ring-accent-primary/10;
   }
 
-  /* Typography Utilities */
   .label-micro {
-    @apply text-[11px] uppercase tracking-[0.08em] text-content-muted font-semibold;
+    @apply text-[10px] uppercase tracking-[0.12em] text-content-muted font-medium;
   }
 
-  /* Sidebar */
   .sidebar-item {
     @apply flex items-center gap-3 px-3 py-2.5 rounded-xl text-content-secondary font-medium transition-all duration-200;
     @apply hover:bg-base-850 hover:text-content-primary cursor-pointer select-none;
@@ -95,23 +123,24 @@
     @apply bg-accent-primary/10 text-accent-primary;
   }
 
-  /* Layout wrappers */
   .page-container {
-    @apply max-w-[1200px] mx-auto px-6 py-10 w-full;
+    @apply max-w-[1200px] mx-auto px-6 py-8 w-full;
+  }
+
+  .badge-dot {
+    @apply w-1.5 h-1.5 rounded-full;
   }
 }
 
 @layer utilities {
+  .bg-grid {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Cpath d='M 40 0 L 0 0 0 40' fill='none' stroke='rgb(var(--border-subtle))' stroke-opacity='0.3' stroke-width='0.4'/%3E%3C/svg%3E");
+  }
+
   .text-gradient {
-    background: linear-gradient(to right, #F5F7FA, #A8B3C2);
+    background: linear-gradient(to right, rgb(var(--content-primary)), rgb(var(--content-secondary)));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
-  }
-
-  .bg-grid {
-    background-image: linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
-    background-size: 32px 32px;
   }
 }

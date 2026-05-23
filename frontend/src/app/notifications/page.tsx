@@ -10,10 +10,10 @@ import Link from 'next/link';
 import { clsx } from 'clsx';
 
 const TYPE_COLORS: Record<string, string> = {
-  status_update: 'bg-[#00aaef]/10 border-l-[#00aaef]',
-  new_comment: 'bg-[#3B82F6]/10 border-l-[#3B82F6]',
-  resolved: 'bg-[#00aaef]/10 border-l-[#00aaef]',
-  rejected: 'bg-[#EF4444]/10 border-l-[#EF4444]',
+  status_update: 'border-l-accent-secondary bg-accent-secondary/5',
+  new_comment: 'border-l-accent-primary bg-accent-primary/5',
+  resolved: 'border-l-[#22C55E] bg-[#22C55E]/5',
+  rejected: 'border-l-[#EF4444] bg-[#EF4444]/5',
 };
 
 export default function NotificationsPage() {
@@ -34,31 +34,39 @@ export default function NotificationsPage() {
   return (
     <AppLayout>
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gradient flex items-center gap-2">
-          <Bell size={26} className="text-[#00aaef]" /> Notifications
+        <h1 className="text-3xl font-bold text-content-primary flex items-center gap-3">
+          <span className="flex items-center justify-center w-9 h-9 rounded-xl bg-accent-secondary/10">
+            <Bell size={20} className="text-accent-secondary" />
+          </span>
+          Notifications
         </h1>
       </div>
 
       {loading ? (
         <div className="flex items-center justify-center h-64">
-          <Loader2 size={24} className="text-[#00aaef] animate-spin" />
+          <Loader2 size={24} className="text-accent-secondary animate-spin" />
         </div>
       ) : notifications.length === 0 ? (
-        <div className="card p-12 text-center text-[#9CA3AF]">No notifications yet.</div>
+        <div className="bg-base-850 border border-border-subtle rounded-xl p-12 text-center text-content-muted">
+          No notifications yet.
+        </div>
       ) : (
-        <div className="space-y-2 max-w-2xl">
+        <div className="space-y-3 max-w-2xl">
           {notifications.map((notif) => (
             <div key={notif.id}
-              className={clsx('card p-4 border-l-2 animate-slide_in', TYPE_COLORS[notif.type] || 'bg-[#0B0F14] border-l-white/10')}>
+              className={clsx(
+                'rounded-xl border border-border-subtle border-l-2 p-4 transition-all duration-200 hover:bg-base-800/80 hover:border-border-subtle',
+                TYPE_COLORS[notif.type] || 'border-l-accent-secondary bg-base-850'
+              )}>
               <div className="flex items-start justify-between gap-3">
-                <p className="text-white text-sm leading-relaxed">{notif.message}</p>
-                <span className="text-[#9CA3AF] text-xs whitespace-nowrap">
+                <p className="text-content-primary text-sm leading-relaxed">{notif.message}</p>
+                <span className="text-content-muted text-xs whitespace-nowrap shrink-0 mt-0.5">
                   {formatDistanceToNow(new Date(notif.created_at), { addSuffix: true })}
                 </span>
               </div>
               {notif.issue_id && (
-                <Link href={`/issues/${notif.issue_id}`} className="text-[#00aaef] text-xs mt-2 inline-block hover:underline">
-                  View Issue →
+                <Link href={`/issues/${notif.issue_id}`} className="text-accent-secondary text-xs mt-3 inline-block hover:text-accent-secondary transition-colors">
+                  View Issue &rarr;
                 </Link>
               )}
             </div>

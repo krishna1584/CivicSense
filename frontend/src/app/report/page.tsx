@@ -27,8 +27,8 @@ function validateStep(step: number, form: ReportForm, files: File[]): string | n
     if (!form.latitude || !form.longitude)                  return 'Please set GPS coordinates (use the GPS button or enter them manually).';
     const lat = parseFloat(form.latitude);
     const lng = parseFloat(form.longitude);
-    if (isNaN(lat) || lat < -90  || lat > 90)  return 'Latitude must be between −90 and 90.';
-    if (isNaN(lng) || lng < -180 || lng > 180) return 'Longitude must be between −180 and 180.';
+    if (isNaN(lat) || lat < -90  || lat > 90)  return 'Latitude must be between -90 and 90.';
+    if (isNaN(lng) || lng < -180 || lng > 180) return 'Longitude must be between -180 and 180.';
   }
   if (step === 2) {
     if (!files || files.length === 0) {

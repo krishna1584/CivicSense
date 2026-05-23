@@ -14,20 +14,20 @@ import { formatDistanceToNow } from 'date-fns';
 
 // ── Config ─────────────────────────────────────────────────────────────────────
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; dot: string }> = {
-  reported: { label: 'Reported', color: '#9CA3AF', bg: 'rgba(156,163,175,0.1)', dot: '#9CA3AF' },
-  acknowledged: { label: 'Acknowledged', color: '#61C0FF', bg: 'rgba(97,192,255,0.1)', dot: '#61C0FF' },
-  in_progress: { label: 'In Progress', color: '#F59E0B', bg: 'rgba(245,158,11,0.1)', dot: '#F59E0B' },
-  resolved: { label: 'Resolved', color: '#10B981', bg: 'rgba(16,185,129,0.1)', dot: '#10B981' },
-  rejected: { label: 'Rejected', color: '#EF4444', bg: 'rgba(239,68,68,0.1)', dot: '#EF4444' },
-  unresolved: { label: 'Unresolved', color: '#38BDF8', bg: 'rgba(56,189,248,0.1)', dot: '#38BDF8' },
-  pending_verification: { label: 'Pending Verification', color: '#A855F7', bg: 'rgba(168,85,247,0.1)', dot: '#A855F7' },
+  reported: { label: 'Reported', color: '#94A3B8', bg: 'rgb(148 163 184 / 0.1)', dot: '#94A3B8' },
+  acknowledged: { label: 'Acknowledged', color: '#3B82F6', bg: 'rgb(59 130 246 / 0.1)', dot: '#3B82F6' },
+  in_progress: { label: 'In Progress', color: '#F59E0B', bg: 'rgb(245 158 11 / 0.1)', dot: '#F59E0B' },
+  resolved: { label: 'Resolved', color: '#4ADE80', bg: 'rgba(74,222,128,0.1)', dot: '#4ADE80' },
+  rejected: { label: 'Rejected', color: '#FB7185', bg: 'rgba(251,113,133,0.1)', dot: '#FB7185' },
+  unresolved: { label: 'Unresolved', color: '#3B82F6', bg: 'rgb(59 130 246 / 0.1)', dot: '#3B82F6' },
+  pending_verification: { label: 'Pending Verification', color: '#6366F1', bg: 'rgb(99 102 241 / 0.1)', dot: '#6366F1' },
 };
 
 const SEVERITY_CONFIG: Record<Severity, { color: string; bg: string }> = {
-  low: { color: '#10B981', bg: 'rgba(16,185,129,0.1)' },
-  medium: { color: '#F59E0B', bg: 'rgba(245,158,11,0.1)' },
+  low: { color: '#4ADE80', bg: 'rgba(74,222,128,0.1)' },
+  medium: { color: '#F59E0B', bg: 'rgb(245 158 11 / 0.1)' },
   high: { color: '#F97316', bg: 'rgba(249,115,22,0.1)' },
-  critical: { color: '#EF4444', bg: 'rgba(239,68,68,0.1)' },
+  critical: { color: '#FB7185', bg: 'rgba(251,113,133,0.1)' },
 };
 
 const STATUS_FILTERS: string[] = ['all', 'unresolved', 'reported', 'acknowledged', 'in_progress', 'pending_verification', 'resolved', 'rejected'];
@@ -65,19 +65,26 @@ function IssueCardGrid({ issue, idx }: { issue: Issue; idx: number }) {
       <article
         className="rounded-2xl overflow-hidden cursor-pointer group transition-all duration-200 flex flex-col h-full"
         style={{
-          background: '#0B0F14', border: '1px solid rgba(255,255,255,0.05)',
+          background: 'rgb(var(--base-900))', border: '1px solid rgb(var(--border-subtle))',
+          boxShadow: '0 2px 16px -4px rgba(0,0,0,0.4)',
           animation: `fadeUp 0.35s ease-out ${idx * 50}ms both`,
         }}
-        onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(97,192,255,0.2)')}
-        onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)')}
+        onMouseEnter={e => {
+          e.currentTarget.style.borderColor = 'rgb(var(--accent-secondary) / 0.3)';
+          e.currentTarget.style.boxShadow = '0 8px 32px -8px rgba(0,0,0,0.5), 0 0 0 1px rgb(var(--accent-secondary) / 0.15)';
+        }}
+        onMouseLeave={e => {
+          e.currentTarget.style.borderColor = 'rgb(var(--border-subtle))';
+          e.currentTarget.style.boxShadow = '0 2px 16px -4px rgba(0,0,0,0.4)';
+        }}
       >
         {/* Image */}
         {issue.media?.[0]?.url && (
-          <div className="relative h-44 overflow-hidden bg-[#0E131A]">
+          <div className="relative h-44 overflow-hidden bg-base-850">
             <img src={issue.media[0].url} alt={issue.title}
               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 opacity-80 group-hover:opacity-100" />
             <div className="absolute top-3 right-3"><StatusBadge status={issue.status} /></div>
-            <div className="absolute inset-0 bg-gradient-to-t from-[#0B0F14] via-transparent to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-base-900 via-transparent to-transparent" />
           </div>
         )}
 
@@ -85,21 +92,21 @@ function IssueCardGrid({ issue, idx }: { issue: Issue; idx: number }) {
           {/* Category + severity */}
           <div className="flex items-center gap-2 mb-3">
             <span className="text-base">{issue.category_icon || '📋'}</span>
-            <span className="text-[11px] font-medium uppercase tracking-wider text-[#6B7280]">{issue.category_name || 'Issue'}</span>
+            <span className="text-[11px] font-medium uppercase tracking-wider text-content-muted">{issue.category_name || 'Issue'}</span>
             <span className="ml-auto"><SeverityBadge severity={issue.severity} /></span>
           </div>
 
           {/* Title */}
-          <h3 className="font-semibold text-white text-[15px] leading-snug mb-2 line-clamp-2 group-hover:text-[#61C0FF] transition-colors">
+          <h3 className="font-semibold text-content-primary text-[15px] leading-snug mb-2 line-clamp-2 group-hover:text-accent-primary transition-colors">
             {issue.title}
           </h3>
 
           {/* Description */}
-          <p className="text-[#6B7280] text-xs leading-relaxed line-clamp-2 mb-3 flex-1">{issue.description}</p>
+          <p className="text-content-muted text-xs leading-relaxed line-clamp-2 mb-3 flex-1">{issue.description}</p>
 
           {/* Location */}
           {issue.address && (
-            <div className="flex items-center gap-1.5 text-[#6B7280] text-xs mb-4">
+            <div className="flex items-center gap-1.5 text-content-muted text-xs mb-4">
               <MapPin size={11} className="flex-shrink-0" />
               <span className="truncate">{issue.address}</span>
             </div>
@@ -110,18 +117,18 @@ function IssueCardGrid({ issue, idx }: { issue: Issue; idx: number }) {
           )}
 
           {/* Footer */}
-          <div className="flex items-center justify-between pt-3 border-t border-white/5">
-            <div className="flex items-center gap-3 text-[#6B7280] text-xs">
-              <span className="flex items-center gap-1 hover:text-[#61C0FF] transition-colors"><ThumbsUp size={11} />{issue.upvote_count}</span>
+          <div className="flex items-center justify-between pt-3 border-t border-border-subtle">
+            <div className="flex items-center gap-3 text-content-muted text-xs">
+              <span className="flex items-center gap-1 hover:text-accent-primary transition-colors"><ThumbsUp size={11} />{issue.upvote_count}</span>
               <span className="flex items-center gap-1"><MessageSquare size={11} />{issue.comment_count}</span>
               <span className="flex items-center gap-1"><Users size={11} />{issue.follow_count}</span>
             </div>
-            <span className="flex items-center gap-1 text-[#6B7280] text-[11px]">
+            <span className="flex items-center gap-1 text-content-muted text-[11px]">
               <Clock size={10} />{formatDistanceToNow(new Date(issue.created_at), { addSuffix: true })}
             </span>
           </div>
           {!issue.is_anonymous && issue.reporter_name && (
-            <p className="text-[11px] text-[#6B7280]/60 mt-2">by <span className="text-[#6B7280]">{issue.reporter_name}</span></p>
+            <p className="text-[11px] text-content-muted/60 mt-2">by <span className="text-content-muted">{issue.reporter_name}</span></p>
           )}
         </div>
       </article>
@@ -135,25 +142,32 @@ function IssueRow({ issue, idx }: { issue: Issue; idx: number }) {
       <article
         className="flex items-center gap-4 p-4 rounded-xl cursor-pointer group transition-all"
         style={{
-          background: '#0B0F14', border: '1px solid rgba(255,255,255,0.05)',
+          background: 'rgb(var(--base-900))', border: '1px solid rgb(var(--border-subtle))',
+          boxShadow: '0 2px 16px -4px rgba(0,0,0,0.4)',
           animation: `fadeUp 0.3s ease-out ${idx * 40}ms both`,
         }}
-        onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(97,192,255,0.2)')}
-        onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)')}
+        onMouseEnter={e => {
+          e.currentTarget.style.borderColor = 'rgb(var(--accent-secondary) / 0.3)';
+          e.currentTarget.style.boxShadow = '0 8px 32px -8px rgba(0,0,0,0.5), 0 0 0 1px rgb(var(--accent-secondary) / 0.15)';
+        }}
+        onMouseLeave={e => {
+          e.currentTarget.style.borderColor = 'rgb(var(--border-subtle))';
+          e.currentTarget.style.boxShadow = '0 2px 16px -4px rgba(0,0,0,0.4)';
+        }}
       >
         {issue.media?.[0]?.url && (
-          <div className="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 bg-[#0E131A]">
+          <div className="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 bg-base-850">
             <img src={issue.media[0].url} alt="" className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
           </div>
         )}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
             <span className="text-sm">{issue.category_icon || '📋'}</span>
-            <span className="text-[11px] text-[#6B7280] uppercase tracking-wider font-medium">{issue.category_name}</span>
+            <span className="text-[11px] text-content-muted uppercase tracking-wider font-medium">{issue.category_name}</span>
           </div>
-          <h3 className="font-semibold text-white text-sm group-hover:text-[#61C0FF] transition-colors truncate">{issue.title}</h3>
+          <h3 className="font-semibold text-content-primary text-sm group-hover:text-accent-primary transition-colors truncate">{issue.title}</h3>
           {issue.address && (
-            <p className="text-[#6B7280] text-xs flex items-center gap-1 mt-0.5">
+            <p className="text-content-muted text-xs flex items-center gap-1 mt-0.5">
               <MapPin size={10} /><span className="truncate">{issue.address}</span>
             </p>
           )}
@@ -162,7 +176,7 @@ function IssueRow({ issue, idx }: { issue: Issue; idx: number }) {
           <SeverityBadge severity={issue.severity} />
           <StatusBadge status={issue.status} />
         </div>
-        <div className="hidden lg:flex items-center gap-4 text-[#6B7280] text-xs flex-shrink-0">
+        <div className="hidden lg:flex items-center gap-4 text-content-muted text-xs flex-shrink-0">
           <span className="flex items-center gap-1"><ThumbsUp size={11} />{issue.upvote_count}</span>
           <span className="flex items-center gap-1"><MessageSquare size={11} />{issue.comment_count}</span>
           <span className="flex items-center gap-1"><Clock size={11} />{formatDistanceToNow(new Date(issue.created_at), { addSuffix: true })}</span>
@@ -227,7 +241,7 @@ export default function ExplorePage() {
       headerActions={
         <Link href="/report"
           className="hidden sm:flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold"
-          style={{ background: 'linear-gradient(135deg,#00aaef,#61C0FF)', color: '#05070A', boxShadow: '0 4px 16px rgba(0,170,239,0.2)' }}>
+          style={{ background: 'linear-gradient(135deg, rgb(var(--accent-secondary)), rgb(var(--accent-secondary)))', color: '#FFFFFF', boxShadow: '0 4px 20px rgb(var(--accent-secondary) / 0.3)' }}>
           <Plus size={15} /> Report Issue
         </Link>
       }
@@ -240,13 +254,13 @@ export default function ExplorePage() {
       <div className="flex flex-col sm:flex-row gap-3 mb-4">
         {/* Search */}
         <div className="relative flex-1">
-          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#6B7280]" />
+          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-content-muted" />
           <input type="text" placeholder="Search issues by title, description…" value={search}
             onChange={e => setSearch(e.target.value)}
-            className="w-full h-10 pl-9 pr-9 rounded-xl text-sm text-white placeholder-[#4B5563] outline-none"
-            style={{ background: '#0E131A', border: '1px solid rgba(255,255,255,0.06)' }} />
+            className="w-full h-10 pl-9 pr-9 rounded-xl text-sm text-content-primary placeholder-content-muted outline-none"
+            style={{ background: 'rgb(var(--base-900))', border: '1px solid rgb(var(--border-subtle))' }} />
           {search && (
-            <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6B7280] hover:text-white">
+            <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-content-muted hover:text-content-primary">
               <X size={13} />
             </button>
           )}
@@ -254,24 +268,24 @@ export default function ExplorePage() {
         {/* Sort */}
         <div className="relative">
           <select value={sort} onChange={e => setSort(e.target.value)}
-            className="h-10 pl-3 pr-8 rounded-xl text-sm text-white appearance-none outline-none cursor-pointer min-w-[150px]"
-            style={{ background: '#0E131A', border: '1px solid rgba(255,255,255,0.06)' }}>
+            className="h-10 pl-3 pr-8 rounded-xl text-sm text-content-primary appearance-none outline-none cursor-pointer min-w-[150px]"
+            style={{ background: 'rgb(var(--base-900))', border: '1px solid rgb(var(--border-subtle))' }}>
             {SORT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
-          <ChevronDown size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6B7280] pointer-events-none" />
+          <ChevronDown size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-content-muted pointer-events-none" />
         </div>
         {/* Shortcut Filter: Unresolved Only */}
         <button
           onClick={() => setActiveStatus(prev => prev === 'unresolved' ? 'all' : 'unresolved')}
           className="h-10 px-4 flex items-center gap-2 rounded-xl text-sm font-semibold transition-all duration-250 active:scale-[0.97]"
           style={{
-            background: activeStatus === 'unresolved' ? 'rgba(56,189,248,0.12)' : 'rgba(255,255,255,0.03)',
-            border: activeStatus === 'unresolved' ? '1px solid rgba(56,189,248,0.4)' : '1px solid rgba(255,255,255,0.06)',
-            color: activeStatus === 'unresolved' ? '#38BDF8' : '#9CA3AF',
-            boxShadow: activeStatus === 'unresolved' ? '0 0 15px rgba(56,189,248,0.15)' : 'none',
+            background: activeStatus === 'unresolved' ? 'rgb(var(--accent-primary) / 0.12)' : 'rgb(var(--base-850))',
+            border: activeStatus === 'unresolved' ? '1px solid rgb(var(--accent-primary) / 0.4)' : '1px solid rgb(var(--border-subtle))',
+            color: activeStatus === 'unresolved' ? 'rgb(var(--accent-primary))' : 'rgb(var(--content-muted))',
+            boxShadow: activeStatus === 'unresolved' ? '0 0 15px rgb(var(--accent-primary) / 0.15)' : 'none',
           }}
         >
-          <span className={`w-1.5 h-1.5 rounded-full ${activeStatus === 'unresolved' ? 'bg-[#38BDF8] animate-pulse' : 'bg-[#9CA3AF]/40'}`} />
+          <span className={`w-1.5 h-1.5 rounded-full ${activeStatus === 'unresolved' ? 'bg-accent-secondary animate-pulse' : 'bg-content-secondary/40'}`} />
           Unresolved Only
         </button>
 
@@ -279,19 +293,19 @@ export default function ExplorePage() {
         <button onClick={() => setShowFilters(v => !v)}
           className="h-10 px-4 flex items-center gap-2 rounded-xl text-sm font-medium transition-all"
           style={{
-            background: showFilters ? 'rgba(97,192,255,0.1)' : 'rgba(255,255,255,0.03)',
-            border: showFilters ? '1px solid rgba(97,192,255,0.3)' : '1px solid rgba(255,255,255,0.06)',
-            color: showFilters ? '#61C0FF' : '#9CA3AF',
+            background: showFilters ? 'rgb(var(--accent-secondary) / 0.1)' : 'rgb(var(--base-850))',
+            border: showFilters ? '1px solid rgb(var(--accent-secondary) / 0.3)' : '1px solid rgb(var(--border-subtle))',
+            color: showFilters ? 'rgb(var(--accent-secondary))' : 'rgb(var(--content-muted))',
           }}>
           <SlidersHorizontal size={14} /> Filters
-          {hasFilters && <span className="w-2 h-2 rounded-full bg-[#61C0FF]" />}
+          {hasFilters && <span className="w-2 h-2 rounded-full bg-accent-primary" />}
         </button>
         {/* View toggle */}
-        <div className="flex gap-1 h-10 p-1 rounded-xl" style={{ background: '#0B0F14', border: '1px solid rgba(255,255,255,0.05)' }}>
+        <div className="flex gap-1 h-10 p-1 rounded-xl" style={{ background: 'rgb(var(--base-900))', border: '1px solid rgb(var(--border-subtle))' }}>
           {([['grid', LayoutGrid], ['list', List]] as const).map(([mode, Icon]) => (
             <button key={mode} onClick={() => setViewMode(mode)}
               className="px-3 rounded-lg transition-all"
-              style={{ background: viewMode === mode ? 'rgba(97,192,255,0.1)' : 'transparent', color: viewMode === mode ? '#61C0FF' : '#6B7280' }}>
+              style={{ background: viewMode === mode ? 'rgb(var(--accent-secondary) / 0.1)' : 'transparent', color: viewMode === mode ? 'rgb(var(--accent-secondary))' : 'rgb(var(--content-secondary))' }}>
               <Icon size={15} />
             </button>
           ))}
@@ -300,10 +314,10 @@ export default function ExplorePage() {
 
       {/* Filter Panel */}
       {showFilters && (
-        <div className="rounded-xl p-4 mb-4 space-y-4" style={{ background: '#0B0F14', border: '1px solid rgba(255,255,255,0.06)' }}>
+        <div className="rounded-xl p-4 mb-4 space-y-4" style={{ background: 'rgb(var(--base-900))', border: '1px solid rgb(var(--border-subtle))' }}>
           {/* Status */}
           <div>
-            <p className="text-[10px] font-medium uppercase tracking-[1.5px] text-[#6B7280] mb-2">Status</p>
+            <p className="text-[10px] font-medium uppercase tracking-[1.5px] text-content-muted mb-2">Status</p>
             <div className="flex flex-wrap gap-2">
               {STATUS_FILTERS.map(s => {
                 const cfg = s !== 'all' ? STATUS_CONFIG[s as IssueStatus] : null;
@@ -312,9 +326,9 @@ export default function ExplorePage() {
                   <button key={s} onClick={() => setActiveStatus(s)}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
                     style={{
-                      background: isActive ? (cfg?.bg || 'rgba(97,192,255,0.1)') : 'rgba(255,255,255,0.03)',
-                      border: isActive ? `1px solid ${cfg?.dot || '#61C0FF'}` : '1px solid rgba(255,255,255,0.06)',
-                      color: isActive ? (cfg?.color || '#61C0FF') : '#6B7280',
+                      background: isActive ? (cfg?.bg || 'rgb(var(--accent-secondary) / 0.1)') : 'rgb(var(--base-850))',
+                      border: isActive ? `1px solid ${cfg?.dot || 'rgb(var(--accent-secondary))'}` : '1px solid rgb(var(--border-subtle))',
+                      color: isActive ? (cfg?.color || 'rgb(var(--accent-secondary))') : 'rgb(var(--content-secondary))',
                     }}>
                     {cfg && <span className="w-1.5 h-1.5 rounded-full" style={{ background: cfg.dot }} />}
                     {s === 'all' ? 'All' : cfg?.label}
@@ -325,15 +339,15 @@ export default function ExplorePage() {
           </div>
           {/* Category */}
           <div>
-            <p className="text-[10px] font-medium uppercase tracking-[1.5px] text-[#6B7280] mb-2">Category</p>
+            <p className="text-[10px] font-medium uppercase tracking-[1.5px] text-content-muted mb-2">Category</p>
             <div className="flex flex-wrap gap-2">
               {CATEGORY_FILTERS.map(c => (
                 <button key={c} onClick={() => setActiveCategory(c)}
                   className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
                   style={{
-                    background: activeCategory === c ? 'rgba(97,192,255,0.1)' : 'rgba(255,255,255,0.03)',
-                    border: activeCategory === c ? '1px solid rgba(97,192,255,0.35)' : '1px solid rgba(255,255,255,0.06)',
-                    color: activeCategory === c ? '#61C0FF' : '#6B7280',
+                    background: activeCategory === c ? 'rgb(var(--accent-secondary) / 0.1)' : 'rgb(var(--base-850))',
+                    border: activeCategory === c ? '1px solid rgb(var(--accent-secondary) / 0.35)' : '1px solid rgb(var(--border-subtle))',
+                    color: activeCategory === c ? 'rgb(var(--accent-secondary))' : 'rgb(var(--content-secondary))',
                   }}>
                   {c}
                 </button>
@@ -341,7 +355,7 @@ export default function ExplorePage() {
             </div>
           </div>
           {hasFilters && (
-            <button onClick={clearFilters} className="flex items-center gap-1.5 text-xs text-red-400 hover:text-red-300 transition-colors">
+            <button onClick={clearFilters} className="flex items-center gap-1.5 text-xs text-state-error hover:text-state-error/80 transition-colors">
               <X size={11} /> Clear all filters
             </button>
           )}
@@ -350,11 +364,11 @@ export default function ExplorePage() {
 
       {/* Results bar */}
       <div className="flex items-center justify-between mb-5">
-        <p className="text-[#6B7280] text-sm">
-          {loading ? 'Loading…' : <><span className="text-white font-semibold">{issues.length}</span> of {total} issues</>}
+        <p className="text-content-muted text-sm">
+          {loading ? 'Loading…' : <><span className="text-content-primary font-semibold">{issues.length}</span> of {total} issues</>}
         </p>
         {hasFilters && !loading && (
-          <button onClick={clearFilters} className="text-xs text-[#61C0FF] flex items-center gap-1 hover:underline">
+          <button onClick={clearFilters} className="text-xs text-accent-primary flex items-center gap-1 hover:underline">
             <X size={11} /> Clear filters
           </button>
         )}
@@ -363,32 +377,32 @@ export default function ExplorePage() {
       {/* Issues */}
       {loading ? (
         <div className="flex flex-col items-center justify-center py-24 gap-4">
-          <Loader2 size={36} className="animate-spin text-[#61C0FF]" />
-          <p className="text-[#6B7280] text-sm">Loading community issues…</p>
+          <Loader2 size={36} className="animate-spin text-accent-primary" />
+          <p className="text-content-muted text-sm">Loading community issues…</p>
         </div>
       ) : error ? (
         <div className="flex flex-col items-center justify-center py-24 gap-4 rounded-2xl"
-          style={{ background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.15)' }}>
-          <AlertTriangle size={32} className="text-red-400" />
+          style={{ background: 'rgba(251,113,133,0.05)', border: '1px solid rgba(251,113,133,0.15)' }}>
+          <AlertTriangle size={32} className="text-state-error" />
           <div className="text-center">
-            <p className="text-white font-semibold">Failed to load</p>
-            <p className="text-[#6B7280] text-sm mt-1">{error}</p>
+            <p className="text-content-primary font-semibold">Failed to load</p>
+            <p className="text-content-muted text-sm mt-1">{error}</p>
           </div>
           <button onClick={fetchIssues}
-            className="px-4 py-2 rounded-xl text-sm text-[#61C0FF]"
-            style={{ background: 'rgba(97,192,255,0.08)', border: '1px solid rgba(97,192,255,0.2)' }}>
+            className="px-4 py-2 rounded-xl text-sm text-accent-primary"
+            style={{ background: 'rgb(99 102 241 / 0.08)', border: '1px solid rgb(99 102 241 / 0.2)' }}>
             Try Again
           </button>
         </div>
       ) : issues.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 gap-4">
-          <Search size={36} className="text-[#6B7280] opacity-40" />
+          <Search size={36} className="text-content-muted opacity-40" />
           <div className="text-center">
-            <p className="text-white font-semibold">No issues found</p>
-            <p className="text-[#6B7280] text-sm mt-1">Try adjusting your search or filters.</p>
+            <p className="text-content-primary font-semibold">No issues found</p>
+            <p className="text-content-muted text-sm mt-1">Try adjusting your search or filters.</p>
           </div>
           {hasFilters && (
-            <button onClick={clearFilters} className="text-sm text-[#61C0FF] flex items-center gap-1 hover:underline">
+            <button onClick={clearFilters} className="text-sm text-accent-primary flex items-center gap-1 hover:underline">
               <X size={12} /> Clear all filters
             </button>
           )}

@@ -3,9 +3,9 @@ import { clsx } from 'clsx';
 
 const severityConfig: Record<Severity, { label: string; color: string }> = {
   low: { label: 'Low', color: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20' },
-  medium: { label: 'Medium', color: 'text-[#F59E0B] bg-[#F59E0B]/10 border-[#F59E0B]/20' },
+  medium: { label: 'Medium', color: 'text-state-warning bg-state-warning/10 border-state-warning/20' },
   high: { label: 'High', color: 'text-orange-400 bg-orange-400/10 border-orange-400/20' },
-  critical: { label: 'Critical', color: 'text-[#EF4444] bg-[#EF4444]/10 border-[#EF4444]/30 shadow-glow-red' },
+  critical: { label: 'Critical', color: 'text-state-error bg-state-error/10 border-state-error/30' },
 };
 
 export function SeverityBadge({ severity }: { severity: Severity }) {

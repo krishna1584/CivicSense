@@ -49,18 +49,18 @@ interface Issue {
 
 // ─── Badge configs ─────────────────────────────────────────────────────────────
 const STATUS_CFG: Record<Status, { color: string; bg: string; dot: string }> = {
-  Reported:      { color: 'text-[#9CA3AF]', bg: 'bg-white/5',       dot: 'bg-[#9CA3AF]' },
-  Acknowledged:  { color: 'text-[#61C0FF]', bg: 'bg-[#61C0FF]/10',  dot: 'bg-[#61C0FF]' },
-  'In Progress': { color: 'text-[#F59E0B]', bg: 'bg-[#F59E0B]/10',  dot: 'bg-[#F59E0B]' },
-  Resolved:      { color: 'text-[#00FF94]', bg: 'bg-[#00FF94]/10',  dot: 'bg-[#00FF94]' },
-  Rejected:      { color: 'text-[#EF4444]', bg: 'bg-[#EF4444]/10',  dot: 'bg-[#EF4444]' },
-  'Pending Verification': { color: 'text-[#A855F7]', bg: 'bg-[#A855F7]/10', dot: 'bg-[#A855F7]' },
+  Reported:      { color: 'text-content-secondary', bg: 'bg-base-850',       dot: 'bg-content-muted' },
+  Acknowledged:  { color: 'text-accent-secondary', bg: 'bg-accent-secondary/10',  dot: 'bg-accent-secondary' },
+  'In Progress': { color: 'text-state-warning', bg: 'bg-state-warning/10',  dot: 'bg-state-warning' },
+  Resolved:      { color: 'text-state-success', bg: 'bg-state-success/10',  dot: 'bg-state-success' },
+  Rejected:      { color: 'text-state-error', bg: 'bg-state-error/10',  dot: 'bg-state-error' },
+  'Pending Verification': { color: 'text-accent-primary', bg: 'bg-accent-primary/10', dot: 'bg-accent-primary' },
 };
 const SEV_CFG: Record<Severity, { color: string; bg: string }> = {
-  Critical: { color: 'text-[#EF4444]', bg: 'bg-[#EF4444]/15' },
-  High:     { color: 'text-[#F59E0B]', bg: 'bg-[#F59E0B]/15' },
-  Medium:   { color: 'text-[#61C0FF]', bg: 'bg-[#61C0FF]/15' },
-  Low:      { color: 'text-[#9CA3AF]', bg: 'bg-white/5' },
+  Critical: { color: 'text-state-error', bg: 'bg-state-error/15' },
+  High:     { color: 'text-state-warning', bg: 'bg-state-warning/15' },
+  Medium:   { color: 'text-accent-secondary', bg: 'bg-accent-secondary/15' },
+  Low:      { color: 'text-content-secondary', bg: 'bg-base-850' },
 };
 
 function StatusBadge({ status }: { status: Status }) {
@@ -82,7 +82,7 @@ function SevBadge({ severity }: { severity: Severity }) {
 }
 
 // ─── Tiny SVG Charts ───────────────────────────────────────────────────────────
-function BarChart({ data, labels = ['Roads', 'Garbage', 'Parks', 'Traffic', 'Water', 'Lights', 'Buildings'], color = '#61C0FF' }: { data: number[]; labels?: string[]; color?: string }) {
+function BarChart({ data, labels = ['Roads', 'Garbage', 'Parks', 'Traffic', 'Water', 'Lights', 'Buildings'], color = '#3B82F6' }: { data: number[]; labels?: string[]; color?: string }) {
   const max = Math.max(...data);
   return (
     <div className="w-full h-full flex flex-col">
@@ -102,7 +102,7 @@ function BarChart({ data, labels = ['Roads', 'Garbage', 'Parks', 'Traffic', 'Wat
       </div>
       <div className="flex gap-2">
         {labels.slice(0, data.length).map((l, i) => (
-          <div key={i} className="flex-1 text-center text-[9px] text-[#9CA3AF] truncate">{l}</div>
+          <div key={i} className="flex-1 text-center text-[9px] text-content-secondary truncate">{l}</div>
         ))}
       </div>
     </div>
@@ -131,14 +131,14 @@ function PieChart({ slices }: { slices: { value: number; color: string; label: s
     <div className="flex items-center gap-6">
       <svg viewBox="0 0 200 200" className="w-36 h-36 shrink-0">
         {paths.map((p, i) => (
-          <path key={i} d={p.d} fill={p.color} opacity="0.9" stroke="#0B0F14" strokeWidth="2" />
+          <path key={i} d={p.d} fill={p.color} opacity="0.9" stroke="#0F172A" strokeWidth="2" />
         ))}
       </svg>
       <div className="space-y-2">
         {paths.map((p, i) => (
           <div key={i} className="flex items-center gap-2 text-xs">
             <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: p.color }} />
-            <span className="text-[#9CA3AF]">{p.label}</span>
+            <span className="text-content-secondary">{p.label}</span>
             <span className="text-white font-semibold ml-auto pl-3">{p.value}</span>
           </div>
         ))}
@@ -147,7 +147,7 @@ function PieChart({ slices }: { slices: { value: number; color: string; label: s
   );
 }
 
-function LineChart({ data, color = '#61C0FF' }: { data: number[]; color?: string }) {
+function LineChart({ data, color = '#3B82F6' }: { data: number[]; color?: string }) {
   const max = Math.max(...data); const min = Math.min(...data);
   const w = 260; const h = 80; const pad = 10;
   const pts = data.map((v, i) => {
@@ -171,11 +171,11 @@ function LineChart({ data, color = '#61C0FF' }: { data: number[]; color?: string
         <path d={areaD} fill="url(#lg)" />
         <path d={pathD} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         {pts.map(([x, y], i) => (
-          <circle key={i} cx={x} cy={y} r="3" fill={color} stroke="#0B0F14" strokeWidth="1.5" />
+          <circle key={i} cx={x} cy={y} r="3" fill={color} stroke="#0F172A" strokeWidth="1.5" />
         ))}
       </svg>
       <div className="flex justify-between px-2 mt-1">
-        {months.map(m => <span key={m} className="text-[9px] text-[#9CA3AF]">{m}</span>)}
+        {months.map(m => <span key={m} className="text-[9px] text-content-secondary">{m}</span>)}
       </div>
     </div>
   );
@@ -189,17 +189,17 @@ function DonutChart({ pct, color, label }: { pct: number; color: string; label: 
     <div className="flex flex-col items-center">
       <div className="relative">
         <svg viewBox="0 0 128 128" className="w-32 h-32 -rotate-90">
-          <circle cx={cx} cy={cy} r={r} fill="none" stroke="#1a2030" strokeWidth="12" />
+          <circle cx={cx} cy={cy} r={r} fill="none" stroke="#0F172A" strokeWidth="12" />
           <circle cx={cx} cy={cy} r={r} fill="none" stroke={color} strokeWidth="12"
             strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"
             style={{ transition: 'stroke-dasharray 1s ease-out' }} />
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <span className="text-xl font-black text-white">{pct}%</span>
-          <span className="text-[10px] text-[#9CA3AF]">rate</span>
+          <span className="text-[10px] text-content-secondary">rate</span>
         </div>
       </div>
-      <div className="mt-2 text-xs text-[#9CA3AF] text-center">{label}</div>
+      <div className="mt-2 text-xs text-content-secondary text-center">{label}</div>
     </div>
   );
 }
@@ -210,13 +210,13 @@ function StatCard({ label, value, sub, subUp, icon: Icon, color, delay = 0 }:
   return (
     <div className="stat-card" style={{ '--accent': color } as React.CSSProperties}>
       <div className="flex items-start justify-between mb-3">
-        <p className="label-micro text-[#9CA3AF]">{label}</p>
+        <p className="label-micro text-content-secondary">{label}</p>
         <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: color + '20' }}>
           <Icon size={15} style={{ color }} />
         </div>
       </div>
       <div className="text-3xl font-black text-white mb-1">{value}</div>
-      <div className={`flex items-center gap-1 text-xs font-medium ${subUp === undefined ? 'text-[#9CA3AF]' : subUp ? 'text-[#00FF94]' : 'text-[#EF4444]'}`}>
+      <div className={`flex items-center gap-1 text-xs font-medium ${subUp === undefined ? 'text-content-secondary' : subUp ? 'text-state-success' : 'text-state-error'}`}>
         {subUp !== undefined && (subUp ? <TrendingUp size={11} /> : <TrendingDown size={11} />)}
         {sub}
       </div>
@@ -244,7 +244,7 @@ function DashboardView({ setView }: { setView: (v: AdminView) => void }) {
   }, []);
 
   if (loading || !data) {
-    return <div className="p-10 flex justify-center"><Loader2 className="animate-spin text-[#61C0FF]" /></div>;
+    return <div className="p-10 flex justify-center"><Loader2 className="animate-spin text-accent-secondary" /></div>;
   }
 
   const { overview, byStatus, bySeverity, byCategory, slaViolations, recentIssues } = data;
@@ -253,10 +253,10 @@ function DashboardView({ setView }: { setView: (v: AdminView) => void }) {
   const barLabels = byCategory.map((c: any) => c.name).slice(0, 7);
 
   const pieColors: Record<string, string> = {
-    'reported': '#9CA3AF', 'acknowledged': '#61C0FF', 'in_progress': '#F59E0B', 'resolved': '#00FF94', 'rejected': '#EF4444'
+    'reported': '#94A3B8', 'acknowledged': '#3B82F6', 'in_progress': '#F59E0B', 'resolved': '#4ADE80', 'rejected': '#EF4444'
   };
   const pieSlices = byStatus.map((s: any) => ({
-    value: parseInt(s.count), color: pieColors[s.status] || '#9CA3AF', label: s.status.replace('_', ' ')
+    value: parseInt(s.count), color: pieColors[s.status] || '#94A3B8', label: s.status.replace('_', ' ')
   }));
 
   const criticalIssues = recentIssues.filter((i: any) => i.severity === 'critical' || i.severity === 'high').slice(0, 3);
@@ -265,9 +265,9 @@ function DashboardView({ setView }: { setView: (v: AdminView) => void }) {
     <div className="p-6 space-y-6" style={{ animation: 'fadeUp 0.3s ease-out' }}>
       {/* Stat cards */}
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-        <StatCard label="Total Issues"    value={overview.total || '0'} sub="All time"                  icon={Activity}    color="#61C0FF"  delay={0} />
+        <StatCard label="Total Issues"    value={overview.total || '0'} sub="All time"                  icon={Activity}    color="#3B82F6"  delay={0} />
         <StatCard label="Open Issues"     value={overview.active || '0'} sub="Requires attention"        icon={AlertTriangle} color="#F59E0B" subUp={false} delay={1} />
-        <StatCard label="Avg Resolution"  value={`${overview.avg_resolution_hours || '0'}h`}  sub="Resolution time" icon={Clock} color="#00FF94" subUp={true} delay={2} />
+        <StatCard label="Avg Resolution"  value={`${overview.avg_resolution_hours || '0'}h`}  sub="Resolution time" icon={Clock} color="#4ADE80" subUp={true} delay={2} />
         <StatCard label="SLA Breaches"    value={slaViolations?.length?.toString() || '0'} sub="Needs attention" icon={XCircle} color="#EF4444" subUp={false} delay={3} />
       </div>
 
@@ -279,7 +279,7 @@ function DashboardView({ setView }: { setView: (v: AdminView) => void }) {
             <h3 className="font-semibold text-white text-sm">Issues by Category</h3>
           </div>
           <div className="h-52">
-            {barData.length > 0 ? <BarChart data={barData} labels={barLabels} color="#61C0FF" /> : <div className="text-[#9CA3AF] text-sm h-full flex items-center justify-center">No data</div>}
+            {barData.length > 0 ? <BarChart data={barData} labels={barLabels} color="#3B82F6" /> : <div className="text-content-secondary text-sm h-full flex items-center justify-center">No data</div>}
           </div>
         </div>
 
@@ -289,7 +289,7 @@ function DashboardView({ setView }: { setView: (v: AdminView) => void }) {
             <h3 className="font-semibold text-white text-sm">Status Distribution</h3>
           </div>
           <div className="flex items-center justify-center h-52">
-            {pieSlices.length > 0 ? <PieChart slices={pieSlices} /> : <div className="text-[#9CA3AF] text-sm h-full flex items-center justify-center">No data</div>}
+            {pieSlices.length > 0 ? <PieChart slices={pieSlices} /> : <div className="text-content-secondary text-sm h-full flex items-center justify-center">No data</div>}
           </div>
         </div>
       </div>
@@ -300,27 +300,27 @@ function DashboardView({ setView }: { setView: (v: AdminView) => void }) {
         <div className="card p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-white text-sm flex items-center gap-2">
-              <AlertTriangle size={14} className="text-[#EF4444]" />
+              <AlertTriangle size={14} className="text-state-error" />
               Critical Issues
             </h3>
-            <button onClick={() => setView('issues')} className="text-[#61C0FF] text-xs hover:underline flex items-center gap-1">
+            <button onClick={() => setView('issues')} className="text-accent-secondary text-xs hover:underline flex items-center gap-1">
               View All <ChevronRight size={11} />
             </button>
           </div>
           <div className="space-y-3">
             {criticalIssues.map((issue: any) => (
-              <Link href={`/issues/${issue.id}`} key={issue.id} className="flex items-center gap-3 p-3 rounded-xl bg-[#0E131A] border border-white/5 hover:border-white/10 transition-colors cursor-pointer group">
+              <Link href={`/issues/${issue.id}`} key={issue.id} className="flex items-center gap-3 p-3 rounded-xl bg-base-900 border border-border-subtle hover:border-border-subtle transition-colors cursor-pointer group">
                 <img src={formatMediaUrl(issue.media?.[0]?.url) || 'https://images.unsplash.com/photo-1515162305285-0293e4b4e81e?w=80&q=70'} alt="" className="w-12 h-12 rounded-lg object-cover shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-white truncate group-hover:text-[#61C0FF] transition-colors">{issue.title}</p>
-                  <div className="flex items-center gap-3 mt-1 text-[#9CA3AF] text-xs">
+                  <p className="text-sm font-medium text-white truncate group-hover:text-accent-secondary transition-colors">{issue.title}</p>
+                  <div className="flex items-center gap-3 mt-1 text-content-secondary text-xs">
                     <span className="flex items-center gap-1"><Clock size={10} />{formatDistanceToNow(new Date(issue.created_at))} ago</span>
                   </div>
                 </div>
                 <StatusBadge status={issue.status === 'resolved' ? 'Resolved' : issue.status === 'in_progress' ? 'In Progress' : issue.status === 'acknowledged' ? 'Acknowledged' : issue.status === 'rejected' ? 'Rejected' : 'Reported'} />
               </Link>
             ))}
-            {criticalIssues.length === 0 && <div className="text-xs text-[#9CA3AF] p-2 text-center">No critical issues</div>}
+            {criticalIssues.length === 0 && <div className="text-xs text-content-secondary p-2 text-center">No critical issues</div>}
           </div>
         </div>
 
@@ -328,29 +328,29 @@ function DashboardView({ setView }: { setView: (v: AdminView) => void }) {
         <div className="card p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-white text-sm flex items-center gap-2">
-              <Clock size={14} className="text-[#61C0FF]" />
+              <Clock size={14} className="text-accent-secondary" />
               Recent Reports
             </h3>
-            <button onClick={() => setView('issues')} className="text-[#61C0FF] text-xs hover:underline flex items-center gap-1">
+            <button onClick={() => setView('issues')} className="text-accent-secondary text-xs hover:underline flex items-center gap-1">
               View All <ChevronRight size={11} />
             </button>
           </div>
           <div className="space-y-3">
             {recentIssues.slice(0, 3).map((issue: any) => (
-              <Link href={`/issues/${issue.id}`} key={issue.id} className="flex items-center gap-3 p-3 rounded-xl bg-[#0E131A] border border-white/5 hover:border-white/10 transition-colors cursor-pointer group">
+              <Link href={`/issues/${issue.id}`} key={issue.id} className="flex items-center gap-3 p-3 rounded-xl bg-base-900 border border-border-subtle hover:border-border-subtle transition-colors cursor-pointer group">
                 <img src={formatMediaUrl(issue.media?.[0]?.url) || 'https://images.unsplash.com/photo-1520052205864-92d242b3a76b?w=80&q=70'} alt="" className="w-12 h-12 rounded-lg object-cover shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-white truncate group-hover:text-[#61C0FF] transition-colors">
+                  <p className="text-sm font-medium text-white truncate group-hover:text-accent-secondary transition-colors">
                     {issue.title}
                   </p>
-                  <div className="flex items-center gap-3 mt-1 text-[#9CA3AF] text-xs">
+                  <div className="flex items-center gap-3 mt-1 text-content-secondary text-xs">
                     <span className="flex items-center gap-1"><Clock size={10} />{formatDistanceToNow(new Date(issue.created_at))} ago</span>
                   </div>
                 </div>
                 <StatusBadge status={issue.status === 'resolved' ? 'Resolved' : issue.status === 'in_progress' ? 'In Progress' : issue.status === 'acknowledged' ? 'Acknowledged' : issue.status === 'rejected' ? 'Rejected' : 'Reported'} />
               </Link>
             ))}
-            {recentIssues.length === 0 && <div className="text-xs text-[#9CA3AF] p-2 text-center">No recent issues</div>}
+            {recentIssues.length === 0 && <div className="text-xs text-content-secondary p-2 text-center">No recent issues</div>}
           </div>
         </div>
       </div>
@@ -425,14 +425,14 @@ function IssueManagementView() {
       {/* Search + filter bar */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
-          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
+          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-content-secondary" />
           <input
             type="text" placeholder="Search issues..."
             value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
             className="input-dark pl-9 h-10 text-sm w-full"
           />
           {search && (
-            <button onClick={() => { setSearch(''); setPage(1); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-white">
+            <button onClick={() => { setSearch(''); setPage(1); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-content-secondary hover:text-content-primary">
               <X size={12} />
             </button>
           )}
@@ -446,19 +446,19 @@ function IssueManagementView() {
           }}
           className="h-10 px-4 flex items-center gap-2 rounded-xl text-sm font-semibold transition-all duration-250 active:scale-[0.97]"
           style={{
-            background: filterStatus === 'Unresolved' ? 'rgba(56,189,248,0.12)' : 'rgba(255,255,255,0.03)',
-            border: filterStatus === 'Unresolved' ? '1px solid rgba(56,189,248,0.4)' : '1px solid rgba(255,255,255,0.06)',
-            color: filterStatus === 'Unresolved' ? '#38BDF8' : '#9CA3AF',
-            boxShadow: filterStatus === 'Unresolved' ? '0 0 15px rgba(56,189,248,0.15)' : 'none',
+            background: filterStatus === 'Unresolved' ? 'rgb(var(--accent-primary) / 0.12)' : 'rgb(var(--base-850))',
+            border: filterStatus === 'Unresolved' ? '1px solid rgb(var(--accent-primary) / 0.4)' : '1px solid rgb(var(--border-subtle))',
+            color: filterStatus === 'Unresolved' ? '#3B82F6' : '#94A3B8',
+            boxShadow: filterStatus === 'Unresolved' ? '0 0 15px rgb(59 130 246 / 0.15)' : 'none',
           }}
         >
-          <span className={`w-1.5 h-1.5 rounded-full ${filterStatus === 'Unresolved' ? 'bg-[#38BDF8] animate-pulse' : 'bg-[#9CA3AF]/40'}`} />
+          <span className={`w-1.5 h-1.5 rounded-full ${filterStatus === 'Unresolved' ? 'bg-accent-secondary animate-pulse' : 'bg-content-secondary/40'}`} />
           Unresolved Only
         </button>
 
         <button
           onClick={() => setShowFilters(v => !v)}
-          className={`btn-outline h-10 flex items-center gap-2 text-sm px-4 ${showFilters ? 'border-[#61C0FF]/40 text-[#61C0FF]' : ''}`}
+          className={`btn-outline h-10 flex items-center gap-2 text-sm px-4 ${showFilters ? 'border-accent-secondary/40 text-accent-secondary' : ''}`}
         >
           <Filter size={13} /> Filters
         </button>
@@ -472,7 +472,7 @@ function IssueManagementView() {
             <div className="flex flex-wrap gap-2">
               {(['All', 'Unresolved', 'Reported', 'Acknowledged', 'In Progress', 'Pending Verification', 'Resolved', 'Rejected'] as (Status | 'All' | 'Unresolved')[]) .map(s => (
                 <button key={s} onClick={() => { setFilterStatus(s); setPage(1); }}
-                  className={`px-3 py-1 rounded-lg text-xs font-medium border transition-all ${filterStatus === s ? 'border-[#61C0FF]/40 bg-[#61C0FF]/10 text-[#61C0FF]' : 'border-white/5 text-[#9CA3AF] hover:border-white/10 hover:text-white'}`}>
+                  className={`px-3 py-1 rounded-lg text-xs font-medium border transition-all ${filterStatus === s ? 'border-accent-secondary/40 bg-accent-secondary/10 text-accent-secondary' : 'border-border-subtle text-content-secondary hover:border-border-subtle hover:text-content-primary'}`}>
                   {s}
                 </button>
               ))}
@@ -483,7 +483,7 @@ function IssueManagementView() {
             <div className="flex flex-wrap gap-2">
               {(['All', 'Critical', 'High', 'Medium', 'Low'] as (Severity | 'All')[]).map(s => (
                 <button key={s} onClick={() => { setFilterSev(s); setPage(1); }}
-                  className={`px-3 py-1 rounded-lg text-xs font-medium border transition-all ${filterSev === s ? 'border-[#61C0FF]/40 bg-[#61C0FF]/10 text-[#61C0FF]' : 'border-white/5 text-[#9CA3AF] hover:border-white/10 hover:text-white'}`}>
+                  className={`px-3 py-1 rounded-lg text-xs font-medium border transition-all ${filterSev === s ? 'border-accent-secondary/40 bg-accent-secondary/10 text-accent-secondary' : 'border-border-subtle text-content-secondary hover:border-border-subtle hover:text-content-primary'}`}>
                   {s}
                 </button>
               ))}
@@ -494,13 +494,13 @@ function IssueManagementView() {
 
       {/* Bulk actions */}
       {selected.length > 0 && (
-        <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-[#61C0FF]/10 border border-[#61C0FF]/20">
-          <span className="text-sm text-[#61C0FF] font-medium">{selected.length} selected</span>
+        <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-accent-secondary/10 border border-accent-secondary/20">
+          <span className="text-sm text-accent-secondary font-medium">{selected.length} selected</span>
           <div className="flex-1" />
           <button onClick={() => handleBulkAction('acknowledged')} className="btn-outline text-xs py-1 px-3 h-7">Acknowledge</button>
           <button onClick={() => handleBulkAction('in_progress')} className="btn-outline text-xs py-1 px-3 h-7">Mark In Progress</button>
           <button onClick={() => handleBulkAction('rejected')} className="btn-outline text-xs py-1 px-3 h-7">Reject</button>
-          <button onClick={() => setSelected([])} className="text-[#9CA3AF] hover:text-white transition-colors">
+          <button onClick={() => setSelected([])} className="text-content-secondary hover:text-content-primary transition-colors">
             <X size={14} />
           </button>
         </div>
@@ -509,21 +509,21 @@ function IssueManagementView() {
       {/* Table */}
       <div className="card overflow-hidden relative min-h-[300px]">
         {loading && (
-          <div className="absolute inset-0 bg-[#05070A]/50 backdrop-blur-sm flex items-center justify-center z-10">
-            <Loader2 className="animate-spin text-[#61C0FF]" />
+          <div className="absolute inset-0 bg-base-950/50 backdrop-blur-sm flex items-center justify-center z-10">
+            <Loader2 className="animate-spin text-accent-secondary" />
           </div>
         )}
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-white/5">
+              <tr className="border-b border-border-subtle">
                 <th className="px-4 py-3 text-left w-10">
                   <input type="checkbox" checked={selected.length === issues.length && issues.length > 0}
                     onChange={toggleAll}
-                    className="w-3.5 h-3.5 rounded border-white/20 bg-transparent accent-[#61C0FF] cursor-pointer" />
+                    className="w-3.5 h-3.5 rounded border-border-subtle/40 bg-transparent accent-accent-secondary cursor-pointer" />
                 </th>
                 {['ID', 'Title', 'Category', 'Severity', 'Status', 'Department'].map(h => (
-                  <th key={h} className="px-4 py-3 text-left label-micro text-[#9CA3AF]">{h}</th>
+                  <th key={h} className="px-4 py-3 text-left label-micro text-content-secondary">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -532,24 +532,24 @@ function IssueManagementView() {
                 <tr
                   key={issue.id}
                   onClick={() => router.push(`/issues/${issue.id}`)}
-                  className={`border-b border-white/5 last:border-0 hover:bg-white/[0.02] transition-colors cursor-pointer group ${selected.includes(issue.id) ? 'bg-[#61C0FF]/5' : ''}`}
+                  className={`border-b border-border-subtle last:border-0 hover:bg-base-850 transition-colors cursor-pointer group ${selected.includes(issue.id) ? 'bg-accent-secondary/5' : ''}`}
                   style={{ animation: `fadeUp 0.3s ease-out ${idx * 40}ms both` }}
                 >
                   <td className="px-4 py-3.5" onClick={(e) => e.stopPropagation()}>
                     <input type="checkbox" checked={selected.includes(issue.id)}
                       onChange={() => toggle(issue.id)}
-                      className="w-3.5 h-3.5 rounded border-white/20 bg-transparent accent-[#61C0FF] cursor-pointer" />
+                      className="w-3.5 h-3.5 rounded border-border-subtle/40 bg-transparent accent-accent-secondary cursor-pointer" />
                   </td>
                   <td className="px-4 py-3.5">
-                    <span className="text-xs text-[#9CA3AF] font-mono">#{issue.id}</span>
+                    <span className="text-xs text-content-secondary font-mono">#{issue.id}</span>
                   </td>
                   <td className="px-4 py-3.5 max-w-[220px]">
-                    <span className="text-sm text-white group-hover:text-[#61C0FF] transition-colors font-medium truncate block">
+                    <span className="text-sm text-white group-hover:text-accent-secondary transition-colors font-medium truncate block">
                       {issue.title}
                     </span>
                   </td>
                   <td className="px-4 py-3.5">
-                    <span className="text-sm text-[#9CA3AF]">{issue.category_name}</span>
+                    <span className="text-sm text-content-secondary">{issue.category_name}</span>
                   </td>
                   <td className="px-4 py-3.5">
                     <SevBadge severity={mapSev(issue.severity)} />
@@ -559,9 +559,9 @@ function IssueManagementView() {
                   </td>
                   <td className="px-4 py-3.5">
                     {issue.department ? (
-                      <span className="text-sm text-[#9CA3AF]">{issue.department}</span>
+                      <span className="text-sm text-content-secondary">{issue.department}</span>
                     ) : (
-                      <span className="text-xs text-[#9CA3AF]/40 italic">Unassigned</span>
+                      <span className="text-xs text-content-secondary/40 italic">Unassigned</span>
                     )}
                   </td>
                 </tr>
@@ -574,20 +574,20 @@ function IssueManagementView() {
           <div className="py-16 text-center">
             <Search size={28} className="mx-auto mb-3 opacity-10" />
             <p className="text-white font-semibold mb-1">No issues found</p>
-            <p className="text-sm text-[#9CA3AF]">Try adjusting your filters</p>
+            <p className="text-sm text-content-secondary">Try adjusting your filters</p>
           </div>
         )}
 
         {/* Pagination footer */}
-        <div className="px-4 py-3 border-t border-white/5 flex items-center justify-between">
-          <span className="text-xs text-[#9CA3AF]">Showing {issues.length} of {total} issues</span>
+        <div className="px-4 py-3 border-t border-border-subtle flex items-center justify-between">
+          <span className="text-xs text-content-secondary">Showing {issues.length} of {total} issues</span>
           <div className="flex gap-1">
             {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
               let p = i + 1;
               if (totalPages > 5 && page > 3) p = page - 2 + i;
               if (p > totalPages) return null;
               return (
-                <button key={p} onClick={() => setPage(p)} className={`w-7 h-7 rounded-lg text-xs font-medium transition-all ${p === page ? 'bg-[#61C0FF]/10 text-[#61C0FF]' : 'text-[#9CA3AF] hover:bg-white/5 hover:text-white'}`}>{p}</button>
+                <button key={p} onClick={() => setPage(p)} className={`w-7 h-7 rounded-lg text-xs font-medium transition-all ${p === page ? 'bg-accent-secondary/10 text-accent-secondary' : 'text-content-secondary hover:bg-base-850 hover:text-content-primary'}`}>{p}</button>
               );
             })}
           </div>
@@ -615,7 +615,7 @@ function AnalyticsView() {
   }, []);
 
   if (loading || !data) {
-    return <div className="p-10 flex justify-center"><Loader2 className="animate-spin text-[#61C0FF]" /></div>;
+    return <div className="p-10 flex justify-center"><Loader2 className="animate-spin text-accent-secondary" /></div>;
   }
 
   const { resolutionTrend, categoryTrend, departmentPerf, deptSatisfaction = [], catSatisfaction = [] } = data;
@@ -631,10 +631,10 @@ function AnalyticsView() {
   const trendData = resolutionTrend.map((t: any) => parseInt(t.resolved) || 0);
 
   const pieColors: Record<string, string> = {
-    'Garbage': '#61C0FF', 'Water': '#F59E0B', 'Parks': '#00FF94', 'Traffic': '#EF4444', 'Buildings': '#8B5CF6', 'Streetlights': '#EC4899', 'Roads': '#06B6D4'
+    'Garbage': '#3B82F6', 'Water': '#F59E0B', 'Parks': '#4ADE80', 'Traffic': '#EF4444', 'Buildings': '#6366F1', 'Streetlights': '#EC4899', 'Roads': '#06B6D4'
   };
   const pieSlices = categoryTrend.map((c: any) => ({
-    value: parseInt(c.total), color: pieColors[c.name] || '#9CA3AF', label: c.name
+    value: parseInt(c.total), color: pieColors[c.name] || '#94A3B8', label: c.name
   }));
 
   const totalIssues = categoryTrend.reduce((acc: number, c: any) => acc + parseInt(c.total), 0);
@@ -656,10 +656,10 @@ function AnalyticsView() {
 
       {/* KPI row */}
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-        <StatCard label="Total Issues"    value={totalIssues.toString()} sub="All time"  icon={Activity}    color="#61C0FF" subUp={true}  />
-        <StatCard label="Resolved"        value={resolvedIssues.toString()}   sub="Issues resolved"  icon={CheckCircle2} color="#00FF94" subUp={true}  />
-        <StatCard label="Avg Resolution"  value={`${(avgResolutionHours / 24).toFixed(1)}d`}  sub="Resolution time"         icon={Clock}       color="#61C0FF" subUp={true}  />
-        <StatCard label="Resolution Rate" value={`${resolutionRate}%`} sub="Current rate"          icon={TrendingUp}  color="#00FF94" subUp={true}  />
+        <StatCard label="Total Issues"    value={totalIssues.toString()} sub="All time"  icon={Activity}    color="#3B82F6" subUp={true}  />
+        <StatCard label="Resolved"        value={resolvedIssues.toString()}   sub="Issues resolved"  icon={CheckCircle2} color="#4ADE80" subUp={true}  />
+        <StatCard label="Avg Resolution"  value={`${(avgResolutionHours / 24).toFixed(1)}d`}  sub="Resolution time"         icon={Clock}       color="#3B82F6" subUp={true}  />
+        <StatCard label="Resolution Rate" value={`${resolutionRate}%`} sub="Current rate"          icon={TrendingUp}  color="#4ADE80" subUp={true}  />
       </div>
 
       {/* Charts row 1 */}
@@ -668,9 +668,9 @@ function AnalyticsView() {
           <div className="flex items-center justify-between mb-2">
             <h3 className="font-semibold text-white text-sm">Resolution Trend (Last 30 Days)</h3>
           </div>
-          {trendData.length > 0 ? <LineChart data={trendData} color="#61C0FF" /> : <div className="text-[#9CA3AF] text-sm h-20 flex items-center justify-center">No data</div>}
-          <p className="text-[11px] text-[#9CA3AF] mt-2 flex items-center gap-1">
-            <span className="w-2 h-0.5 bg-[#61C0FF] inline-block rounded" /> Issues Resolved
+          {trendData.length > 0 ? <LineChart data={trendData} color="#3B82F6" /> : <div className="text-content-secondary text-sm h-20 flex items-center justify-center">No data</div>}
+          <p className="text-[11px] text-content-secondary mt-2 flex items-center gap-1">
+            <span className="w-2 h-0.5 bg-accent-secondary inline-block rounded" /> Issues Resolved
           </p>
         </div>
 
@@ -679,7 +679,7 @@ function AnalyticsView() {
             <h3 className="font-semibold text-white text-sm">Issues by Category</h3>
           </div>
           <div className="h-44 flex items-center justify-center">
-            {pieSlices.length > 0 ? <PieChart slices={pieSlices} /> : <div className="text-[#9CA3AF] text-sm h-full flex items-center justify-center">No data</div>}
+            {pieSlices.length > 0 ? <PieChart slices={pieSlices} /> : <div className="text-content-secondary text-sm h-full flex items-center justify-center">No data</div>}
           </div>
         </div>
       </div>
@@ -706,20 +706,20 @@ function AnalyticsView() {
                       className="w-full rounded-t-md"
                       style={{
                         height: `${(d.resolved / maxTotal) * 100}%`,
-                        background: 'linear-gradient(180deg, #00FF94 0%, #00FF9488 100%)',
+                        background: 'linear-gradient(180deg, #4ADE80 0%, #4ADE8088 100%)',
                         minHeight: 4,
                       }}
                     />
                   </div>
-                  <span className="text-[9px] text-[#9CA3AF] text-center leading-tight w-full truncate">{d.name?.split(' ')[0] || 'Unknown'}</span>
+                  <span className="text-[9px] text-content-secondary text-center leading-tight w-full truncate">{d.name?.split(' ')[0] || 'Unknown'}</span>
                 </div>
               );
             })}
           </div>
-        ) : <div className="text-[#9CA3AF] text-sm h-44 flex items-center justify-center">No department data</div>}
+        ) : <div className="text-content-secondary text-sm h-44 flex items-center justify-center">No department data</div>}
         <div className="flex items-center gap-4 mt-3">
-          <span className="flex items-center gap-1.5 text-xs text-[#9CA3AF]"><span className="w-3 h-2 rounded-sm bg-[#00FF94] inline-block" />Resolved</span>
-          <span className="flex items-center gap-1.5 text-xs text-[#9CA3AF]"><span className="w-3 h-2 rounded-sm bg-[#F59E0B88] inline-block" />Pending</span>
+          <span className="flex items-center gap-1.5 text-xs text-content-secondary"><span className="w-3 h-2 rounded-sm bg-state-success inline-block" />Resolved</span>
+          <span className="flex items-center gap-1.5 text-xs text-content-secondary"><span className="w-3 h-2 rounded-sm bg-[#F59E0B88] inline-block" />Pending</span>
         </div>
       </div>
 
@@ -727,7 +727,7 @@ function AnalyticsView() {
       {deptSatisfaction.length > 0 && (
         <div className="card p-5">
           <div className="flex items-center gap-2 mb-5">
-            <span className="text-[#FBBF24]">★</span>
+            <span className="text-state-warning">★</span>
             <h3 className="font-semibold text-white text-sm">Citizen Satisfaction by Department</h3>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -736,27 +736,27 @@ function AnalyticsView() {
               const isLow = avg < 3;
               const filled = Math.round(avg);
               return (
-                <div key={d.department} className={`p-4 rounded-xl border ${isLow ? 'border-[#EF4444]/20 bg-[#EF4444]/5' : 'border-white/5 bg-white/[0.02]'}`}>
+                <div key={d.department} className={`p-4 rounded-xl border ${isLow ? 'border-state-error/20 bg-state-error/5' : 'border-border-subtle bg-base-900'}`}>
                   <div className="flex items-start justify-between mb-2">
                     <span className="text-sm font-medium text-white truncate flex-1">{d.department}</span>
-                    {isLow && <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#EF4444]/10 text-[#EF4444] font-bold border border-[#EF4444]/20 ml-1 shrink-0">LOW</span>}
+                    {isLow && <span className="text-[10px] px-1.5 py-0.5 rounded bg-state-error/10 text-state-error font-bold border border-state-error/20 ml-1 shrink-0">LOW</span>}
                   </div>
                   <div className="flex items-center gap-1.5 mb-1">
                     {[1,2,3,4,5].map(n => (
-                      <svg key={n} width="14" height="14" viewBox="0 0 24 24" fill={n <= filled ? '#FBBF24' : 'none'} stroke={n <= filled ? '#FBBF24' : '#374151'} strokeWidth="2">
+                      <svg key={n} width="14" height="14" viewBox="0 0 24 24" fill={n <= filled ? '#F59E0B' : 'none'} stroke={n <= filled ? '#F59E0B' : '#64748B'} strokeWidth="2">
                         <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26" />
                       </svg>
                     ))}
-                    <span className={`text-sm font-bold ml-1 ${isLow ? 'text-[#EF4444]' : 'text-[#FBBF24]'}`}>{avg.toFixed(1)}</span>
+                    <span className={`text-sm font-bold ml-1 ${isLow ? 'text-state-error' : 'text-state-warning'}`}>{avg.toFixed(1)}</span>
                   </div>
-                  <span className="text-[11px] text-[#9CA3AF]">{d.review_count} review{parseInt(d.review_count) !== 1 ? 's' : ''}</span>
+                  <span className="text-[11px] text-content-secondary">{d.review_count} review{parseInt(d.review_count) !== 1 ? 's' : ''}</span>
                 </div>
               );
             })}
           </div>
           {deptSatisfaction.some((d: any) => parseFloat(d.avg_rating) < 3) && (
-            <div className="mt-3 px-3 py-2 bg-[#EF4444]/5 border border-[#EF4444]/10 rounded-lg">
-              <span className="text-[11px] text-[#EF4444]">⚠ Departments below 3.0 stars need attention — citizens report poor resolution quality.</span>
+            <div className="mt-3 px-3 py-2 bg-state-error/5 border border-state-error/10 rounded-lg">
+              <span className="text-[11px] text-state-error">⚠ Departments below 3.0 stars need attention — citizens report poor resolution quality.</span>
             </div>
           )}
         </div>
@@ -768,19 +768,19 @@ function AnalyticsView() {
         <div className="card p-5">
           <h3 className="font-semibold text-white text-sm mb-4">SLA Compliance Rate</h3>
           <div className="flex items-center gap-6">
-            <DonutChart pct={Math.round((resolvedIssues / (totalIssues || 1)) * 100) || 0} color="#00FF94" label="Resolution rate" />
+            <DonutChart pct={Math.round((resolvedIssues / (totalIssues || 1)) * 100) || 0} color="#22C55E" label="Resolution rate" />
             <div className="flex-1 space-y-3">
               {[
-                { label: 'Resolved',  val: resolvedIssues, color: '#00FF94' },
-                { label: 'Pending', val: totalIssues - resolvedIssues,  color: '#EF4444' },
+                { label: 'Resolved',  val: resolvedIssues, color: '#22C55E' },
+                { label: 'Pending', val: totalIssues - resolvedIssues,  color: 'rgb(var(--state-error))' },
               ].map(r => (
                 <div key={r.label} className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: r.color }} />
-                  <span className="text-xs text-[#9CA3AF]">{r.label}</span>
+                  <span className="text-xs text-content-secondary">{r.label}</span>
                   <span className="text-xs font-bold text-white ml-auto">{r.val}</span>
                 </div>
               ))}
-              <p className="text-[10px] text-[#9CA3AF] pt-1 border-t border-white/5">{Math.round((resolvedIssues / (totalIssues || 1)) * 100) || 0}% resolution rate</p>
+              <p className="text-[10px] text-content-secondary pt-1 border-t border-border-subtle">{Math.round((resolvedIssues / (totalIssues || 1)) * 100) || 0}% resolution rate</p>
             </div>
           </div>
         </div>
@@ -792,24 +792,24 @@ function AnalyticsView() {
             {deptData.map((d: any) => (
               <div key={d.name}>
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs text-[#9CA3AF]">{d.name || 'Unknown'}</span>
+                  <span className="text-xs text-content-secondary">{d.name || 'Unknown'}</span>
                   <span className="text-xs font-semibold text-white">{d.days.toFixed(1)} days</span>
                 </div>
-                <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                <div className="h-1.5 bg-base-850 rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all duration-1000"
                     style={{
                       width: `${(d.days / (maxDays || 1)) * 100}%`,
-                      background: d.days <= 3 ? '#00FF94' : d.days <= 4.5 ? '#61C0FF' : '#F59E0B',
+                      background: d.days <= 3 ? '#22C55E' : d.days <= 4.5 ? '#3B82F6' : '#F59E0B',
                     }}
                   />
                 </div>
               </div>
             ))}
           </div>
-          <div className="mt-4 px-3 py-2 bg-[#61C0FF]/5 border border-[#61C0FF]/10 rounded-lg flex items-center justify-center gap-2">
-            <span className="text-xs text-[#9CA3AF]">Target SLA</span>
-            <span className="text-xs font-bold text-[#61C0FF]">5 days</span>
+          <div className="mt-4 px-3 py-2 bg-accent-secondary/5 border border-accent-secondary/10 rounded-lg flex items-center justify-center gap-2">
+            <span className="text-xs text-content-secondary">Target SLA</span>
+            <span className="text-xs font-bold text-accent-secondary">5 days</span>
           </div>
         </div>
       </div>
@@ -906,14 +906,14 @@ function UsersManagementView() {
     <div className="p-6 space-y-5" style={{ animation: 'fadeUp 0.3s ease-out' }}>
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1 max-w-md">
-          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
+          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-content-secondary" />
           <input
             type="text" placeholder="Search users by name or email..."
             value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
             className="input-dark pl-9 h-10 text-sm w-full"
           />
           {search && (
-            <button onClick={() => { setSearch(''); setPage(1); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-white">
+            <button onClick={() => { setSearch(''); setPage(1); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-content-secondary hover:text-content-primary">
               <X size={12} />
             </button>
           )}
@@ -922,49 +922,49 @@ function UsersManagementView() {
 
       <div className="card overflow-hidden relative min-h-[300px]">
         {loading && (
-          <div className="absolute inset-0 bg-[#05070A]/50 backdrop-blur-sm flex items-center justify-center z-10">
-            <Loader2 className="animate-spin text-[#61C0FF]" />
+          <div className="absolute inset-0 bg-base-950/50 backdrop-blur-sm flex items-center justify-center z-10">
+            <Loader2 className="animate-spin text-accent-secondary" />
           </div>
         )}
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-white/5">
+              <tr className="border-b border-border-subtle">
                 {['Photo', 'Name', 'Email', 'Role', 'Status', 'Issues', 'Join Date', 'Actions'].map(h => (
-                  <th key={h} className="px-4 py-3 text-left label-micro text-[#9CA3AF]">{h}</th>
+                  <th key={h} className="px-4 py-3 text-left label-micro text-content-secondary">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {users.map((user, idx) => (
-                <tr key={user.id} className="border-b border-white/5 last:border-0 hover:bg-white/[0.02] transition-colors" style={{ animation: `fadeUp 0.3s ease-out ${idx * 40}ms both` }}>
+                <tr key={user.id} className="border-b border-border-subtle last:border-0 hover:bg-base-850 transition-colors" style={{ animation: `fadeUp 0.3s ease-out ${idx * 40}ms both` }}>
                   <td className="px-4 py-3.5">
-                    <div className="w-8 h-8 rounded-full overflow-hidden bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
+                    <div className="w-8 h-8 rounded-full overflow-hidden bg-base-850 border border-border-subtle flex items-center justify-center shrink-0">
                       {user.avatar_url ? (
                         <img src={formatMediaUrl(user.avatar_url)} alt={user.name} className="w-full h-full object-cover" />
                       ) : (
-                        <span className="text-[10px] font-bold text-[#61C0FF]">{user.name?.[0]?.toUpperCase()}</span>
+                        <span className="text-[10px] font-bold text-accent-secondary">{user.name?.[0]?.toUpperCase()}</span>
                       )}
                     </div>
                   </td>
                   <td className="px-4 py-3.5">
                     <span className="text-sm font-medium text-white">{user.name}</span>
                   </td>
-                  <td className="px-4 py-3.5"><span className="text-sm text-[#9CA3AF]">{user.email}</span></td>
+                  <td className="px-4 py-3.5"><span className="text-sm text-content-secondary">{user.email}</span></td>
                   <td className="px-4 py-3.5">
-                    <span className={`text-xs px-2 py-1 rounded border ${user.role === 'admin' ? 'border-[#EF4444]/30 text-[#EF4444] bg-[#EF4444]/10' : user.role === 'department_staff' ? 'border-[#00FF94]/30 text-[#00FF94] bg-[#00FF94]/10' : 'border-white/10 text-[#9CA3AF] bg-white/5'}`}>
+                    <span className={`text-xs px-2 py-1 rounded border ${user.role === 'admin' ? 'border-state-error/30 text-state-error bg-state-error/10' : user.role === 'department_staff' ? 'border-state-success/30 text-state-success bg-state-success/10' : 'border-border-subtle text-content-secondary bg-base-850'}`}>
                       {user.role}
                     </span>
                   </td>
                   <td className="px-4 py-3.5">
-                    {user.is_active ? <span className="text-xs text-[#00FF94]">Active</span> : <span className="text-xs text-[#EF4444]">Suspended</span>}
+                    {user.is_active ? <span className="text-xs text-state-success">Active</span> : <span className="text-xs text-state-error">Suspended</span>}
                   </td>
-                  <td className="px-4 py-3.5"><span className="text-sm text-[#9CA3AF]">{user.issue_count}</span></td>
-                  <td className="px-4 py-3.5"><span className="text-sm text-[#9CA3AF]">{new Date(user.created_at).toLocaleDateString()}</span></td>
+                  <td className="px-4 py-3.5"><span className="text-sm text-content-secondary">{user.issue_count}</span></td>
+                  <td className="px-4 py-3.5"><span className="text-sm text-content-secondary">{new Date(user.created_at).toLocaleDateString()}</span></td>
                   <td className="px-4 py-3.5">
                     <div className="flex gap-3">
-                      <button onClick={() => openUserModal(user)} className="text-[#61C0FF] hover:text-white transition-colors text-xs">Edit</button>
-                      <button onClick={() => handleDeleteUser(user.id)} className="text-[#EF4444] hover:text-white transition-colors text-xs">Delete</button>
+                      <button onClick={() => openUserModal(user)} className="text-accent-secondary hover:text-content-primary transition-colors text-xs">Edit</button>
+                      <button onClick={() => handleDeleteUser(user.id)} className="text-state-error hover:text-content-primary transition-colors text-xs">Delete</button>
                     </div>
                   </td>
                 </tr>
@@ -974,15 +974,15 @@ function UsersManagementView() {
         </div>
 
         {/* Pagination footer */}
-        <div className="px-4 py-3 border-t border-white/5 flex items-center justify-between">
-          <span className="text-xs text-[#9CA3AF]">Showing {users.length} of {total} users</span>
+        <div className="px-4 py-3 border-t border-border-subtle flex items-center justify-between">
+          <span className="text-xs text-content-secondary">Showing {users.length} of {total} users</span>
           <div className="flex gap-1">
             {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
               let p = i + 1;
               if (totalPages > 5 && page > 3) p = page - 2 + i;
               if (p > totalPages) return null;
               return (
-                <button key={p} onClick={() => setPage(p)} className={`w-7 h-7 rounded-lg text-xs font-medium transition-all ${p === page ? 'bg-[#61C0FF]/10 text-[#61C0FF]' : 'text-[#9CA3AF] hover:bg-white/5 hover:text-white'}`}>{p}</button>
+                <button key={p} onClick={() => setPage(p)} className={`w-7 h-7 rounded-lg text-xs font-medium transition-all ${p === page ? 'bg-accent-secondary/10 text-accent-secondary' : 'text-content-secondary hover:bg-base-850 hover:text-content-primary'}`}>{p}</button>
               );
             })}
           </div>
@@ -992,22 +992,22 @@ function UsersManagementView() {
       {/* Edit User Modal */}
       {selectedUser && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#0A0D14] border border-white/10 rounded-2xl w-full max-w-sm shadow-2xl p-5" style={{ animation: 'fadeUp 0.2s ease-out' }}>
+          <div className="bg-base-900 border border-border-subtle rounded-2xl w-full max-w-sm shadow-2xl p-5" style={{ animation: 'fadeUp 0.2s ease-out' }}>
             <div className="flex justify-between items-center mb-5">
               <h3 className="text-lg font-semibold text-white">Edit User</h3>
-              <button onClick={closeModal} className="text-[#9CA3AF] hover:text-white"><X size={18} /></button>
+              <button onClick={closeModal} className="text-content-secondary hover:text-content-primary"><X size={18} /></button>
             </div>
             
             <div className="space-y-4">
               {/* Profile Photo selector with ambient design */}
-              <div className="flex flex-col items-center gap-3 pb-4 border-b border-white/5">
-                <div className="relative group w-20 h-20 rounded-full overflow-hidden bg-white/5 border border-white/10 flex items-center justify-center">
+              <div className="flex flex-col items-center gap-3 pb-4 border-b border-border-subtle">
+                <div className="relative group w-20 h-20 rounded-full overflow-hidden bg-base-850 border border-border-subtle flex items-center justify-center">
                   {editAvatarPreview ? (
                     <img src={editAvatarPreview} alt={selectedUser.name} className="w-full h-full object-cover" />
                   ) : selectedUser.avatar_url ? (
                     <img src={formatMediaUrl(selectedUser.avatar_url)} alt={selectedUser.name} className="w-full h-full object-cover" />
                   ) : (
-                    <span className="text-2xl font-bold text-[#61C0FF]">{selectedUser.name?.[0]?.toUpperCase()}</span>
+                    <span className="text-2xl font-bold text-accent-secondary">{selectedUser.name?.[0]?.toUpperCase()}</span>
                   )}
                   <label className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-1 cursor-pointer transition-opacity text-white text-[10px] font-semibold">
                     <Camera size={16} />
@@ -1029,7 +1029,7 @@ function UsersManagementView() {
                     />
                   </label>
                 </div>
-                <span className="text-xs text-[#9CA3AF]">{selectedUser.name}</span>
+                <span className="text-xs text-content-secondary">{selectedUser.name}</span>
               </div>
 
               <div>
@@ -1041,15 +1041,15 @@ function UsersManagementView() {
                 </select>
               </div>
               
-              <div className="flex items-center justify-between p-3 border border-white/5 rounded-lg bg-white/[0.02]">
+              <div className="flex items-center justify-between p-3 border border-border-subtle rounded-lg bg-base-900">
                 <span className="text-sm font-medium">Account Active</span>
-                <input type="checkbox" checked={editActive} onChange={e => setEditActive(e.target.checked)} className="w-4 h-4 accent-[#61C0FF] bg-transparent border-white/20 rounded cursor-pointer" />
+                <input type="checkbox" checked={editActive} onChange={e => setEditActive(e.target.checked)} className="w-4 h-4 accent-accent-secondary bg-transparent border-border-subtle/40 rounded cursor-pointer" />
               </div>
             </div>
 
             <div className="mt-6 flex justify-end gap-3">
               <button onClick={closeModal} className="btn-outline h-9 px-4 text-sm">Cancel</button>
-              <button onClick={handleSaveUser} disabled={modalLoading} className="bg-[#61C0FF] hover:bg-[#61C0FF]/90 text-black h-9 px-4 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50 flex items-center justify-center min-w-[100px]">
+              <button onClick={handleSaveUser} disabled={modalLoading} className="bg-accent-secondary hover:bg-accent-secondary/90 text-black h-9 px-4 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50 flex items-center justify-center min-w-[100px]">
                 {modalLoading ? <Loader2 className="animate-spin" size={14} /> : 'Save Changes'}
               </button>
             </div>
@@ -1116,16 +1116,16 @@ function LogsView() {
   return (
     <div className="p-6 space-y-5" style={{ animation: 'fadeUp 0.3s ease-out' }}>
       {/* Sleek Tab Switcher Bar */}
-      <div className="flex gap-2 border-b border-white/5 pb-2">
+      <div className="flex gap-2 border-b border-border-subtle pb-2">
         <button
           onClick={() => handleTabChange('users')}
-          className={`px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all duration-200 rounded-lg ${activeTab === 'users' ? 'bg-[#61C0FF] text-black shadow-glow-secondary' : 'text-[#9CA3AF] hover:text-white hover:bg-white/[0.03]'}`}
+          className={`px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all duration-200 rounded-lg ${activeTab === 'users' ? 'bg-accent-secondary text-black shadow-glow-secondary' : 'text-content-secondary hover:text-content-primary hover:bg-base-850'}`}
         >
           User Administration Logs
         </button>
         <button
           onClick={() => handleTabChange('issues')}
-          className={`px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all duration-200 rounded-lg ${activeTab === 'issues' ? 'bg-[#A855F7] text-white shadow-glow-primary' : 'text-[#9CA3AF] hover:text-white hover:bg-white/[0.03]'}`}
+          className={`px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all duration-200 rounded-lg ${activeTab === 'issues' ? 'bg-accent-primary text-white shadow-glow-primary' : 'text-content-secondary hover:text-content-primary hover:bg-base-850'}`}
         >
           Issue Activity Logs
         </button>
@@ -1134,8 +1134,8 @@ function LogsView() {
       {activeTab === 'issues' ? (
         <div className="space-y-4 relative min-h-[400px]">
           {loading && (
-            <div className="absolute inset-0 bg-[#05070A]/50 backdrop-blur-sm flex items-center justify-center z-10 rounded-xl">
-              <Loader2 className="animate-spin text-[#A855F7]" />
+            <div className="absolute inset-0 bg-base-950/50 backdrop-blur-sm flex items-center justify-center z-10 rounded-xl">
+              <Loader2 className="animate-spin text-accent-primary" />
             </div>
           )}
           
@@ -1144,17 +1144,17 @@ function LogsView() {
             return (
               <div 
                 key={group.issueId} 
-                className="card bg-[#0B121F] border border-white/5 overflow-hidden transition-all shadow-md animate-fade_in"
+                className="card bg-base-900 border border-border-subtle overflow-hidden transition-all shadow-md animate-fade_in"
                 style={{ animationDelay: `${gIdx * 50}ms` }}
               >
                 {/* Expandable Group Header */}
                 <div 
                   onClick={() => toggleIssueExpand(group.issueId)}
-                  className="flex items-center justify-between p-4 cursor-pointer hover:bg-white/[0.02] transition-colors select-none"
+                  className="flex items-center justify-between p-4 cursor-pointer hover:bg-base-850 transition-colors select-none"
                 >
                   <div className="flex items-center gap-3">
                     {/* Expand/Collapse Chevron Icon */}
-                    <span className="text-[#9CA3AF]">
+                    <span className="text-content-secondary">
                       {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                     </span>
                     
@@ -1164,7 +1164,7 @@ function LogsView() {
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={e => e.stopPropagation()} // Prevent expansion trigger
-                      className="flex items-center gap-2 text-sm font-bold text-[#A855F7] hover:text-[#A855F7]/80 hover:underline transition-all group"
+                      className="flex items-center gap-2 text-sm font-bold text-accent-primary hover:text-accent-primary/80 hover:underline transition-all group"
                     >
                       <ExternalLink size={13} className="group-hover:scale-110 transition-transform" />
                       <span>{group.issueTitle}</span>
@@ -1172,10 +1172,10 @@ function LogsView() {
                   </div>
                   
                   <div className="flex items-center gap-3">
-                    <span className="text-[10px] text-[#9CA3AF] bg-white/5 px-2 py-0.5 rounded-md border border-white/5 font-semibold">
+                    <span className="text-[10px] text-content-secondary bg-base-850 px-2 py-0.5 rounded-md border border-border-subtle font-semibold">
                       {group.items.length} {group.items.length === 1 ? 'log' : 'logs'}
                     </span>
-                    <span className="text-[10px] font-mono text-[#9CA3AF] bg-white/5 px-2 py-0.5 rounded-md border border-white/5">
+                    <span className="text-[10px] font-mono text-content-secondary bg-base-850 px-2 py-0.5 rounded-md border border-border-subtle">
                       ID: {group.issueId.slice(0, 8)}
                     </span>
                   </div>
@@ -1183,13 +1183,13 @@ function LogsView() {
 
                 {/* Sub-table: Shown only when expanded */}
                 {isExpanded && (
-                  <div className="border-t border-white/5 p-4 bg-black/20 animate-fade_in">
+                  <div className="border-t border-border-subtle p-4 bg-base-900 animate-fade_in">
                     <div className="overflow-x-auto">
                       <table className="w-full">
                         <thead>
-                          <tr className="border-b border-white/5">
+                          <tr className="border-b border-border-subtle">
                             {['Timestamp', 'Performed By', 'Status Transition', 'Details / Note'].map(h => (
-                              <th key={h} className="px-3 py-2 text-left label-micro text-[#9CA3AF]">{h}</th>
+                              <th key={h} className="px-3 py-2 text-left label-micro text-content-secondary">{h}</th>
                             ))}
                           </tr>
                         </thead>
@@ -1199,18 +1199,18 @@ function LogsView() {
                               ? `${log.old_status.toUpperCase()} ➔ ${log.new_status.toUpperCase()}`
                               : `REPORTED`;
                             return (
-                              <tr key={log.id} className="border-b border-white/5 last:border-0 hover:bg-white/[0.01] transition-colors">
-                                <td className="px-3 py-2.5 text-xs text-[#9CA3AF]">{new Date(log.created_at).toLocaleString()}</td>
+                              <tr key={log.id} className="border-b border-border-subtle last:border-0 hover:bg-base-850 transition-colors">
+                                <td className="px-3 py-2.5 text-xs text-content-secondary">{new Date(log.created_at).toLocaleString()}</td>
                                 <td className="px-3 py-2.5">
                                   <span className="text-xs text-white font-medium block">{log.admin_name}</span>
-                                  <span className="text-[9px] text-[#9CA3AF]">{log.admin_email}</span>
+                                  <span className="text-[9px] text-content-secondary">{log.admin_email}</span>
                                 </td>
                                 <td className="px-3 py-2.5">
-                                  <span className={`text-[10px] px-2 py-0.5 rounded border font-mono ${action.includes('REJECTED') || action.includes('STILL_BROKEN') ? 'border-[#EF4444]/30 text-[#EF4444] bg-[#EF4444]/10' : 'border-[#A855F7]/30 text-[#A855F7] bg-[#A855F7]/10'}`}>
+                                  <span className={`text-[10px] px-2 py-0.5 rounded border font-mono ${action.includes('REJECTED') || action.includes('STILL_BROKEN') ? 'border-state-error/30 text-state-error bg-state-error/10' : 'border-accent-primary/30 text-accent-primary bg-accent-primary/10'}`}>
                                     {action}
                                   </span>
                                 </td>
-                                <td className="px-3 py-2.5 text-xs text-[#E5E7EB]">{log.details || '—'}</td>
+                                <td className="px-3 py-2.5 text-xs text-content-primary">{log.details || '—'}</td>
                               </tr>
                             );
                           })}
@@ -1224,19 +1224,19 @@ function LogsView() {
           })}
 
           {logs.length === 0 && !loading && (
-            <div className="card p-10 text-center text-[#9CA3AF] text-sm bg-base-800 border border-white/5">No issue activity logs found.</div>
+            <div className="card p-10 text-center text-content-secondary text-sm bg-base-800 border border-border-subtle">No issue activity logs found.</div>
           )}
 
           {/* Pagination footer for issues logs */}
-          <div className="card px-4 py-3 border border-white/5 flex items-center justify-between bg-base-800 shadow-md">
-            <span className="text-xs text-[#9CA3AF]">Showing {logs.length} of {total} logs</span>
+          <div className="card px-4 py-3 border border-border-subtle flex items-center justify-between bg-base-800 shadow-md">
+            <span className="text-xs text-content-secondary">Showing {logs.length} of {total} logs</span>
             <div className="flex gap-1">
               {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
                 let p = i + 1;
                 if (totalPages > 5 && page > 3) p = page - 2 + i;
                 if (p > totalPages) return null;
                 return (
-                  <button key={p} onClick={() => setPage(p)} className={`w-7 h-7 rounded-lg text-xs font-medium transition-all ${p === page ? 'bg-[#A855F7]/10 text-[#A855F7]' : 'text-[#9CA3AF] hover:bg-white/5 hover:text-white'}`}>{p}</button>
+                  <button key={p} onClick={() => setPage(p)} className={`w-7 h-7 rounded-lg text-xs font-medium transition-all ${p === page ? 'bg-accent-primary/10 text-accent-primary' : 'text-content-secondary hover:bg-base-850 hover:text-content-primary'}`}>{p}</button>
                 );
               })}
             </div>
@@ -1245,41 +1245,41 @@ function LogsView() {
       ) : (
         <div className="card overflow-hidden relative min-h-[400px]">
           {loading && (
-            <div className="absolute inset-0 bg-[#05070A]/50 backdrop-blur-sm flex items-center justify-center z-10">
-              <Loader2 className="animate-spin text-[#61C0FF]" />
+            <div className="absolute inset-0 bg-base-950/50 backdrop-blur-sm flex items-center justify-center z-10">
+              <Loader2 className="animate-spin text-accent-secondary" />
             </div>
           )}
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-white/5">
+                <tr className="border-b border-border-subtle">
                   {['Timestamp', 'Performed By', 'Action Type', 'Target Entity', 'Details / Description'].map(h => (
-                    <th key={h} className="px-4 py-3 text-left label-micro text-[#9CA3AF]">{h}</th>
+                    <th key={h} className="px-4 py-3 text-left label-micro text-content-secondary">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {logs.map((log, idx) => (
-                  <tr key={log.id} className="border-b border-white/5 last:border-0 hover:bg-white/[0.02] transition-colors" style={{ animation: `fadeUp 0.3s ease-out ${idx * 30}ms both` }}>
-                    <td className="px-4 py-3.5"><span className="text-xs text-[#9CA3AF]">{new Date(log.created_at).toLocaleString()}</span></td>
+                  <tr key={log.id} className="border-b border-border-subtle last:border-0 hover:bg-base-850 transition-colors" style={{ animation: `fadeUp 0.3s ease-out ${idx * 30}ms both` }}>
+                    <td className="px-4 py-3.5"><span className="text-xs text-content-secondary">{new Date(log.created_at).toLocaleString()}</span></td>
                     <td className="px-4 py-3.5">
                       <span className="text-sm text-white font-medium block">{log.admin_name}</span>
-                      <span className="text-[10px] text-[#9CA3AF]">{log.admin_email}</span>
+                      <span className="text-[10px] text-content-secondary">{log.admin_email}</span>
                     </td>
                     <td className="px-4 py-3.5">
-                      <span className={`text-xs px-2 py-1 rounded border font-mono ${log.action.includes('DELETE') ? 'border-[#EF4444]/30 text-[#EF4444] bg-[#EF4444]/10' : 'border-[#00FF94]/30 text-[#00FF94] bg-[#00FF94]/10'}`}>
+                      <span className={`text-xs px-2 py-1 rounded border font-mono ${log.action.includes('DELETE') ? 'border-state-error/30 text-state-error bg-state-error/10' : 'border-state-success/30 text-state-success bg-state-success/10'}`}>
                         {log.action}
                       </span>
                     </td>
-                    <td className="px-4 py-3.5"><span className="text-xs text-[#9CA3AF] font-mono">{log.entity_type} #{log.entity_id.slice(0, 8)}</span></td>
+                    <td className="px-4 py-3.5"><span className="text-xs text-content-secondary font-mono">{log.entity_type} #{log.entity_id.slice(0, 8)}</span></td>
                     <td className="px-4 py-3.5">
-                      <span className="text-xs text-[#E5E7EB] block leading-relaxed max-w-[400px] break-words">{log.details ? log.details : '—'}</span>
+                      <span className="text-xs text-content-primary block leading-relaxed max-w-[400px] break-words">{log.details ? log.details : '—'}</span>
                     </td>
                   </tr>
                 ))}
                 {logs.length === 0 && !loading && (
                   <tr>
-                    <td colSpan={5} className="py-10 text-center text-[#9CA3AF] text-sm">No audit logs found.</td>
+                    <td colSpan={5} className="py-10 text-center text-content-secondary text-sm">No audit logs found.</td>
                   </tr>
                 )}
               </tbody>
@@ -1287,15 +1287,15 @@ function LogsView() {
           </div>
 
           {/* Pagination footer */}
-          <div className="px-4 py-3 border-t border-white/5 flex items-center justify-between">
-            <span className="text-xs text-[#9CA3AF]">Showing {logs.length} of {total} logs</span>
+          <div className="px-4 py-3 border-t border-border-subtle flex items-center justify-between">
+            <span className="text-xs text-content-secondary">Showing {logs.length} of {total} logs</span>
             <div className="flex gap-1">
               {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
                 let p = i + 1;
                 if (totalPages > 5 && page > 3) p = page - 2 + i;
                 if (p > totalPages) return null;
                 return (
-                  <button key={p} onClick={() => setPage(p)} className={`w-7 h-7 rounded-lg text-xs font-medium transition-all ${p === page ? 'bg-[#61C0FF]/10 text-[#61C0FF]' : 'text-[#9CA3AF] hover:bg-white/5 hover:text-white'}`}>{p}</button>
+                  <button key={p} onClick={() => setPage(p)} className={`w-7 h-7 rounded-lg text-xs font-medium transition-all ${p === page ? 'bg-accent-secondary/10 text-accent-secondary' : 'text-content-secondary hover:bg-base-850 hover:text-content-primary'}`}>{p}</button>
                 );
               })}
             </div>
@@ -1360,7 +1360,7 @@ function SettingsView() {
   if (loading) {
     return (
       <div className="p-10 flex justify-center">
-        <Loader2 className="animate-spin text-[#61C0FF]" />
+        <Loader2 className="animate-spin text-accent-secondary" />
       </div>
     );
   }
@@ -1371,7 +1371,7 @@ function SettingsView() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-bold text-white">System Settings</h2>
-          <p className="text-xs text-[#9CA3AF] mt-1">Configure global application rules, registration preferences, and municipal broadcasts.</p>
+          <p className="text-xs text-content-secondary mt-1">Configure global application rules, registration preferences, and municipal broadcasts.</p>
         </div>
       </div>
 
@@ -1386,36 +1386,36 @@ function SettingsView() {
         
         {/* Panel 1: General Settings */}
         <div className="card p-6 flex flex-col gap-4">
-          <div className="flex items-center gap-2 pb-3 border-b border-white/5">
-            <div className="w-8 h-8 rounded-lg bg-[#61C0FF]/15 flex items-center justify-center">
-              <Settings size={15} className="text-[#61C0FF]" />
+          <div className="flex items-center gap-2 pb-3 border-b border-border-subtle">
+            <div className="w-8 h-8 rounded-lg bg-accent-secondary/15 flex items-center justify-center">
+              <Settings size={15} className="text-accent-secondary" />
             </div>
             <div>
               <h3 className="text-sm font-semibold text-white">General Platform</h3>
-              <p className="text-[10px] text-[#9CA3AF]">Customize public naming and contacts</p>
+              <p className="text-[10px] text-content-secondary">Customize public naming and contacts</p>
             </div>
           </div>
 
           <div className="space-y-3.5">
             <div>
-              <label className="block text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1.5">Municipality / Platform Name</label>
+              <label className="block text-[11px] font-semibold text-content-secondary uppercase tracking-wider mb-1.5">Municipality / Platform Name</label>
               <input 
                 type="text" 
                 value={settings.systemName} 
                 onChange={e => setSettings(s => ({ ...s, systemName: e.target.value }))}
                 required
-                className="w-full h-10 px-3.5 rounded-xl text-xs text-white placeholder-white/20 bg-[#0E131A] border border-white/5 focus:border-[#61C0FF]/30 outline-none transition-all"
+                className="w-full h-10 px-3.5 rounded-xl text-xs text-white placeholder-white/20 bg-base-900 border border-border-subtle focus:border-accent-secondary/30 outline-none transition-all"
               />
             </div>
             
             <div>
-              <label className="block text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1.5">Support Contact Email</label>
+              <label className="block text-[11px] font-semibold text-content-secondary uppercase tracking-wider mb-1.5">Support Contact Email</label>
               <input 
                 type="email" 
                 value={settings.supportEmail} 
                 onChange={e => setSettings(s => ({ ...s, supportEmail: e.target.value }))}
                 required
-                className="w-full h-10 px-3.5 rounded-xl text-xs text-white placeholder-white/20 bg-[#0E131A] border border-white/5 focus:border-[#61C0FF]/30 outline-none transition-all"
+                className="w-full h-10 px-3.5 rounded-xl text-xs text-white placeholder-white/20 bg-base-900 border border-border-subtle focus:border-accent-secondary/30 outline-none transition-all"
               />
             </div>
           </div>
@@ -1423,30 +1423,30 @@ function SettingsView() {
 
         {/* Panel 2: Community Rules & Automations */}
         <div className="card p-6 flex flex-col gap-4">
-          <div className="flex items-center gap-2 pb-3 border-b border-white/5">
-            <div className="w-8 h-8 rounded-lg bg-[#00FF94]/15 flex items-center justify-center">
-              <Zap size={15} className="text-[#00FF94]" />
+          <div className="flex items-center gap-2 pb-3 border-b border-border-subtle">
+            <div className="w-8 h-8 rounded-lg bg-state-success/15 flex items-center justify-center">
+              <Zap size={15} className="text-state-success" />
             </div>
             <div>
               <h3 className="text-sm font-semibold text-white">Community & Automation Rules</h3>
-              <p className="text-[10px] text-[#9CA3AF]">Submission logic and user privileges</p>
+              <p className="text-[10px] text-content-secondary">Submission logic and user privileges</p>
             </div>
           </div>
 
           <div className="space-y-4">
             <div>
               <div className="flex justify-between items-center mb-1">
-                <label className="block text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-wider">Auto-Acknowledge Upvote Threshold</label>
-                <span className="text-xs font-bold text-[#00FF94] bg-[#00FF94]/10 px-2 py-0.5 rounded-full">{settings.minUpvotesForAutoAcknowledge} upvotes</span>
+                <label className="block text-[11px] font-semibold text-content-secondary uppercase tracking-wider">Auto-Acknowledge Upvote Threshold</label>
+                <span className="text-xs font-bold text-state-success bg-state-success/10 px-2 py-0.5 rounded-full">{settings.minUpvotesForAutoAcknowledge} upvotes</span>
               </div>
-              <p className="text-[10px] text-[#9CA3AF] mb-2 leading-relaxed">Issues receiving this many upvotes will automatically transition to "Acknowledged" status.</p>
+              <p className="text-[10px] text-content-secondary mb-2 leading-relaxed">Issues receiving this many upvotes will automatically transition to "Acknowledged" status.</p>
               <input 
                 type="range" 
                 min="1" 
                 max="50" 
                 value={settings.minUpvotesForAutoAcknowledge} 
                 onChange={e => setSettings(s => ({ ...s, minUpvotesForAutoAcknowledge: parseInt(e.target.value) }))}
-                className="w-full accent-[#00FF94]"
+                className="w-full accent-state-success"
               />
             </div>
 
@@ -1454,42 +1454,42 @@ function SettingsView() {
               <div className="flex items-center justify-between">
                 <div>
                   <span className="text-xs font-medium text-white block">Enable Public Registration</span>
-                  <span className="text-[9px] text-[#9CA3AF]">Allow new citizens to sign up on the platform</span>
+                  <span className="text-[9px] text-content-secondary">Allow new citizens to sign up on the platform</span>
                 </div>
                 <button 
                   type="button"
                   onClick={() => setSettings(s => ({ ...s, enableRegistration: !s.enableRegistration }))}
-                  className={`w-11 h-6 rounded-full transition-colors relative flex items-center px-[3px] border ${settings.enableRegistration ? 'bg-[#00FF94]/20 border-[#00FF94]/40' : 'bg-white/5 border-white/10'}`}
+                  className={`w-11 h-6 rounded-full transition-colors relative flex items-center px-[3px] border ${settings.enableRegistration ? 'bg-state-success/20 border-state-success/40' : 'bg-base-850 border-border-subtle'}`}
                 >
-                  <span className={`w-4 h-4 rounded-full transition-transform ${settings.enableRegistration ? 'bg-[#00FF94] translate-x-5' : 'bg-[#9CA3AF] translate-x-0'} shadow-md`} />
+                  <span className={`w-4 h-4 rounded-full transition-transform ${settings.enableRegistration ? 'bg-state-success translate-x-5' : 'bg-content-secondary translate-x-0'} shadow-md`} />
                 </button>
               </div>
 
               <div className="flex items-center justify-between">
                 <div>
                   <span className="text-xs font-medium text-white block">Allow Anonymous Reporting</span>
-                  <span className="text-[9px] text-[#9CA3AF]">Citizens can choose to hide their name on issues</span>
+                  <span className="text-[9px] text-content-secondary">Citizens can choose to hide their name on issues</span>
                 </div>
                 <button 
                   type="button"
                   onClick={() => setSettings(s => ({ ...s, enableAnonymousReporting: !s.enableAnonymousReporting }))}
-                  className={`w-11 h-6 rounded-full transition-colors relative flex items-center px-[3px] border ${settings.enableAnonymousReporting ? 'bg-[#00FF94]/20 border-[#00FF94]/40' : 'bg-white/5 border-white/10'}`}
+                  className={`w-11 h-6 rounded-full transition-colors relative flex items-center px-[3px] border ${settings.enableAnonymousReporting ? 'bg-state-success/20 border-state-success/40' : 'bg-base-850 border-border-subtle'}`}
                 >
-                  <span className={`w-4 h-4 rounded-full transition-transform ${settings.enableAnonymousReporting ? 'bg-[#00FF94] translate-x-5' : 'bg-[#9CA3AF] translate-x-0'} shadow-md`} />
+                  <span className={`w-4 h-4 rounded-full transition-transform ${settings.enableAnonymousReporting ? 'bg-state-success translate-x-5' : 'bg-content-secondary translate-x-0'} shadow-md`} />
                 </button>
               </div>
 
               <div className="flex items-center justify-between">
                 <div>
                   <span className="text-xs font-medium text-white block">Allow Guest Comments</span>
-                  <span className="text-[9px] text-[#9CA3AF]">Allow comments from users without verified profiles</span>
+                  <span className="text-[9px] text-content-secondary">Allow comments from users without verified profiles</span>
                 </div>
                 <button 
                   type="button"
                   onClick={() => setSettings(s => ({ ...s, allowGuestComments: !s.allowGuestComments }))}
-                  className={`w-11 h-6 rounded-full transition-colors relative flex items-center px-[3px] border ${settings.allowGuestComments ? 'bg-[#00FF94]/20 border-[#00FF94]/40' : 'bg-white/5 border-white/10'}`}
+                  className={`w-11 h-6 rounded-full transition-colors relative flex items-center px-[3px] border ${settings.allowGuestComments ? 'bg-state-success/20 border-state-success/40' : 'bg-base-850 border-border-subtle'}`}
                 >
-                  <span className={`w-4 h-4 rounded-full transition-transform ${settings.allowGuestComments ? 'bg-[#00FF94] translate-x-5' : 'bg-[#9CA3AF] translate-x-0'} shadow-md`} />
+                  <span className={`w-4 h-4 rounded-full transition-transform ${settings.allowGuestComments ? 'bg-state-success translate-x-5' : 'bg-content-secondary translate-x-0'} shadow-md`} />
                 </button>
               </div>
             </div>
@@ -1498,56 +1498,56 @@ function SettingsView() {
 
         {/* Panel 3: Broadcast Emergency Alert (Span full width) */}
         <div className="card p-6 flex flex-col gap-4 md:col-span-2">
-          <div className="flex items-center justify-between pb-3 border-b border-white/5">
+          <div className="flex items-center justify-between pb-3 border-b border-border-subtle">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-[#EF4444]/15 flex items-center justify-center">
-                <AlertTriangle size={15} className="text-[#EF4444]" />
+              <div className="w-8 h-8 rounded-lg bg-state-error/15 flex items-center justify-center">
+                <AlertTriangle size={15} className="text-state-error" />
               </div>
               <div>
                 <h3 className="text-sm font-semibold text-white">Emergency Broadcast Alert System</h3>
-                <p className="text-[10px] text-[#9CA3AF]">Broadcast notices across all citizen dashboard pages</p>
+                <p className="text-[10px] text-content-secondary">Broadcast notices across all citizen dashboard pages</p>
               </div>
             </div>
             <button 
               type="button"
               onClick={() => setSettings(s => ({ ...s, enableAlertBanner: !s.enableAlertBanner }))}
-              className={`w-11 h-6 rounded-full transition-colors relative flex items-center px-[3px] border ${settings.enableAlertBanner ? 'bg-[#EF4444]/20 border-[#EF4444]/40' : 'bg-white/5 border-white/10'}`}
+              className={`w-11 h-6 rounded-full transition-colors relative flex items-center px-[3px] border ${settings.enableAlertBanner ? 'bg-state-error/20 border-state-error/40' : 'bg-base-850 border-border-subtle'}`}
             >
-              <span className={`w-4 h-4 rounded-full transition-transform ${settings.enableAlertBanner ? 'bg-[#EF4444] translate-x-5' : 'bg-[#9CA3AF] translate-x-0'} shadow-md`} />
+              <span className={`w-4 h-4 rounded-full transition-transform ${settings.enableAlertBanner ? 'bg-state-error translate-x-5' : 'bg-content-secondary translate-x-0'} shadow-md`} />
             </button>
           </div>
 
           <div className={`space-y-4 transition-all duration-300 ${settings.enableAlertBanner ? 'opacity-100 max-h-[500px]' : 'opacity-40 pointer-events-none max-h-[500px]'}`}>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="sm:col-span-2">
-                <label className="block text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1.5">Broadcast Alert Message</label>
+                <label className="block text-[11px] font-semibold text-content-secondary uppercase tracking-wider mb-1.5">Broadcast Alert Message</label>
                 <textarea 
                   value={settings.alertBannerText}
                   onChange={e => setSettings(s => ({ ...s, alertBannerText: e.target.value }))}
                   required={settings.enableAlertBanner}
                   placeholder="e.g. Due to severe water maintenance, street block 4 will experience low pressure until 5 PM today."
                   rows={3}
-                  className="w-full p-3 rounded-xl text-xs text-white placeholder-white/20 bg-[#0E131A] border border-white/5 focus:border-[#EF4444]/30 outline-none transition-all resize-none leading-relaxed"
+                  className="w-full p-3 rounded-xl text-xs text-white placeholder:text-content-muted/40 bg-base-900 border border-border-subtle focus:border-state-error/30 outline-none transition-all resize-none leading-relaxed"
                 />
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-wider mb-1.5">Severity Type</label>
+                <label className="block text-[11px] font-semibold text-content-secondary uppercase tracking-wider mb-1.5">Severity Type</label>
                 <div className="flex flex-col gap-2">
                   {[
-                    { value: 'info', label: 'Info (Blue)', border: 'border-[#61C0FF]/25', color: '#61C0FF' },
-                    { value: 'warning', label: 'Warning (Amber)', border: 'border-[#F59E0B]/25', color: '#F59E0B' },
-                    { value: 'critical', label: 'Critical (Crimson)', border: 'border-[#EF4444]/25', color: '#EF4444' }
+                    { value: 'info', label: 'Info (Blue)', border: 'border-accent-secondary/25', color: '#3B82F6' },
+                    { value: 'warning', label: 'Warning (Amber)', border: 'border-state-warning/25', color: 'rgb(var(--state-warning))' },
+                    { value: 'critical', label: 'Critical (Crimson)', border: 'border-state-error/25', color: 'rgb(var(--state-error))' }
                   ].map(t => (
                     <button
                       key={t.value}
                       type="button"
                       onClick={() => setSettings(s => ({ ...s, alertBannerType: t.value }))}
-                      className={`h-9 px-3.5 rounded-xl border text-xs font-semibold flex items-center gap-2 transition-all ${settings.alertBannerType === t.value ? 'bg-white/5' : 'bg-transparent border-white/5 opacity-55 hover:opacity-100'}`}
+                      className={`h-9 px-3.5 rounded-xl border text-xs font-semibold flex items-center gap-2 transition-all ${settings.alertBannerType === t.value ? 'bg-base-850' : 'bg-transparent border-border-subtle opacity-55 hover:opacity-100'}`}
                       style={{ borderColor: settings.alertBannerType === t.value ? t.color : '' }}
                     >
                       <span className="w-1.5 h-1.5 rounded-full" style={{ background: t.color }} />
-                      <span style={{ color: settings.alertBannerType === t.value ? t.color : '#F5F7FA' }}>{t.label}</span>
+                      <span style={{ color: settings.alertBannerType === t.value ? t.color : '#EEEEF5' }}>{t.label}</span>
                     </button>
                   ))}
                 </div>
@@ -1559,9 +1559,9 @@ function SettingsView() {
       </div>
 
       {/* Save Button Footer */}
-      <div className="flex justify-end pt-3 gap-3 items-center border-t border-white/5">
+      <div className="flex justify-end pt-3 gap-3 items-center border-t border-border-subtle">
         {success && (
-          <span className="text-xs font-semibold text-[#00FF94] flex items-center gap-1.5 animate-pulse">
+          <span className="text-xs font-semibold text-state-success flex items-center gap-1.5 animate-pulse">
             <CheckCircle2 size={13} />
             Settings saved successfully!
           </span>
@@ -1569,16 +1569,16 @@ function SettingsView() {
         <button
           type="submit"
           disabled={saving}
-          className="h-10 px-6 rounded-xl text-xs font-bold text-[#05070A] transition-all flex items-center gap-2 select-none"
+          className="h-10 px-6 rounded-xl text-xs font-bold text-base-950 transition-all flex items-center gap-2 select-none"
           style={{ 
-            background: saving ? 'rgba(97,192,255,0.2)' : 'linear-gradient(135deg,#00aaef,#61C0FF)',
-            boxShadow: saving ? 'none' : '0 4px 16px rgba(0,170,239,0.2)',
+            background: saving ? 'rgb(59 130 246 / 0.2)' : 'linear-gradient(135deg,#3B82F6,#3B82F6)',
+            boxShadow: saving ? 'none' : '0 4px 16px rgb(59 130 246 / 0.2)',
             cursor: saving ? 'not-allowed' : 'pointer'
           }}
         >
           {saving ? (
             <>
-              <Loader2 size={14} className="animate-spin text-[#05070A]" />
+              <Loader2 size={14} className="animate-spin text-base-950" />
               Saving Changes...
             </>
           ) : (
