@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect, useRef, Suspense } from 'react';
+import { useState, useEffect, useRef, Suspense, useMemo } from 'react';
 import {
   LayoutDashboard, List, BarChart2, Settings, Zap, Bell,
   Moon, Sun, TrendingUp, TrendingDown, AlertTriangle, Clock,
   ThumbsUp, MessageSquare, Search, Filter, ChevronDown,
   Download, Eye, CheckCircle2, XCircle, Loader2, Users,
-  Activity, ArrowUpRight, MapPin, ChevronRight, X, ClipboardList, Camera
+  Activity, ArrowUpRight, MapPin, ChevronRight, X, ClipboardList, Camera, ExternalLink
 } from 'lucide-react';
 import { adminApi, issuesApi, usersApi, commentsApi } from '@/lib/api';
 import { formatDistanceToNow } from 'date-fns';
@@ -151,7 +151,8 @@ function LineChart({ data, color = '#61C0FF' }: { data: number[]; color?: string
   const max = Math.max(...data); const min = Math.min(...data);
   const w = 260; const h = 80; const pad = 10;
   const pts = data.map((v, i) => {
-    const x = pad + (i / (data.length - 1)) * (w - pad * 2);
+    const divisor = data.length - 1 || 1;
+    const x = pad + (i / divisor) * (w - pad * 2);
     const y = pad + ((max - v) / (max - min || 1)) * (h - pad * 2);
     return [x, y];
   });
@@ -617,7 +618,7 @@ function AnalyticsView() {
     return <div className="p-10 flex justify-center"><Loader2 className="animate-spin text-[#61C0FF]" /></div>;
   }
 
-  const { resolutionTrend, categoryTrend, departmentPerf } = data;
+  const { resolutionTrend, categoryTrend, departmentPerf, deptSatisfaction = [], catSatisfaction = [] } = data;
 
   const deptData = departmentPerf.map((d: any) => ({
     name: d.department,
@@ -721,6 +722,45 @@ function AnalyticsView() {
           <span className="flex items-center gap-1.5 text-xs text-[#9CA3AF]"><span className="w-3 h-2 rounded-sm bg-[#F59E0B88] inline-block" />Pending</span>
         </div>
       </div>
+
+      {/* Department Satisfaction Scorecards */}
+      {deptSatisfaction.length > 0 && (
+        <div className="card p-5">
+          <div className="flex items-center gap-2 mb-5">
+            <span className="text-[#FBBF24]">★</span>
+            <h3 className="font-semibold text-white text-sm">Citizen Satisfaction by Department</h3>
+          </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {deptSatisfaction.map((d: any) => {
+              const avg = parseFloat(d.avg_rating || '0');
+              const isLow = avg < 3;
+              const filled = Math.round(avg);
+              return (
+                <div key={d.department} className={`p-4 rounded-xl border ${isLow ? 'border-[#EF4444]/20 bg-[#EF4444]/5' : 'border-white/5 bg-white/[0.02]'}`}>
+                  <div className="flex items-start justify-between mb-2">
+                    <span className="text-sm font-medium text-white truncate flex-1">{d.department}</span>
+                    {isLow && <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#EF4444]/10 text-[#EF4444] font-bold border border-[#EF4444]/20 ml-1 shrink-0">LOW</span>}
+                  </div>
+                  <div className="flex items-center gap-1.5 mb-1">
+                    {[1,2,3,4,5].map(n => (
+                      <svg key={n} width="14" height="14" viewBox="0 0 24 24" fill={n <= filled ? '#FBBF24' : 'none'} stroke={n <= filled ? '#FBBF24' : '#374151'} strokeWidth="2">
+                        <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26" />
+                      </svg>
+                    ))}
+                    <span className={`text-sm font-bold ml-1 ${isLow ? 'text-[#EF4444]' : 'text-[#FBBF24]'}`}>{avg.toFixed(1)}</span>
+                  </div>
+                  <span className="text-[11px] text-[#9CA3AF]">{d.review_count} review{parseInt(d.review_count) !== 1 ? 's' : ''}</span>
+                </div>
+              );
+            })}
+          </div>
+          {deptSatisfaction.some((d: any) => parseFloat(d.avg_rating) < 3) && (
+            <div className="mt-3 px-3 py-2 bg-[#EF4444]/5 border border-[#EF4444]/10 rounded-lg">
+              <span className="text-[11px] text-[#EF4444]">⚠ Departments below 3.0 stars need attention — citizens report poor resolution quality.</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Bottom row */}
       <div className="grid lg:grid-cols-2 gap-4">
@@ -1028,10 +1068,12 @@ function LogsView() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'users' | 'issues'>('users');
+  const [expandedIssues, setExpandedIssues] = useState<{ [key: string]: boolean }>({});
 
   useEffect(() => {
     setLoading(true);
-    adminApi.logs({ page, limit: 50 }).then(res => {
+    adminApi.logs({ page, limit: 50, type: activeTab }).then(res => {
       setLogs(res.data.logs);
       setTotal(res.data.total);
       setLoading(false);
@@ -1039,70 +1081,227 @@ function LogsView() {
       console.error(err);
       setLoading(false);
     });
-  }, [page]);
+  }, [page, activeTab]);
+
+  const handleTabChange = (tab: 'users' | 'issues') => {
+    setActiveTab(tab);
+    setPage(1);
+    setExpandedIssues({});
+  };
+
+  const toggleIssueExpand = (issueId: string) => {
+    setExpandedIssues(prev => ({
+      ...prev,
+      [issueId]: !prev[issueId]
+    }));
+  };
 
   const totalPages = Math.ceil(total / 50) || 1;
 
+  // Group issue logs by issue_id
+  const groupedLogs = useMemo(() => {
+    if (activeTab !== 'issues') return [];
+    const map = new Map<string, { issueId: string; issueTitle: string; items: any[] }>();
+    logs.forEach(log => {
+      const issueId = log.issue_id || log.entity_id;
+      const issueTitle = log.issue_title || 'Issue Details';
+      if (!map.has(issueId)) {
+        map.set(issueId, { issueId, issueTitle, items: [] });
+      }
+      map.get(issueId)!.items.push(log);
+    });
+    return Array.from(map.values());
+  }, [logs, activeTab]);
+
   return (
     <div className="p-6 space-y-5" style={{ animation: 'fadeUp 0.3s ease-out' }}>
-      <div className="card overflow-hidden relative min-h-[400px]">
-        {loading && (
-          <div className="absolute inset-0 bg-[#05070A]/50 backdrop-blur-sm flex items-center justify-center z-10">
-            <Loader2 className="animate-spin text-[#61C0FF]" />
-          </div>
-        )}
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-white/5">
-                {['Timestamp', 'Admin', 'Action', 'Target', 'Details'].map(h => (
-                  <th key={h} className="px-4 py-3 text-left label-micro text-[#9CA3AF]">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {logs.map((log, idx) => (
-                <tr key={log.id} className="border-b border-white/5 last:border-0 hover:bg-white/[0.02] transition-colors" style={{ animation: `fadeUp 0.3s ease-out ${idx * 30}ms both` }}>
-                  <td className="px-4 py-3.5"><span className="text-xs text-[#9CA3AF]">{new Date(log.created_at).toLocaleString()}</span></td>
-                  <td className="px-4 py-3.5">
-                    <span className="text-sm text-white font-medium block">{log.admin_name}</span>
-                    <span className="text-[10px] text-[#9CA3AF]">{log.admin_email}</span>
-                  </td>
-                  <td className="px-4 py-3.5">
-                    <span className={`text-xs px-2 py-1 rounded border ${log.action.includes('DELETE') ? 'border-[#EF4444]/30 text-[#EF4444] bg-[#EF4444]/10' : 'border-[#00FF94]/30 text-[#00FF94] bg-[#00FF94]/10'}`}>
-                      {log.action}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3.5"><span className="text-xs text-[#9CA3AF] font-mono">{log.entity_type} #{log.entity_id.slice(0, 8)}</span></td>
-                  <td className="px-4 py-3.5">
-                    <span className="text-xs text-[#9CA3AF] truncate max-w-[200px] block">{log.details ? log.details : '—'}</span>
-                  </td>
-                </tr>
-              ))}
-              {logs.length === 0 && !loading && (
-                <tr>
-                  <td colSpan={5} className="py-10 text-center text-[#9CA3AF] text-sm">No audit logs found.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Pagination footer */}
-        <div className="px-4 py-3 border-t border-white/5 flex items-center justify-between">
-          <span className="text-xs text-[#9CA3AF]">Showing {logs.length} of {total} logs</span>
-          <div className="flex gap-1">
-            {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
-              let p = i + 1;
-              if (totalPages > 5 && page > 3) p = page - 2 + i;
-              if (p > totalPages) return null;
-              return (
-                <button key={p} onClick={() => setPage(p)} className={`w-7 h-7 rounded-lg text-xs font-medium transition-all ${p === page ? 'bg-[#61C0FF]/10 text-[#61C0FF]' : 'text-[#9CA3AF] hover:bg-white/5 hover:text-white'}`}>{p}</button>
-              );
-            })}
-          </div>
-        </div>
+      {/* Sleek Tab Switcher Bar */}
+      <div className="flex gap-2 border-b border-white/5 pb-2">
+        <button
+          onClick={() => handleTabChange('users')}
+          className={`px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all duration-200 rounded-lg ${activeTab === 'users' ? 'bg-[#61C0FF] text-black shadow-glow-secondary' : 'text-[#9CA3AF] hover:text-white hover:bg-white/[0.03]'}`}
+        >
+          User Administration Logs
+        </button>
+        <button
+          onClick={() => handleTabChange('issues')}
+          className={`px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all duration-200 rounded-lg ${activeTab === 'issues' ? 'bg-[#A855F7] text-white shadow-glow-primary' : 'text-[#9CA3AF] hover:text-white hover:bg-white/[0.03]'}`}
+        >
+          Issue Activity Logs
+        </button>
       </div>
+
+      {activeTab === 'issues' ? (
+        <div className="space-y-4 relative min-h-[400px]">
+          {loading && (
+            <div className="absolute inset-0 bg-[#05070A]/50 backdrop-blur-sm flex items-center justify-center z-10 rounded-xl">
+              <Loader2 className="animate-spin text-[#A855F7]" />
+            </div>
+          )}
+          
+          {groupedLogs.map((group, gIdx) => {
+            const isExpanded = !!expandedIssues[group.issueId];
+            return (
+              <div 
+                key={group.issueId} 
+                className="card bg-[#0B121F] border border-white/5 overflow-hidden transition-all shadow-md animate-fade_in"
+                style={{ animationDelay: `${gIdx * 50}ms` }}
+              >
+                {/* Expandable Group Header */}
+                <div 
+                  onClick={() => toggleIssueExpand(group.issueId)}
+                  className="flex items-center justify-between p-4 cursor-pointer hover:bg-white/[0.02] transition-colors select-none"
+                >
+                  <div className="flex items-center gap-3">
+                    {/* Expand/Collapse Chevron Icon */}
+                    <span className="text-[#9CA3AF]">
+                      {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                    </span>
+                    
+                    {/* Clickable Issue Redirect (stopped propagation so it doesn't trigger collapse) */}
+                    <a 
+                      href={`/issues/${group.issueId}`} 
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={e => e.stopPropagation()} // Prevent expansion trigger
+                      className="flex items-center gap-2 text-sm font-bold text-[#A855F7] hover:text-[#A855F7]/80 hover:underline transition-all group"
+                    >
+                      <ExternalLink size={13} className="group-hover:scale-110 transition-transform" />
+                      <span>{group.issueTitle}</span>
+                    </a>
+                  </div>
+                  
+                  <div className="flex items-center gap-3">
+                    <span className="text-[10px] text-[#9CA3AF] bg-white/5 px-2 py-0.5 rounded-md border border-white/5 font-semibold">
+                      {group.items.length} {group.items.length === 1 ? 'log' : 'logs'}
+                    </span>
+                    <span className="text-[10px] font-mono text-[#9CA3AF] bg-white/5 px-2 py-0.5 rounded-md border border-white/5">
+                      ID: {group.issueId.slice(0, 8)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Sub-table: Shown only when expanded */}
+                {isExpanded && (
+                  <div className="border-t border-white/5 p-4 bg-black/20 animate-fade_in">
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="border-b border-white/5">
+                            {['Timestamp', 'Performed By', 'Status Transition', 'Details / Note'].map(h => (
+                              <th key={h} className="px-3 py-2 text-left label-micro text-[#9CA3AF]">{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {group.items.map(log => {
+                            const action = log.old_status 
+                              ? `${log.old_status.toUpperCase()} ➔ ${log.new_status.toUpperCase()}`
+                              : `REPORTED`;
+                            return (
+                              <tr key={log.id} className="border-b border-white/5 last:border-0 hover:bg-white/[0.01] transition-colors">
+                                <td className="px-3 py-2.5 text-xs text-[#9CA3AF]">{new Date(log.created_at).toLocaleString()}</td>
+                                <td className="px-3 py-2.5">
+                                  <span className="text-xs text-white font-medium block">{log.admin_name}</span>
+                                  <span className="text-[9px] text-[#9CA3AF]">{log.admin_email}</span>
+                                </td>
+                                <td className="px-3 py-2.5">
+                                  <span className={`text-[10px] px-2 py-0.5 rounded border font-mono ${action.includes('REJECTED') || action.includes('STILL_BROKEN') ? 'border-[#EF4444]/30 text-[#EF4444] bg-[#EF4444]/10' : 'border-[#A855F7]/30 text-[#A855F7] bg-[#A855F7]/10'}`}>
+                                    {action}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-2.5 text-xs text-[#E5E7EB]">{log.details || '—'}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {logs.length === 0 && !loading && (
+            <div className="card p-10 text-center text-[#9CA3AF] text-sm bg-base-800 border border-white/5">No issue activity logs found.</div>
+          )}
+
+          {/* Pagination footer for issues logs */}
+          <div className="card px-4 py-3 border border-white/5 flex items-center justify-between bg-base-800 shadow-md">
+            <span className="text-xs text-[#9CA3AF]">Showing {logs.length} of {total} logs</span>
+            <div className="flex gap-1">
+              {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
+                let p = i + 1;
+                if (totalPages > 5 && page > 3) p = page - 2 + i;
+                if (p > totalPages) return null;
+                return (
+                  <button key={p} onClick={() => setPage(p)} className={`w-7 h-7 rounded-lg text-xs font-medium transition-all ${p === page ? 'bg-[#A855F7]/10 text-[#A855F7]' : 'text-[#9CA3AF] hover:bg-white/5 hover:text-white'}`}>{p}</button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="card overflow-hidden relative min-h-[400px]">
+          {loading && (
+            <div className="absolute inset-0 bg-[#05070A]/50 backdrop-blur-sm flex items-center justify-center z-10">
+              <Loader2 className="animate-spin text-[#61C0FF]" />
+            </div>
+          )}
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-white/5">
+                  {['Timestamp', 'Performed By', 'Action Type', 'Target Entity', 'Details / Description'].map(h => (
+                    <th key={h} className="px-4 py-3 text-left label-micro text-[#9CA3AF]">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {logs.map((log, idx) => (
+                  <tr key={log.id} className="border-b border-white/5 last:border-0 hover:bg-white/[0.02] transition-colors" style={{ animation: `fadeUp 0.3s ease-out ${idx * 30}ms both` }}>
+                    <td className="px-4 py-3.5"><span className="text-xs text-[#9CA3AF]">{new Date(log.created_at).toLocaleString()}</span></td>
+                    <td className="px-4 py-3.5">
+                      <span className="text-sm text-white font-medium block">{log.admin_name}</span>
+                      <span className="text-[10px] text-[#9CA3AF]">{log.admin_email}</span>
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <span className={`text-xs px-2 py-1 rounded border font-mono ${log.action.includes('DELETE') ? 'border-[#EF4444]/30 text-[#EF4444] bg-[#EF4444]/10' : 'border-[#00FF94]/30 text-[#00FF94] bg-[#00FF94]/10'}`}>
+                        {log.action}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3.5"><span className="text-xs text-[#9CA3AF] font-mono">{log.entity_type} #{log.entity_id.slice(0, 8)}</span></td>
+                    <td className="px-4 py-3.5">
+                      <span className="text-xs text-[#E5E7EB] block leading-relaxed max-w-[400px] break-words">{log.details ? log.details : '—'}</span>
+                    </td>
+                  </tr>
+                ))}
+                {logs.length === 0 && !loading && (
+                  <tr>
+                    <td colSpan={5} className="py-10 text-center text-[#9CA3AF] text-sm">No audit logs found.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination footer */}
+          <div className="px-4 py-3 border-t border-white/5 flex items-center justify-between">
+            <span className="text-xs text-[#9CA3AF]">Showing {logs.length} of {total} logs</span>
+            <div className="flex gap-1">
+              {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
+                let p = i + 1;
+                if (totalPages > 5 && page > 3) p = page - 2 + i;
+                if (p > totalPages) return null;
+                return (
+                  <button key={p} onClick={() => setPage(p)} className={`w-7 h-7 rounded-lg text-xs font-medium transition-all ${p === page ? 'bg-[#61C0FF]/10 text-[#61C0FF]' : 'text-[#9CA3AF] hover:bg-white/5 hover:text-white'}`}>{p}</button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

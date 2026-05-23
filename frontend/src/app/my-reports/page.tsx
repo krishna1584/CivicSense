@@ -20,6 +20,7 @@ const STATUS_CONFIG: Record<IssueStatus, { label: string; color: string; bg: str
   in_progress:  { label: 'In Progress',  color: '#F59E0B', bg: 'rgba(245,158,11,0.1)',  dot: '#F59E0B' },
   resolved:     { label: 'Resolved',     color: '#10B981', bg: 'rgba(16,185,129,0.1)',   dot: '#10B981' },
   rejected:     { label: 'Rejected',     color: '#EF4444', bg: 'rgba(239,68,68,0.1)',    dot: '#EF4444' },
+  pending_verification: { label: 'Pending Verification', color: '#A855F7', bg: 'rgba(168,85,247,0.1)', dot: '#A855F7' },
 };
 
 const SEVERITY_CONFIG: Record<string, { color: string; bg: string }> = {
@@ -155,7 +156,7 @@ function StatPill({ label, value, color }: { label: string; value: number; color
 }
 
 // ── Page ───────────────────────────────────────────────────────────────────────
-const STATUS_FILTERS: DisplayStatus[] = ['All', 'reported', 'acknowledged', 'in_progress', 'resolved', 'rejected'];
+const STATUS_FILTERS: DisplayStatus[] = ['All', 'reported', 'acknowledged', 'in_progress', 'pending_verification', 'resolved', 'rejected'];
 
 export default function MyReportsPage() {
   const [issues, setIssues] = useState<Issue[]>([]);

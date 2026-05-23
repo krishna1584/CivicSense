@@ -4,6 +4,7 @@ const { auth, requireRole, optionalAuth } = require('../middleware/auth');
 const { validate, createIssueSchema, updateIssueStatusSchema } = require('../middleware/validate');
 const { upload, uploadToCloudinary } = require('../middleware/upload');
 const { apiLimiter, uploadLimiter } = require('../middleware/rateLimiter');
+const issuesService = require('../services/issues.service');
 
 const router = express.Router();
 
@@ -31,21 +32,21 @@ router.get('/', optionalAuth, async (req, res) => {
     idx += 2;
   }
   if (lat && lng) {
-    conditions.push(`ST_DWithin(i.location, ST_MakePoint($${idx++}, $${idx++})::geography, $${idx++})`);
-    values.push(parseFloat(lng), parseFloat(lat), parseFloat(radius));
+    conditions.push(`(sqrt(power(i.latitude - $${idx++}, 2) + power(i.longitude - $${idx++}, 2)) * 111139) <= $${idx++}`);
+    values.push(parseFloat(lat), parseFloat(lng), parseFloat(radius));
   }
 
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
   const distanceSelect = lat && lng
-    ? `, ST_Distance(i.location, ST_MakePoint(${parseFloat(lng)}, ${parseFloat(lat)})::geography) AS distance`
+    ? `, (sqrt(power(i.latitude - ${parseFloat(lat)}, 2) + power(i.longitude - ${parseFloat(lng)}, 2)) * 111139) AS distance`
     : '';
 
   const orderMap = {
     newest: 'i.created_at DESC',
     oldest: 'i.created_at ASC',
     upvotes: 'i.upvote_count DESC',
-    proximity: lat && lng ? `i.location <-> ST_MakePoint(${parseFloat(lng)}, ${parseFloat(lat)})::geography` : 'i.created_at DESC',
+    proximity: lat && lng ? `sqrt(power(i.latitude - ${parseFloat(lat)}, 2) + power(i.longitude - ${parseFloat(lng)}, 2))` : 'i.created_at DESC',
     status: 'i.status ASC',
   };
   const orderBy = orderMap[sort] || 'i.created_at DESC';
@@ -106,10 +107,10 @@ router.get('/trending/nearby', optionalAuth, async (req, res) => {
     const result = await pool.query(`
       SELECT i.*, c.name AS category_name, c.icon AS category_icon,
              (i.upvote_count + i.follow_count * 2 + i.comment_count) AS impact_score,
-             ST_Distance(i.location, ST_MakePoint($1, $2)::geography) AS distance
+             (sqrt(power(i.latitude - $2, 2) + power(i.longitude - $1, 2)) * 111139) AS distance
       FROM issues i
       LEFT JOIN categories c ON i.category_id = c.id
-      WHERE ST_DWithin(i.location, ST_MakePoint($1, $2)::geography, $3)
+      WHERE (sqrt(power(i.latitude - $2, 2) + power(i.longitude - $1, 2)) * 111139) <= $3
         AND i.status NOT IN ('resolved', 'rejected')
         AND i.created_at > NOW() - INTERVAL '7 days'
       ORDER BY impact_score DESC
@@ -128,9 +129,9 @@ router.get('/:id', optionalAuth, async (req, res) => {
       SELECT i.*, u.name AS reporter_name, u.avatar_url AS reporter_avatar, u.trust_score AS reporter_trust,
              c.name AS category_name, c.slug AS category_slug, c.icon AS category_icon,
              sc.name AS subcategory_name,
-             ST_X(i.location::geometry) AS longitude,
-             ST_Y(i.location::geometry) AS latitude,
-             ARRAY(SELECT json_build_object('id', m.id, 'url', m.media_url, 'type', m.media_type)
+             i.longitude AS longitude,
+             i.latitude AS latitude,
+             ARRAY(SELECT json_build_object('id', m.id, 'url', m.media_url, 'type', m.media_type, 'is_resolution', m.is_resolution)
                    FROM issue_media m WHERE m.issue_id = i.id) AS media
       FROM issues i
       LEFT JOIN users u ON i.user_id = u.id
@@ -170,26 +171,54 @@ router.post('/', auth, uploadLimiter, upload.array('media', 5), validate(createI
     const slaDeadline = new Date(Date.now() + slaHours * 60 * 60 * 1000);
 
     const issueResult = await client.query(`
-      INSERT INTO issues (user_id, title, description, category_id, subcategory_id, severity, location, address, is_anonymous, sla_hours, sla_deadline)
-      VALUES ($1, $2, $3, $4, $5, $6, ST_MakePoint($7, $8)::geography, $9, $10, $11, $12)
+      INSERT INTO issues (user_id, title, description, category_id, subcategory_id, severity, location, latitude, longitude, address, is_anonymous, sla_hours, sla_deadline)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
       RETURNING *
-    `, [req.user.id, title, description, category_id, subcategory_id || null, severity, longitude, latitude, address, is_anonymous, slaHours, slaDeadline]);
+    `, [req.user.id, title, description, category_id, subcategory_id || null, severity, `POINT(${longitude} ${latitude})`, parseFloat(latitude), parseFloat(longitude), address, is_anonymous, slaHours, slaDeadline]);
 
     const issue = issueResult.rows[0];
 
     // Save media
     if (req.files && req.files.length > 0) {
+      const cloudinaryConfigured = process.env.CLOUDINARY_CLOUD_NAME &&
+        process.env.CLOUDINARY_CLOUD_NAME !== 'your_cloud_name';
+
       for (const file of req.files) {
         const mediaType = file.mimetype.startsWith('video/') ? 'video' : 'image';
-        const cloudResult = await uploadToCloudinary(file.buffer, {
-          folder: 'civicsense/issues',
-          resource_type: mediaType,
-          public_id: `issue_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-          transformation: mediaType === 'image' ? [{ quality: 'auto', fetch_format: 'auto' }] : [],
-        });
+        let mediaUrl = null;
+        let publicId = null;
+
+        if (cloudinaryConfigured) {
+          try {
+            const cloudResult = await uploadToCloudinary(file.buffer, {
+              folder: 'civicsense/issues',
+              resource_type: mediaType,
+              public_id: `issue_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+              transformation: mediaType === 'image' ? [{ quality: 'auto', fetch_format: 'auto' }] : [],
+            });
+            mediaUrl = cloudResult.secure_url;
+            publicId = cloudResult.public_id;
+          } catch (err) {
+            console.warn('Cloudinary upload failed for issue media, falling back to local storage:', err.message);
+          }
+        }
+
+        // Local storage fallback if Cloudinary is not configured or failed
+        if (!mediaUrl) {
+          const fs = require('fs').promises;
+          const path = require('path');
+          const ext = path.extname(file.originalname) || (mediaType === 'video' ? '.mp4' : '.jpg');
+          const fileName = `issue_${Date.now()}_${Math.random().toString(36).slice(2, 8)}${ext}`;
+          const uploadDir = path.join(__dirname, '../../public/uploads');
+          await fs.mkdir(uploadDir, { recursive: true });
+          await fs.writeFile(path.join(uploadDir, fileName), file.buffer);
+          mediaUrl = `${req.protocol}://${req.get('host')}/uploads/${fileName}`;
+          publicId = `local_${fileName}`;
+        }
+
         await client.query(
           'INSERT INTO issue_media (issue_id, media_url, public_id, media_type) VALUES ($1, $2, $3, $4)',
-          [issue.id, cloudResult.secure_url, cloudResult.public_id, mediaType]
+          [issue.id, mediaUrl, publicId, mediaType]
         );
       }
     }
@@ -216,7 +245,7 @@ router.post('/', auth, uploadLimiter, upload.array('media', 5), validate(createI
 });
 
 // PATCH /api/issues/:id/status - admin/staff only
-router.patch('/:id/status', auth, requireRole('admin', 'department_staff'), validate(updateIssueStatusSchema), async (req, res) => {
+router.patch('/:id/status', auth, requireRole('admin', 'department_staff'), upload.array('media', 5), validate(updateIssueStatusSchema), async (req, res) => {
   const { status, comment, rejection_reason } = req.body;
   const client = await pool.connect();
   try {
@@ -226,9 +255,17 @@ router.patch('/:id/status', auth, requireRole('admin', 'department_staff'), vali
     if (!issueRes.rows[0]) return res.status(404).json({ error: 'Issue not found' });
     const issue = issueRes.rows[0];
 
-    const resolvedAt = status === 'resolved' ? new Date() : undefined;
+    let finalStatus = status;
+    const isResolving = status === 'resolved';
+
+    if (isResolving) {
+      // Force database status to pending_verification for citizen review
+      finalStatus = 'pending_verification';
+    }
+
+    const resolvedAt = finalStatus === 'resolved' ? new Date() : undefined;
     const updates = ['status = $1', 'updated_at = NOW()'];
-    const values = [status];
+    const values = [finalStatus];
     let idx = 2;
 
     if (rejection_reason) { updates.push(`rejection_reason = $${idx++}`); values.push(rejection_reason); }
@@ -240,30 +277,163 @@ router.patch('/:id/status', auth, requireRole('admin', 'department_staff'), vali
       values
     );
 
+    // If status is 'resolved' and media files were uploaded, save them as resolution proofs
+    if (isResolving && req.files && req.files.length > 0) {
+      for (const file of req.files) {
+        const mediaType = file.mimetype.startsWith('video/') ? 'video' : 'image';
+        let mediaUrl = null;
+        let publicId = null;
+
+        const cloudinaryConfigured = process.env.CLOUDINARY_CLOUD_NAME &&
+          process.env.CLOUDINARY_CLOUD_NAME !== 'your_cloud_name';
+
+        if (cloudinaryConfigured) {
+          try {
+            const { uploadToCloudinary } = require('../middleware/upload');
+            const cloudResult = await uploadToCloudinary(file.buffer, {
+              folder: 'civicsense/issues',
+              resource_type: mediaType,
+              public_id: `resolution_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+              transformation: mediaType === 'image' ? [{ quality: 'auto', fetch_format: 'auto' }] : [],
+            });
+            mediaUrl = cloudResult.secure_url;
+            publicId = cloudResult.public_id;
+          } catch (err) {
+            console.warn('Cloudinary upload failed for resolution media, falling back to local storage:', err.message);
+          }
+        }
+
+        if (!mediaUrl) {
+          const fs = require('fs').promises;
+          const path = require('path');
+          const ext = path.extname(file.originalname) || (mediaType === 'video' ? '.mp4' : '.jpg');
+          const fileName = `resolution_${Date.now()}_${Math.random().toString(36).slice(2, 8)}${ext}`;
+          const uploadDir = path.join(__dirname, '../../public/uploads');
+          await fs.mkdir(uploadDir, { recursive: true });
+          await fs.writeFile(path.join(uploadDir, fileName), file.buffer);
+          mediaUrl = `${req.protocol}://${req.get('host')}/uploads/${fileName}`;
+          publicId = `local_${fileName}`;
+        }
+
+        await client.query(
+          'INSERT INTO issue_media (issue_id, media_url, public_id, media_type, is_resolution) VALUES ($1, $2, $3, $4, TRUE)',
+          [issue.id, mediaUrl, publicId, mediaType]
+        );
+      }
+    }
+
+    const historyComment = isResolving 
+      ? (comment || 'Resolution proposed by administrator. Verification image uploaded.') 
+      : (comment || null);
+
     await client.query(
       'INSERT INTO issue_status_history (issue_id, old_status, new_status, updated_by, comment) VALUES ($1, $2, $3, $4, $5)',
-      [issue.id, issue.status, status, req.user.id, comment || null]
+      [issue.id, issue.status, finalStatus, req.user.id, historyComment]
     );
 
     // Notify followers
-    const followers = await client.query('SELECT user_id FROM follows WHERE issue_id = $1', [issue.id]);
-    for (const f of followers.rows) {
-      await client.query(
-        'INSERT INTO notifications (user_id, issue_id, type, message) VALUES ($1, $2, $3, $4)',
-        [f.user_id, issue.id, 'status_update', `Issue "${issue.title}" status changed to ${status}`]
-      );
-    }
+    const notifs = await issuesService.notifyFollowers(client, {
+      issueId: issue.id,
+      issueTitle: issue.title,
+      newStatus: finalStatus,
+      actorId: req.user.id
+    });
 
     await client.query('COMMIT');
 
     const io = req.app.get('io');
-    if (io) io.to(`issue_${issue.id}`).emit('issue_status_updated', { issueId: issue.id, status, updatedBy: req.user.name });
+    if (io) {
+      io.to(`issue_${issue.id}`).emit('issue_status_updated', { issueId: issue.id, status: finalStatus, updatedBy: req.user.name });
+      for (const n of notifs) {
+        io.to(`user_${n.user_id}`).emit('new_notification', n);
+      }
+    }
 
-    res.json({ issue: updatedIssue.rows[0] });
+    res.json({ issue: { ...updatedIssue.rows[0], status: finalStatus } });
   } catch (err) {
     await client.query('ROLLBACK');
     console.error(err);
     res.status(500).json({ error: 'Failed to update status' });
+  } finally {
+    client.release();
+  }
+});
+
+// POST /api/issues/:id/verify-resolution   (Issue Reporter Only)
+router.post('/:id/verify-resolution', auth, async (req, res) => {
+  const { approved, comment } = req.body;
+  const { id: issueId } = req.params;
+
+  if (typeof approved !== 'boolean') {
+    return res.status(400).json({ error: 'approved boolean field is required.' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const issueRes = await client.query('SELECT * FROM issues WHERE id = $1', [issueId]);
+    if (!issueRes.rows[0]) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Issue not found' });
+    }
+    const issue = issueRes.rows[0];
+
+    // Authorization: Only the original reporter can verify
+    if (issue.user_id !== req.user.id) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'Only the original reporter can verify the resolution.' });
+    }
+
+    // Logic: Must be pending_verification
+    if (issue.status !== 'pending_verification') {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'This issue is not awaiting resolution verification.' });
+    }
+
+    // Decide new status
+    const nextStatus = approved ? 'resolved' : 'in_progress';
+    const resolvedAt = nextStatus === 'resolved' ? new Date() : null;
+
+    // Update status
+    const updatedRes = await client.query(
+      'UPDATE issues SET status = $1, resolved_at = $2, updated_at = NOW() WHERE id = $3 RETURNING *',
+      [nextStatus, resolvedAt, issueId]
+    );
+
+    // Record history
+    const note = approved 
+      ? 'Resolution approved by reporter.' 
+      : `Resolution rejected by reporter. Note: ${comment || 'None'}`;
+
+    await client.query(
+      'INSERT INTO issue_status_history (issue_id, old_status, new_status, updated_by, comment) VALUES ($1, $2, $3, $4, $5)',
+      [issue.id, issue.status, nextStatus, req.user.id, note]
+    );
+
+    // Notify followers
+    const notifs = await issuesService.notifyFollowers(client, {
+      issueId: issue.id,
+      issueTitle: issue.title,
+      newStatus: nextStatus,
+      actorId: req.user.id
+    });
+
+    await client.query('COMMIT');
+
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`issue_${issue.id}`).emit('issue_status_updated', { issueId: issue.id, status: nextStatus, updatedBy: req.user.name });
+      for (const n of notifs) {
+        io.to(`user_${n.user_id}`).emit('new_notification', n);
+      }
+    }
+
+    res.json({ message: `Issue successfully transitioned to ${nextStatus}`, status: nextStatus, issue: updatedRes.rows[0] });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('verifyResolution:', err);
+    res.status(500).json({ error: 'Failed to process resolution verification' });
   } finally {
     client.release();
   }

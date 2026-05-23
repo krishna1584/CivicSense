@@ -30,7 +30,7 @@ const SEVERITY_CONFIG: Record<Severity, { color: string; bg: string }> = {
   critical: { color: '#EF4444', bg: 'rgba(239,68,68,0.1)' },
 };
 
-const STATUS_FILTERS: string[] = ['all', 'unresolved', 'reported', 'acknowledged', 'in_progress', 'resolved', 'rejected'];
+const STATUS_FILTERS: string[] = ['all', 'unresolved', 'reported', 'acknowledged', 'in_progress', 'pending_verification', 'resolved', 'rejected'];
 const CATEGORY_FILTERS = ['All', 'Roads', 'Water', 'Traffic', 'Garbage', 'Electricity', 'Parks', 'Vandalism', 'Other'];
 const SORT_OPTIONS = [
   { value: 'newest', label: 'Most Recent' },

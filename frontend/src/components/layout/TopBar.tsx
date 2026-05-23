@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Bell, Sun, Moon } from 'lucide-react';
 import Link from 'next/link';
-import { useAuthStore } from '@/lib/store';
+import { useAuthStore, useNotificationStore } from '@/lib/store';
 import { usersApi } from '@/lib/api';
 
 const formatMediaUrl = (url: string) => {
@@ -24,22 +24,12 @@ interface TopBarProps {
 }
 
 export function TopBar({ title, sub, darkMode: controlledDarkMode, toggleDark: controlledToggleDark, actions }: TopBarProps) {
-  const [notifications, setNotifications] = useState<any[]>([]);
   const { user } = useAuthStore();
+  const { unreadCount } = useNotificationStore();
   const [localDarkMode, setLocalDarkMode] = useState(true);
 
   const isDarkMode = controlledDarkMode !== undefined ? controlledDarkMode : localDarkMode;
   const handleToggleDark = controlledToggleDark || (() => setLocalDarkMode(v => !v));
-
-  useEffect(() => {
-    if (user) {
-      usersApi.notifications()
-        .then(res => setNotifications(res.data.notifications || []))
-        .catch(() => {});
-    }
-  }, [user]);
-
-  const unreadCount = notifications.filter(n => !n.is_read).length;
 
   const avatarUrl = user?.avatar_url ? formatMediaUrl(user.avatar_url) : '';
   const initials = user?.name ? user.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) : 'AU';
@@ -71,7 +61,7 @@ export function TopBar({ title, sub, darkMode: controlledDarkMode, toggleDark: c
         >
           <Bell size={14} className="text-[#9CA3AF]" />
           {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#EF4444] text-[9px] font-bold flex items-center justify-center">
+            <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#EF4444] text-white text-[9px] font-bold flex items-center justify-center">
               {unreadCount}
             </span>
           )}

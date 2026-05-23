@@ -38,6 +38,7 @@ export function Sidebar() {
     }
     
     base.push({ href: '/explore', label: 'Explore Map', icon: Map });
+    base.push({ href: '/notifications', label: 'Notifications', icon: Bell });
     return base;
   };
 

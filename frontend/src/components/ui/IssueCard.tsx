@@ -37,11 +37,36 @@ export function IssueCard({ issue, compact = false }: IssueCardProps) {
           {issue.title}
         </h3>
 
-        {issue.department && (
-          <div className="text-[11px] font-semibold text-accent-secondary/90 mb-3 flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-accent-secondary" />
-            {issue.status === 'resolved' ? `Resolved by: ${issue.department}` : `Assigned: ${issue.department}`}
+        {issue.department ? (
+          <div className="text-[11px] font-semibold text-accent-secondary/90 mb-3 flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-accent-secondary" />
+              {issue.status === 'resolved' ? `Resolved by: ${issue.department}` : `Assigned: ${issue.department}`}
+            </div>
+            {issue.status === 'resolved' && issue.avg_rating && parseFloat(String(issue.avg_rating)) > 0 && (
+              <div className="flex items-center gap-1 text-[11px] font-bold text-[#FBBF24] bg-[#FBBF24]/10 border border-[#FBBF24]/20 rounded px-1.5 py-0.5">
+                <span>★</span>
+                <span>{parseFloat(String(issue.avg_rating)).toFixed(1)}</span>
+                {issue.review_count !== undefined && (
+                  <span className="text-[9px] text-[#FBBF24]/75 font-normal">
+                    ({issue.review_count})
+                  </span>
+                )}
+              </div>
+            )}
           </div>
+        ) : (
+          issue.status === 'resolved' && issue.avg_rating && parseFloat(String(issue.avg_rating)) > 0 && (
+            <div className="flex items-center gap-1 text-[11px] font-bold text-[#FBBF24] bg-[#FBBF24]/10 border border-[#FBBF24]/20 rounded px-1.5 py-0.5 mb-3 w-fit">
+              <span>★</span>
+              <span>{parseFloat(String(issue.avg_rating)).toFixed(1)}</span>
+              {issue.review_count !== undefined && (
+                <span className="text-[9px] text-[#FBBF24]/75 font-normal">
+                  ({issue.review_count})
+                </span>
+              )}
+            </div>
+          )
         )}
 
         {!compact && (

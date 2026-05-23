@@ -75,7 +75,7 @@ async function listIssues({ category, status, severity, sort = 'newest', search,
       `SELECT ${ISSUE_SELECT},
               COALESCE(
                 ARRAY(
-                  SELECT json_build_object('id', m.id, 'url', m.media_url, 'type', m.media_type)
+                  SELECT json_build_object('id', m.id, 'url', m.media_url, 'type', m.media_type, 'is_resolution', m.is_resolution)
                   FROM issue_media m WHERE m.issue_id = i.id
                 ),
                 ARRAY[]::json[]
@@ -115,7 +115,7 @@ async function getIssueById(issueId) {
             sc.name AS subcategory_name,
             COALESCE(
               ARRAY(
-                SELECT json_build_object('id', m.id, 'url', m.media_url, 'type', m.media_type)
+                SELECT json_build_object('id', m.id, 'url', m.media_url, 'type', m.media_type, 'is_resolution', m.is_resolution)
                 FROM issue_media m WHERE m.issue_id = i.id
               ),
               ARRAY[]::json[]
@@ -225,18 +225,64 @@ async function updateIssueStatus(client, issueId, { status, rejection_reason }) 
  * @param {object} client
  * @param {{ issueId, issueTitle, newStatus }} params
  */
-async function notifyFollowers(client, { issueId, issueTitle, newStatus }) {
-  const followers = await client.query(
-    'SELECT user_id FROM follows WHERE issue_id = $1',
-    [issueId]
-  );
-  for (const { user_id } of followers.rows) {
+async function notifyFollowers(client, { issueId, issueTitle, newStatus, actorId }) {
+  const sql = `
+    SELECT DISTINCT user_id FROM (
+      SELECT user_id FROM follows WHERE issue_id = $1
+      UNION
+      SELECT user_id FROM votes WHERE issue_id = $1 AND vote_type = 'upvote'
+      UNION
+      SELECT user_id AS user_id FROM issues WHERE id = $1
+    ) AS recipients
+  `;
+  const result = await client.query(sql, [issueId]);
+
+  const notifications = [];
+  for (const { user_id } of result.rows) {
+    const notifId = require('crypto').randomUUID();
+    const msg = `Issue "${issueTitle}" is now ${newStatus}`;
     await client.query(
-      `INSERT INTO notifications (user_id, issue_id, type, message)
-       VALUES ($1, $2, $3, $4)`,
-      [user_id, issueId, 'status_update', `Issue "${issueTitle}" is now ${newStatus}`]
+      `INSERT INTO notifications (id, user_id, issue_id, type, message)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [notifId, user_id, issueId, 'status_update', msg]
     );
+    notifications.push({
+      id: notifId,
+      user_id,
+      issue_id: issueId,
+      type: 'status_update',
+      message: msg,
+      is_read: false,
+      created_at: new Date().toISOString()
+    });
   }
+
+  // Send resolution emails to the original reporter only
+  if (newStatus === 'pending_verification' || newStatus === 'resolved') {
+    try {
+      const { sendResolutionPendingEmail, sendResolvedEmail } = require('./mail');
+      const reporterResult = await client.query(
+        `SELECT u.email, u.name FROM issues i JOIN users u ON i.user_id = u.id WHERE i.id = $1`,
+        [issueId]
+      );
+      const reporter = reporterResult.rows[0];
+      if (reporter) {
+        if (newStatus === 'pending_verification') {
+          sendResolutionPendingEmail(reporter.email, reporter.name, issueTitle, issueId).catch(err =>
+            console.error('Resolution-pending email failed:', err.message)
+          );
+        } else if (newStatus === 'resolved') {
+          sendResolvedEmail(reporter.email, reporter.name, issueTitle, issueId).catch(err =>
+            console.error('Resolved email failed:', err.message)
+          );
+        }
+      }
+    } catch (emailErr) {
+      console.error('Failed to send resolution email:', emailErr.message);
+    }
+  }
+
+  return notifications;
 }
 
 // ── Status history list ───────────────────────────────────────────────────────

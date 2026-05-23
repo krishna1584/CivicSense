@@ -146,6 +146,7 @@ const migrate = async () => {
       DO $$ BEGIN
         ALTER TABLE issue_media RENAME COLUMN "mediaType" TO media_type;
       EXCEPTION WHEN others THEN null; END $$;
+      ALTER TABLE issue_media ADD COLUMN IF NOT EXISTS is_resolution BOOLEAN NOT NULL DEFAULT false;
     `);
 
     // ── Indexes ─────────────────────────────────────────────────────────────
@@ -180,12 +181,13 @@ const migrate = async () => {
     // ── Issue media ─────────────────────────────────────────────────────────
     await client.query(`
       CREATE TABLE IF NOT EXISTS issue_media (
-        id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        issue_id    UUID NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
-        media_url   TEXT NOT NULL,
-        public_id   TEXT,
-        media_type  media_type NOT NULL DEFAULT 'image',
-        uploaded_at TIMESTAMPTZ DEFAULT NOW()
+        id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        issue_id      UUID NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+        media_url     TEXT NOT NULL,
+        public_id     TEXT,
+        media_type    media_type NOT NULL DEFAULT 'image',
+        is_resolution BOOLEAN NOT NULL DEFAULT false,
+        uploaded_at   TIMESTAMPTZ DEFAULT NOW()
       );
     `);
 

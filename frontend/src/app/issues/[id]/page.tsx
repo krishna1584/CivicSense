@@ -7,11 +7,12 @@ import {
   ArrowLeft, MapPin, ThumbsUp, MessageSquare, Eye,
   Clock, Share2, Flag, Send, ChevronRight, ChevronLeft,
   AlertTriangle, CheckCircle2, XCircle, Loader2,
-  RefreshCw, Bell, BellOff, Edit2, Trash2, Camera
+  RefreshCw, Bell, BellOff, Edit2, Trash2, Camera, Star
 } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { issuesApi, commentsApi, adminApi } from '@/lib/api';
 import { useAuthStore } from '@/lib/store';
+import { ReviewSection } from './ReviewSection';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const formatMediaUrl = (url: string) => {
@@ -182,7 +183,7 @@ export default function IssueDetailPage() {
   const [loading, setLoading] = useState(!!issueId);
   const [error, setError] = useState<string | null>(null);
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'updates' | 'comments'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'updates' | 'comments' | 'reviews'>('overview');
   const [comments, setComments] = useState<Comment[]>([]);
   const [updates, setUpdates] = useState<Update[]>([]);
   const [commentText, setCommentText] = useState('');
@@ -204,7 +205,8 @@ export default function IssueDetailPage() {
   const [originalDept, setOriginalDept] = useState('');
   const [editStatus, setEditStatus] = useState('');
   const [editDept, setEditDept] = useState('');
-  const [resolutionFile, setResolutionFile] = useState<File | null>(null);
+  const [resolutionFiles, setResolutionFiles] = useState<File[]>([]);
+  const [rejectionReason, setRejectionReason] = useState('');
   const [adminSubmitting, setAdminSubmitting] = useState(false);
 
   // Fetch issue data from API
@@ -243,7 +245,7 @@ export default function IssueDetailPage() {
 
         setIssue({
           id: data.id,
-          reporter_id: data.user_id,
+          reporter_id: data.is_anonymous ? null : data.user_id,
           title: data.title,
           description: data.description,
           category: data.category_name || 'Uncategorized',
@@ -256,8 +258,9 @@ export default function IssueDetailPage() {
           follow_count: data.follow_count || 0,
           created_at: data.created_at,
           updated_at: data.updated_at,
-          author: data.reporter_name || 'Anonymous',
+          author: data.is_anonymous ? 'Anonymous' : (data.reporter_name || 'Anonymous'),
           author_initials: (data.reporter_name || 'A').substring(0, 2).toUpperCase(),
+          reporter_avatar: data.is_anonymous ? null : (data.reporter_avatar || null),
           media: data.media || [],
           department: data.department || null,
         });
@@ -266,6 +269,7 @@ export default function IssueDetailPage() {
         setOriginalDept(data.department || '');
         setEditStatus(data.status);
         setEditDept(data.department || '');
+        setRejectionReason('');
       } catch (err: unknown) {
         const e = err as { response?: { status: number; data?: { error: string } } };
         if (e?.response?.status === 404) {
@@ -408,19 +412,28 @@ export default function IssueDetailPage() {
   };
 
   const handleSaveAdminChanges = async () => {
-    if (editStatus === 'resolved' && originalStatus !== 'resolved' && originalStatus !== 'pending_verification' && !resolutionFile) {
+    if (editStatus === 'resolved' && originalStatus !== 'resolved' && originalStatus !== 'pending_verification' && resolutionFiles.length === 0) {
       alert('A resolution proof image is mandatory to mark an issue as resolved.');
+      return;
+    }
+
+    if (editStatus === 'rejected' && !rejectionReason.trim()) {
+      alert('A rejection reason is mandatory to reject an issue.');
       return;
     }
 
     setAdminSubmitting(true);
     try {
       if (editStatus !== originalStatus) {
-        if (editStatus === 'resolved' && resolutionFile) {
+        if (editStatus === 'resolved' && resolutionFiles.length > 0) {
           const fd = new FormData();
           fd.append('status', 'resolved');
-          fd.append('media', resolutionFile);
+          resolutionFiles.forEach(file => {
+            fd.append('media', file);
+          });
           await issuesApi.updateStatus(issueId, fd);
+        } else if (editStatus === 'rejected') {
+          await issuesApi.updateStatus(issueId, { status: editStatus, rejection_reason: rejectionReason.trim() });
         } else {
           await issuesApi.updateStatus(issueId, { status: editStatus });
         }
@@ -430,7 +443,8 @@ export default function IssueDetailPage() {
         await adminApi.assign(issueId, { department: editDept });
       }
       
-      setResolutionFile(null);
+      setResolutionFiles([]);
+      setRejectionReason('');
       setRefreshCount(c => c + 1);
     } catch (err: any) {
       console.error('Failed to save administrative changes:', err);
@@ -444,10 +458,13 @@ export default function IssueDetailPage() {
   const resolutionMedia = issue.media?.filter((m: any) => m.is_resolution) || [];
   const showPurplePanel = issue.status === 'Pending Verification' && user?.id === issue.reporter_id;
 
+  const isResolved = issue.status === 'Resolved';
+
   const tabs = [
     { key: 'overview', label: 'Overview', count: null },
     { key: 'updates', label: 'Updates', count: updates.length },
     { key: 'comments', label: 'Comments', count: comments.length },
+    ...(isResolved ? [{ key: 'reviews', label: 'Reviews', count: null, icon: Star }] : []),
   ] as const;
 
   return (
@@ -741,7 +758,7 @@ export default function IssueDetailPage() {
                   {tabs.map(tab => (
                     <button
                       key={tab.key}
-                      onClick={() => setActiveTab(tab.key)}
+                      onClick={() => setActiveTab(tab.key as 'overview' | 'updates' | 'comments' | 'reviews')}
                       className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-[13px] md:text-[14px] font-semibold transition-all duration-200 ${activeTab === tab.key
                           ? 'bg-base-800 text-content-primary border border-border-subtle shadow-sm'
                           : 'text-content-secondary border border-transparent hover:text-content-primary hover:bg-base-850'
@@ -874,6 +891,11 @@ export default function IssueDetailPage() {
                     )}
                   </div>
                 )}
+
+                {/* Tab: Reviews (resolved issues only) */}
+                {activeTab === 'reviews' && (
+                  <ReviewSection issueId={issueId} isResolved={isResolved} />
+                )}
               </div>
 
               {/* RIGHT — sidebar */}
@@ -906,6 +928,19 @@ export default function IssueDetailPage() {
                           <option value="rejected">Rejected</option>
                         </select>
 
+                        {editStatus === 'rejected' && (
+                          <div className="mt-3 animate-fade_in">
+                            <label className="text-[10px] font-bold text-state-error uppercase tracking-wider block mb-1.5">Rejection Reason</label>
+                            <textarea
+                              value={rejectionReason}
+                              onChange={e => setRejectionReason(e.target.value)}
+                              placeholder="Please explain why this issue is being rejected..."
+                              className="input-dark w-full text-xs font-medium p-2.5 min-h-[70px] resize-none text-content-primary placeholder:text-content-muted"
+                              required
+                            />
+                          </div>
+                        )}
+
                         {editStatus === 'resolved' && originalStatus !== 'resolved' && originalStatus !== 'pending_verification' && (
                           <div className="mt-3 animate-fade_in">
                             <label className="text-[10px] font-bold text-state-success uppercase tracking-wider block mb-1.5">Upload Resolution Proof</label>
@@ -913,18 +948,34 @@ export default function IssueDetailPage() {
                               <input
                                 type="file"
                                 accept="image/*,video/*"
-                                onChange={e => { if (e.target.files?.[0]) setResolutionFile(e.target.files[0]); }}
+                                multiple
+                                onChange={e => {
+                                  if (e.target.files) {
+                                    const filesArray = Array.from(e.target.files);
+                                    if (filesArray.length > 5) {
+                                      alert('You can only upload up to 5 resolution proof files.');
+                                      setResolutionFiles(filesArray.slice(0, 5));
+                                    } else {
+                                      setResolutionFiles(filesArray);
+                                    }
+                                  }
+                                }}
                                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                               />
-                              {resolutionFile ? (
-                                <div className="flex items-center gap-2 text-state-success">
-                                  <CheckCircle2 size={14} />
-                                  <span className="text-xs font-semibold truncate max-w-[180px]">{resolutionFile.name}</span>
+                              {resolutionFiles.length > 0 ? (
+                                <div className="flex flex-col items-center gap-1 text-state-success">
+                                  <div className="flex items-center gap-2">
+                                    <CheckCircle2 size={14} />
+                                    <span className="text-xs font-semibold">{resolutionFiles.length} files selected</span>
+                                  </div>
+                                  <span className="text-[9px] text-content-muted text-center leading-tight truncate max-w-[240px]">
+                                    {resolutionFiles.map(f => f.name).join(', ')}
+                                  </span>
                                 </div>
                               ) : (
                                 <>
                                   <Camera size={16} className="text-state-success group-hover:scale-115 transition-transform" />
-                                  <span className="text-[10px] text-content-muted text-center leading-tight">Click or drop proof photo</span>
+                                  <span className="text-[10px] text-content-muted text-center leading-tight">Click or drop proof photos (max 5)</span>
                                 </>
                               )}
                             </div>
@@ -952,7 +1003,7 @@ export default function IssueDetailPage() {
 
                       <button
                         onClick={handleSaveAdminChanges}
-                        disabled={adminSubmitting || (editStatus === originalStatus && editDept === originalDept && !resolutionFile)}
+                        disabled={adminSubmitting || (editStatus === originalStatus && editDept === originalDept && resolutionFiles.length === 0)}
                         className="w-full bg-accent-secondary hover:bg-accent-secondary/90 text-white font-bold text-xs uppercase tracking-wider h-10 rounded-xl transition-all duration-200 shadow-glow-secondary disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                       >
                         {adminSubmitting ? <Loader2 size={14} className="animate-spin" /> : 'Save Changes'}
@@ -980,19 +1031,47 @@ export default function IssueDetailPage() {
                 {/* Reported By */}
                 <div className="card p-6 bg-base-800">
                   <h3 className="label-micro mb-4 text-accent-primary">Reporter</h3>
-                  <div className="flex items-center gap-4 bg-base-950 p-4 rounded-xl border border-border-subtle">
-                    <div className="w-12 h-12 rounded-xl bg-accent-secondary/10 border border-accent-secondary/20 flex items-center justify-center text-[15px] font-bold text-accent-secondary shadow-sm">
-                      {issue.author_initials}
-                    </div>
-                    <div>
-                      <div className="text-[15px] font-bold text-content-primary mb-1">{issue.author}</div>
-                      <div className="text-[12px] font-medium text-content-muted flex items-center gap-1.5">
-                        <Clock size={12} />
-                        {formatDistanceToNow(new Date(issue.created_at), { addSuffix: true })}
+                  {(() => {
+                    const isOwnIssue = user?.id === issue.reporter_id;
+                    const profileHref = isOwnIssue ? '/profile' : (issue.reporter_id ? `/profile/${issue.reporter_id}` : null);
+                    const isAnonymous = issue.author === 'Anonymous' || !issue.reporter_id;
+
+                    const card = (
+                      <div className={`flex items-center gap-4 bg-base-950 p-4 rounded-xl border border-border-subtle ${profileHref ? 'hover:border-accent-secondary/40 hover:bg-base-900 transition-all duration-200 cursor-pointer group' : ''}`}>
+                        <div className="w-12 h-12 rounded-xl bg-accent-secondary/10 border border-accent-secondary/20 flex items-center justify-center text-[15px] font-bold text-accent-secondary shadow-sm overflow-hidden flex-shrink-0">
+                          {issue.reporter_avatar ? (
+                            <img src={formatMediaUrl(issue.reporter_avatar)} alt={issue.author} className="w-full h-full object-cover" />
+                          ) : (
+                            issue.author_initials
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className={`text-[15px] font-bold mb-0.5 truncate ${profileHref ? 'group-hover:text-accent-secondary transition-colors' : 'text-content-primary'}`}>
+                            {issue.author}
+                            {isOwnIssue && (
+                              <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-md border border-accent-secondary/20 bg-accent-secondary/10 text-accent-secondary font-bold uppercase tracking-wide">You</span>
+                            )}
+                          </div>
+                          <div className="text-[12px] font-medium text-content-muted flex items-center gap-1.5">
+                            <Clock size={12} />
+                            {formatDistanceToNow(new Date(issue.created_at), { addSuffix: true })}
+                          </div>
+                          {profileHref && (
+                            <div className="text-[11px] text-accent-secondary/60 group-hover:text-accent-secondary transition-colors font-medium mt-1">
+                              {isOwnIssue ? 'Edit your profile →' : 'View profile →'}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </div>
+                    );
+
+                    if (profileHref && !isAnonymous) {
+                      return <Link href={profileHref}>{card}</Link>;
+                    }
+                    return card;
+                  })()}
                 </div>
+
 
                 {/* Details */}
                 <div className="card p-6 bg-base-800">

@@ -85,7 +85,7 @@ router.get('/dashboard', async (req, res) => {
         SELECT i.*, u.name AS reporter_name, c.name AS category_name, c.icon AS category_icon,
                COALESCE(
                  (
-                   SELECT json_agg(json_build_object('id', m.id, 'url', m.media_url))
+                   SELECT json_agg(json_build_object('id', m.id, 'url', m.media_url, 'is_resolution', m.is_resolution))
                    FROM issue_media m WHERE m.issue_id = i.id
                  ),
                  '[]'::json
@@ -175,12 +175,20 @@ router.patch('/issues/bulk-status', requireRole('admin'), async (req, res) => {
       );
       
       // Notify stakeholders (reporter, followers, upvoters)
-      await issuesService.notifyFollowers(client, {
+      const notifs = await issuesService.notifyFollowers(client, {
         issueId,
         issueTitle: old.rows[0].title,
         newStatus: status,
         actorId: req.user.id,
       });
+
+      const io = req.app.get('io');
+      if (io) {
+        io.to(`issue_${issueId}`).emit('issue_status_updated', { issueId, status, updatedBy: req.user.name });
+        for (const n of notifs) {
+          io.to(`user_${n.user_id}`).emit('new_notification', n);
+        }
+      }
     }
     await client.query('COMMIT');
     res.json({ message: `Updated ${issueIds.length} issues to ${status}` });
@@ -211,7 +219,7 @@ router.patch('/issues/:id/assign', async (req, res) => {
 router.get('/analytics', async (req, res) => {
   const { period = '30' } = req.query;
   try {
-    const [resolutionTrend, categoryTrend, departmentPerf] = await Promise.all([
+    const [resolutionTrend, categoryTrend, departmentPerf, deptSatisfaction, catSatisfaction] = await Promise.all([
       pool.query(`
         SELECT DATE(created_at) AS date, COUNT(*) AS reported,
                COUNT(*) FILTER (WHERE status = 'resolved') AS resolved
@@ -232,13 +240,44 @@ router.get('/analytics', async (req, res) => {
         FROM issues WHERE department IS NOT NULL
         GROUP BY department ORDER BY total DESC
       `),
+      // Department satisfaction: avg review rating per department
+      pool.query(`
+        SELECT i.department,
+               ROUND(AVG(r.rating)::NUMERIC, 2) AS avg_rating,
+               COUNT(r.id) AS review_count
+        FROM issue_reviews r
+        JOIN issues i ON r.issue_id = i.id
+        WHERE i.department IS NOT NULL AND r.is_hidden = FALSE
+        GROUP BY i.department
+        ORDER BY avg_rating DESC
+      `),
+      // Category satisfaction: avg review rating per category
+      pool.query(`
+        SELECT c.name AS category, c.icon,
+               ROUND(AVG(r.rating)::NUMERIC, 2) AS avg_rating,
+               COUNT(r.id) AS review_count
+        FROM issue_reviews r
+        JOIN issues i ON r.issue_id = i.id
+        JOIN categories c ON i.category_id = c.id
+        WHERE r.is_hidden = FALSE
+        GROUP BY c.id
+        ORDER BY avg_rating DESC
+      `),
     ]);
 
-    res.json({ resolutionTrend: resolutionTrend.rows, categoryTrend: categoryTrend.rows, departmentPerf: departmentPerf.rows });
+    res.json({
+      resolutionTrend: resolutionTrend.rows,
+      categoryTrend: categoryTrend.rows,
+      departmentPerf: departmentPerf.rows,
+      deptSatisfaction: deptSatisfaction.rows,
+      catSatisfaction: catSatisfaction.rows,
+    });
   } catch (err) {
+    console.error('Analytics error:', err);
     res.status(500).json({ error: 'Failed to fetch analytics' });
   }
 });
+
 
 // GET /api/admin/users
 router.get('/users', requireRole('admin'), async (req, res) => {
@@ -298,21 +337,28 @@ router.patch('/users/:id', requireRole('admin'), upload.single('avatar'), async 
 
       if (cloudinaryConfigured) {
         const { uploadToCloudinary } = require('../middleware/upload');
-        const fs = require('fs');
         try {
-          const result = await uploadToCloudinary(req.file.path, {
+          const result = await uploadToCloudinary(req.file.buffer, {
             folder: 'civicsense/avatars',
             resource_type: 'image',
             public_id: `avatar_${targetUserId}_${Date.now()}`,
           });
           avatarUrl = result.secure_url;
-          fs.unlinkSync(req.file.path);
         } catch (err) {
-          console.warn('Cloudinary upload failed for avatar, using local path:', err.message);
-          avatarUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
+          console.warn('Cloudinary upload failed for avatar, falling back to local storage:', err.message);
         }
-      } else {
-        avatarUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
+      }
+
+      // Local storage fallback if Cloudinary is not configured or failed
+      if (!avatarUrl) {
+        const fs = require('fs').promises;
+        const path = require('path');
+        const ext = path.extname(req.file.originalname) || '.jpg';
+        const fileName = `avatar_${targetUserId}_${Date.now()}${ext}`;
+        const uploadDir = path.join(__dirname, '../../public/uploads');
+        await fs.mkdir(uploadDir, { recursive: true });
+        await fs.writeFile(path.join(uploadDir, fileName), req.file.buffer);
+        avatarUrl = `${req.protocol}://${req.get('host')}/uploads/${fileName}`;
       }
 
       updates.push(`avatar_url = $${idx++}`);
@@ -383,25 +429,66 @@ router.delete('/comments/:id', requireRole('admin', 'department_staff'), async (
 
 // GET /api/admin/logs
 router.get('/logs', requireRole('admin'), async (req, res) => {
-  const { page = 1, limit = 50 } = req.query;
+  const { page = 1, limit = 50, type = 'users' } = req.query;
   const offset = (parseInt(page) - 1) * parseInt(limit);
   try {
-    const [logsResult, countResult] = await Promise.all([
-      pool.query(`
-        SELECT l.*, u.name as admin_name, u.email as admin_email
-        FROM admin_logs l
-        JOIN users u ON l.admin_id = u.id
-        ORDER BY l.created_at DESC
-        LIMIT $1 OFFSET $2
-      `, [parseInt(limit), offset]),
-      pool.query('SELECT COUNT(*) FROM admin_logs')
-    ]);
+    if (type === 'issues') {
+      const [logsResult, countResult] = await Promise.all([
+        pool.query(`
+          SELECT h.id, h.issue_id, h.old_status, h.new_status, h.comment as details, h.updated_at as created_at,
+                 u.name as admin_name, u.email as admin_email,
+                 i.title as issue_title
+          FROM issue_status_history h
+          JOIN users u ON h.updated_by = u.id
+          JOIN issues i ON h.issue_id = i.id
+          ORDER BY h.updated_at DESC
+          LIMIT $1 OFFSET $2
+        `, [parseInt(limit), offset]),
+        pool.query(`
+          SELECT COUNT(*) 
+          FROM issue_status_history h
+          JOIN issues i ON h.issue_id = i.id
+        `)
+      ]);
 
-    res.json({ 
-      logs: logsResult.rows,
-      total: parseInt(countResult.rows[0].count)
-    });
+      const mappedLogs = logsResult.rows.map(row => ({
+        id: row.id,
+        created_at: row.created_at,
+        admin_name: row.admin_name,
+        admin_email: row.admin_email,
+        action: row.old_status ? `STATUS: ${row.old_status.toUpperCase()} ➔ ${row.new_status.toUpperCase()}` : `REPORTED`,
+        entity_type: 'issue',
+        entity_id: row.issue_id,
+        issue_id: row.issue_id,
+        issue_title: row.issue_title,
+        old_status: row.old_status,
+        new_status: row.new_status,
+        details: row.details
+      }));
+
+      res.json({
+        logs: mappedLogs,
+        total: parseInt(countResult.rows[0].count)
+      });
+    } else {
+      const [logsResult, countResult] = await Promise.all([
+        pool.query(`
+          SELECT l.*, u.name as admin_name, u.email as admin_email
+          FROM admin_logs l
+          JOIN users u ON l.admin_id = u.id
+          ORDER BY l.created_at DESC
+          LIMIT $1 OFFSET $2
+        `, [parseInt(limit), offset]),
+        pool.query('SELECT COUNT(*) FROM admin_logs')
+      ]);
+
+      res.json({ 
+        logs: logsResult.rows,
+        total: parseInt(countResult.rows[0].count)
+      });
+    }
   } catch (err) {
+    console.error('Failed to fetch admin logs:', err);
     res.status(500).json({ error: 'Failed to fetch logs' });
   }
 });

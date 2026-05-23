@@ -5,7 +5,22 @@ const setupSocket = (io) => {
   // Auth middleware for socket connections
   io.use(async (socket, next) => {
     try {
-      const token = socket.handshake.auth?.token || socket.handshake.headers?.authorization?.split(' ')[1];
+      let token = socket.handshake.auth?.token || socket.handshake.headers?.authorization?.split(' ')[1];
+      
+      if (!token) {
+        const cookieHeader = socket.handshake.headers?.cookie;
+        if (cookieHeader) {
+          const cookies = {};
+          cookieHeader.split(';').forEach(c => {
+            const parts = c.trim().split('=');
+            if (parts.length === 2) {
+              cookies[parts[0]] = parts[1];
+            }
+          });
+          token = cookies['accessToken'];
+        }
+      }
+
       if (token) {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         const result = await pool.query('SELECT id, name, role FROM users WHERE id = $1', [decoded.userId]);

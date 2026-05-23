@@ -125,19 +125,68 @@ router.get('/:id/profile', async (req, res) => {
     );
     if (!user.rows[0]) return res.status(404).json({ error: 'User not found' });
 
-    const stats = await pool.query(`
-      SELECT
-        COUNT(*) AS total_issues,
-        COUNT(*) FILTER (WHERE status = 'resolved') AS resolved_issues,
-        SUM(upvote_count) AS total_upvotes_received
-      FROM issues WHERE user_id = $1 AND is_anonymous = FALSE
-    `, [req.params.id]);
+    const [stats, satisfaction] = await Promise.all([
+      pool.query(`
+        SELECT
+          COUNT(*) AS total_issues,
+          COUNT(*) FILTER (WHERE status = 'resolved') AS resolved_issues,
+          SUM(upvote_count) AS total_upvotes_received
+        FROM issues WHERE user_id = $1 AND is_anonymous = FALSE
+      `, [req.params.id]),
+      pool.query(`
+        SELECT
+          ROUND(AVG(r.rating)::NUMERIC, 2) AS avg_satisfaction,
+          COUNT(r.id) AS satisfaction_reviews
+        FROM issue_reviews r
+        JOIN issues i ON r.issue_id = i.id
+        WHERE i.user_id = $1 AND r.is_hidden = FALSE
+      `, [req.params.id]),
+    ]);
 
-    res.json({ user: user.rows[0], stats: stats.rows[0] });
+    res.json({
+      user: user.rows[0],
+      stats: stats.rows[0],
+      satisfaction: satisfaction.rows[0],
+    });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch profile' });
   }
 });
+
+
+// GET /api/users/:id/issues - public non-anonymous issues for a user's profile
+router.get('/:id/issues', async (req, res) => {
+  const { page = 1, limit = 20 } = req.query;
+  const offset = (parseInt(page) - 1) * parseInt(limit);
+  try {
+    const result = await pool.query(`
+      SELECT i.id, i.title, i.status, i.severity, i.upvote_count, i.comment_count,
+             i.created_at, i.address,
+             c.name AS category_name, c.icon AS category_icon, c.slug AS category_slug
+      FROM issues i
+      LEFT JOIN categories c ON i.category_id = c.id
+      WHERE i.user_id = $1 AND i.is_anonymous = FALSE
+      ORDER BY i.created_at DESC
+      LIMIT $2 OFFSET $3
+    `, [req.params.id, parseInt(limit), offset]);
+
+    const countResult = await pool.query(
+      'SELECT COUNT(*) FROM issues WHERE user_id = $1 AND is_anonymous = FALSE',
+      [req.params.id]
+    );
+
+    res.json({
+      issues: result.rows,
+      total: parseInt(countResult.rows[0].count),
+      page: parseInt(page),
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch user issues' });
+  }
+});
+
+
 
 // PATCH /api/users/me
 router.patch('/me', auth, upload.single('avatar'), async (req, res) => {
@@ -166,21 +215,28 @@ router.patch('/me', auth, upload.single('avatar'), async (req, res) => {
 
       if (cloudinaryConfigured) {
         const { uploadToCloudinary } = require('../middleware/upload');
-        const fs = require('fs');
         try {
-          const result = await uploadToCloudinary(req.file.path, {
+          const result = await uploadToCloudinary(req.file.buffer, {
             folder: 'civicsense/avatars',
             resource_type: 'image',
             public_id: `avatar_${userId}_${Date.now()}`,
           });
           avatarUrl = result.secure_url;
-          fs.unlinkSync(req.file.path);
         } catch (err) {
-          console.warn('Cloudinary upload failed for avatar, using local path:', err.message);
-          avatarUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
+          console.warn('Cloudinary upload failed for avatar, falling back to local storage:', err.message);
         }
-      } else {
-        avatarUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
+      }
+
+      // Local storage fallback if Cloudinary is not configured or failed
+      if (!avatarUrl) {
+        const fs = require('fs').promises;
+        const path = require('path');
+        const ext = path.extname(req.file.originalname) || '.jpg';
+        const fileName = `avatar_${userId}_${Date.now()}${ext}`;
+        const uploadDir = path.join(__dirname, '../../public/uploads');
+        await fs.mkdir(uploadDir, { recursive: true });
+        await fs.writeFile(path.join(uploadDir, fileName), req.file.buffer);
+        avatarUrl = `${req.protocol}://${req.get('host')}/uploads/${fileName}`;
       }
 
       updates.push(`avatar_url = $${idx++}`);

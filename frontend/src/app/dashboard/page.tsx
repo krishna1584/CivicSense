@@ -16,7 +16,7 @@ interface DashboardData {
   stats: { totalVotes: number; totalComments: number; unreadNotifications: number };
 }
 
-const statusOrder: IssueStatus[] = ['reported', 'acknowledged', 'in_progress', 'resolved', 'rejected'];
+const statusOrder: IssueStatus[] = ['reported', 'acknowledged', 'in_progress', 'pending_verification', 'resolved', 'rejected'];
 
 export default function DashboardPage() {
   const { user } = useAuthStore();

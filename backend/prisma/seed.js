@@ -21,8 +21,8 @@ async function main() {
 
   for (const cat of categories) {
     await pool.query(`
-      INSERT INTO categories (name, slug, icon, description)
-      VALUES ($1, $2, $3, $4)
+      INSERT INTO categories (id, name, slug, icon, description)
+      VALUES (gen_random_uuid(), $1, $2, $3, $4)
       ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name, icon = EXCLUDED.icon, description = EXCLUDED.description
     `, [cat.name, cat.slug, cat.icon, cat.description]);
   }
@@ -33,8 +33,8 @@ async function main() {
 
   // Create test user
   await pool.query(`
-    INSERT INTO users (name, email, password_hash, role, is_verified, is_active)
-    VALUES ('Test User', 'test@example.com', $1, 'citizen', TRUE, TRUE)
+    INSERT INTO users (id, name, email, password_hash, role, is_verified, is_active)
+    VALUES (gen_random_uuid(), 'Test User', 'test@example.com', $1, 'citizen', TRUE, TRUE)
     ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash, role = EXCLUDED.role, is_verified = EXCLUDED.is_verified, is_active = EXCLUDED.is_active
   `, [hashedPassword]);
 
@@ -42,8 +42,8 @@ async function main() {
 
   // Create admin user
   await pool.query(`
-    INSERT INTO users (name, email, password_hash, role, is_verified, is_active)
-    VALUES ('Admin User', 'admin@example.com', $1, 'admin', TRUE, TRUE)
+    INSERT INTO users (id, name, email, password_hash, role, is_verified, is_active)
+    VALUES (gen_random_uuid(), 'Admin User', 'admin@example.com', $1, 'admin', TRUE, TRUE)
     ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash, role = EXCLUDED.role, is_verified = EXCLUDED.is_verified, is_active = EXCLUDED.is_active
   `, [hashedPassword]);
 

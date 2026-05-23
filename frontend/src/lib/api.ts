@@ -83,6 +83,7 @@ export const usersApi = {
   notifications: () => api.get('/api/users/me/notifications'),
   unreadCount: () => api.get('/api/users/me/notifications/unread-count'),
   profile: (id: string) => api.get(`/api/users/${id}/profile`),
+  userIssues: (id: string, params?: Record<string, unknown>) => api.get(`/api/users/${id}/issues`, { params }),
   updateProfile: (data: FormData) => api.patch('/api/users/me', data, { headers: { 'Content-Type': 'multipart/form-data' } }),
 };
 
@@ -111,3 +112,12 @@ export const adminApi = {
 };
 
 export default api;
+
+// Reviews
+export const reviewsApi = {
+  list: (issueId: string) => api.get(`/api/issues/${issueId}/reviews`),
+  submit: (issueId: string, data: { rating: number; comment?: string }) =>
+    api.post(`/api/issues/${issueId}/reviews`, data),
+  hide: (issueId: string, reviewId: string) =>
+    api.patch(`/api/issues/${issueId}/reviews/${reviewId}/hide`),
+};

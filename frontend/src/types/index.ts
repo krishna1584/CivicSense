@@ -1,5 +1,5 @@
 export type UserRole = 'citizen' | 'admin' | 'department_staff';
-export type IssueStatus = 'reported' | 'acknowledged' | 'in_progress' | 'resolved' | 'rejected';
+export type IssueStatus = 'reported' | 'acknowledged' | 'in_progress' | 'resolved' | 'rejected' | 'pending_verification';
 export type Severity = 'low' | 'medium' | 'high' | 'critical';
 export type VoteType = 'upvote' | 'downvote';
 
@@ -63,6 +63,8 @@ export interface Issue {
   created_at: string;
   updated_at: string;
   resolved_at?: string;
+  avg_rating?: string | number | null;
+  review_count?: number;
 }
 
 export interface Comment {
