@@ -210,7 +210,7 @@ export default function PublicProfilePage() {
             {/* Stats row */}
             <div className="flex flex-wrap items-center justify-center sm:justify-start gap-6 border-t border-border-subtle/40 pt-4">
               <div className="flex items-center gap-2">
-                <Star size={16} className="text-[#F59E0B]" />
+                <Star size={16} className="text-state-warning" />
                 <span className="text-content-primary font-bold">{profileUser.trust_score}</span>
                 <span className="text-content-muted text-sm">Trust Score</span>
               </div>
@@ -240,7 +240,7 @@ export default function PublicProfilePage() {
           { label: 'Issues Reported', value: totalIssues, icon: FileText, color: 'text-accent-secondary', bg: 'bg-accent-secondary/10' },
           { label: 'Issues Resolved', value: resolvedIssues, icon: CheckCircle2, color: 'text-state-success', bg: 'bg-state-success/10' },
           { label: 'Resolution Rate', value: `${resolutionRate}%`, icon: Award, color: 'text-accent-primary', bg: 'bg-accent-primary/10' },
-          { label: 'Community Upvotes', value: totalUpvotes, icon: ThumbsUp, color: 'text-[#F59E0B]', bg: 'bg-[#F59E0B]/10' },
+          { label: 'Community Upvotes', value: totalUpvotes, icon: ThumbsUp, color: 'text-state-warning', bg: 'bg-state-warning/10' },
         ].map(({ label, value, icon: Icon, color, bg }) => (
           <div key={label} className="card p-5 text-center hover:border-border-subtle transition-colors">
             <div className={`w-10 h-10 rounded-xl ${bg} flex items-center justify-center mx-auto mb-3`}>
@@ -252,12 +252,12 @@ export default function PublicProfilePage() {
         ))}
         {/* Satisfaction card */}
         <div className="card p-5 text-center hover:border-border-subtle transition-colors">
-          <div className="w-10 h-10 rounded-xl bg-[#FBBF24]/10 flex items-center justify-center mx-auto mb-3">
-            <Star size={18} className="text-[#FBBF24] fill-[#FBBF24]" />
+          <div className="w-10 h-10 rounded-xl bg-state-warning/10 flex items-center justify-center mx-auto mb-3">
+            <Star size={18} className="text-state-warning fill-state-warning" />
           </div>
           {avgSatisfaction !== null ? (
             <>
-              <div className="text-2xl font-black mb-1 text-[#FBBF24]">{avgSatisfaction.toFixed(1)}</div>
+              <div className="text-2xl font-black mb-1 text-state-warning">{avgSatisfaction.toFixed(1)}</div>
               <div className="text-[11px] font-bold uppercase tracking-wider text-content-muted">Satisfaction</div>
               <div className="text-[10px] text-content-muted mt-0.5">{satisfactionReviews} review{satisfactionReviews !== 1 ? 's' : ''}</div>
             </>

@@ -9,9 +9,9 @@ interface Props {
 }
 
 const ROW = ({ label, value }: { label: string; value: string }) => (
-  <div className="flex items-start justify-between gap-4 py-3 border-b border-white/5 last:border-0">
-    <span className="text-[#6B7280] text-sm flex-shrink-0">{label}</span>
-    <span className="text-white text-sm text-right font-medium">{value}</span>
+  <div className="flex items-start justify-between gap-4 py-3 border-b border-border-subtle last:border-0">
+    <span className="text-content-muted text-sm flex-shrink-0">{label}</span>
+    <span className="text-content-primary text-sm text-right font-medium">{value}</span>
   </div>
 );
 
@@ -20,10 +20,10 @@ export function StepReview({ form, categories, files, userName }: Props) {
   const severity = SEVERITY_OPTIONS.find(s => s.value === form.severity)!;
 
   return (
-    <div className="space-y-4 animate-fadeIn">
+    <div className="space-y-4 animate-fade_in">
       <div className="card p-5 space-y-0">
-        <h3 className="font-semibold text-white mb-1">Review Your Report</h3>
-        <p className="text-[#6B7280] text-xs mb-4">Please verify everything looks correct before submitting.</p>
+        <h3 className="font-semibold text-content-primary mb-1">Review Your Report</h3>
+        <p className="text-content-muted text-xs mb-4">Please verify everything looks correct before submitting.</p>
 
         <ROW label="Title"     value={form.title} />
         <ROW label="Category"  value={category ? `${category.icon} ${category.name}` : '—'} />
@@ -41,13 +41,13 @@ export function StepReview({ form, categories, files, userName }: Props) {
       </div>
 
       <div className="card p-5">
-        <h4 className="label-micro text-[#61C0FF] mb-2">Description</h4>
-        <p className="text-[#D1D5DB] text-sm leading-relaxed">{form.description}</p>
+        <h4 className="label-micro text-accent-secondary mb-2">Description</h4>
+        <p className="text-content-secondary text-sm leading-relaxed">{form.description}</p>
       </div>
 
       <div
-        className="rounded-xl p-4 text-xs text-[#6B7280]"
-        style={{ background: 'rgba(97,192,255,0.04)', border: '1px solid rgba(97,192,255,0.1)' }}
+        className="rounded-xl p-4 text-xs text-content-muted"
+        style={{ background: 'rgba(59,130,246,0.04)', border: '1px solid rgba(59,130,246,0.1)' }}
       >
         By submitting this report you confirm the information is accurate to the best of your knowledge.
       </div>

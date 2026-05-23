@@ -1,10 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Bell, Sun, Moon } from 'lucide-react';
+import { Bell, Moon, Sun } from 'lucide-react';
 import Link from 'next/link';
 import { useAuthStore, useNotificationStore } from '@/lib/store';
-import { usersApi } from '@/lib/api';
+import { useTheme } from '@/components/providers/ThemeProvider';
 
 const formatMediaUrl = (url: string) => {
   if (!url) return '';
@@ -23,13 +22,10 @@ interface TopBarProps {
   actions?: React.ReactNode;
 }
 
-export function TopBar({ title, sub, darkMode: controlledDarkMode, toggleDark: controlledToggleDark, actions }: TopBarProps) {
+export function TopBar({ title, sub, actions }: TopBarProps) {
   const { user } = useAuthStore();
   const { unreadCount } = useNotificationStore();
-  const [localDarkMode, setLocalDarkMode] = useState(true);
-
-  const isDarkMode = controlledDarkMode !== undefined ? controlledDarkMode : localDarkMode;
-  const handleToggleDark = controlledToggleDark || (() => setLocalDarkMode(v => !v));
+  const { theme, toggleTheme } = useTheme();
 
   const avatarUrl = user?.avatar_url ? formatMediaUrl(user.avatar_url) : '';
   const initials = user?.name ? user.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) : 'AU';
@@ -37,31 +33,35 @@ export function TopBar({ title, sub, darkMode: controlledDarkMode, toggleDark: c
   const displayRole = user?.role ? user.role.replace('_', ' ') : 'Admin';
 
   return (
-    <header className="sticky top-0 z-30 glass-panel border-b border-white/5 h-14 flex items-center px-6 gap-4 shrink-0">
+    <header className="sticky top-0 z-30 bg-base-900/80 backdrop-blur-xl border-b border-border-subtle h-14 flex items-center px-6 gap-4 shrink-0">
       <div className="flex-1 min-w-0">
-        <h1 className="font-bold text-base text-white leading-tight truncate">{title}</h1>
-        {sub && <p className="text-[10px] text-[#9CA3AF] truncate">{sub}</p>}
+        <h1 className="font-bold text-base text-content-primary leading-tight truncate">{title}</h1>
+        {sub && <p className="text-[10px] text-content-muted truncate">{sub}</p>}
       </div>
-      
-      {actions && (
-        <div className="flex items-center gap-2">
-          {actions}
-        </div>
-      )}
 
-      <button onClick={handleToggleDark} className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors shrink-0">
-        {isDarkMode ? <Sun size={14} className="text-[#9CA3AF]" /> : <Moon size={14} className="text-[#9CA3AF]" />}
+      {actions && <div className="flex items-center gap-2">{actions}</div>}
+
+      <button
+        onClick={toggleTheme}
+        className="w-8 h-8 rounded-lg bg-base-850 flex items-center justify-center hover:bg-base-800 transition-colors shrink-0 border border-border-subtle"
+        title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+      >
+        {theme === 'light' ? (
+          <Moon size={14} className="text-content-muted" />
+        ) : (
+          <Sun size={14} className="text-content-muted" />
+        )}
       </button>
-      
+
       {user && (
-        <Link 
-          href="/notifications" 
-          className="relative w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors shrink-0"
+        <Link
+          href="/notifications"
+          className="relative w-8 h-8 rounded-lg bg-base-850 flex items-center justify-center hover:bg-base-800 transition-colors shrink-0 border border-border-subtle"
           title="View Notifications"
         >
-          <Bell size={14} className="text-[#9CA3AF]" />
+          <Bell size={14} className="text-content-muted" />
           {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#EF4444] text-white text-[9px] font-bold flex items-center justify-center">
+            <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-state-error text-white text-[9px] font-bold flex items-center justify-center">
               {unreadCount}
             </span>
           )}
@@ -78,7 +78,7 @@ export function TopBar({ title, sub, darkMode: controlledDarkMode, toggleDark: c
             )}
           </div>
           <div className="hidden sm:block text-left">
-            <div className="text-xs font-semibold text-[#F5F7FA] group-hover:text-accent-secondary transition-colors duration-200 leading-tight truncate max-w-[120px]">{displayName}</div>
+            <div className="text-xs font-semibold text-content-primary group-hover:text-accent-secondary transition-colors duration-200 leading-tight truncate max-w-[120px]">{displayName}</div>
             <div className="text-[10px] text-content-muted capitalize truncate max-w-[120px]">{displayRole}</div>
           </div>
         </Link>

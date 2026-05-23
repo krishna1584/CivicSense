@@ -25,36 +25,14 @@ export function AppLayout({ children, title, sub, headerActions }: AppLayoutProp
 
   useEffect(() => {
     adminApi.getPublicSettings()
-      .then(res => {
-        setPublicSettings(res.data);
-      })
-      .catch(err => {
-        console.error('Failed to load public settings:', err);
-      });
+      .then(res => setPublicSettings(res.data))
+      .catch(() => {});
   }, []);
 
   const alertCfg = {
-    info: {
-      bg: 'rgba(97,192,255,0.08)',
-      border: 'border-[#61C0FF]/25',
-      text: 'text-[#61C0FF]',
-      glow: 'shadow-[0_0_15px_rgba(97,192,255,0.15)]',
-      icon: Info
-    },
-    warning: {
-      bg: 'rgba(245,158,11,0.08)',
-      border: 'border-[#F59E0B]/25',
-      text: 'text-[#F59E0B]',
-      glow: 'shadow-[0_0_15px_rgba(245,158,11,0.15)]',
-      icon: AlertTriangle
-    },
-    critical: {
-      bg: 'rgba(239,68,68,0.08)',
-      border: 'border-[#EF4444]/25',
-      text: 'text-[#EF4444]',
-      glow: 'shadow-[0_0_15px_rgba(239,68,68,0.15)]',
-      icon: ShieldAlert
-    }
+    info: { bg: 'bg-accent-secondary/10', border: 'border-accent-secondary/25', text: 'text-accent-secondary', icon: Info },
+    warning: { bg: 'bg-state-warning/10', border: 'border-state-warning/25', text: 'text-state-warning', icon: AlertTriangle },
+    critical: { bg: 'bg-state-error/10', border: 'border-state-error/25', text: 'text-state-error', icon: ShieldAlert },
   };
 
   const activeAlert = publicSettings?.enableAlertBanner && publicSettings?.alertBannerText;
@@ -66,28 +44,21 @@ export function AppLayout({ children, title, sub, headerActions }: AppLayoutProp
       <Suspense fallback={<aside className="fixed left-0 top-0 h-screen w-64 bg-base-900 border-r border-border-subtle flex flex-col z-50 animate-pulse" />}>
         <Sidebar />
       </Suspense>
-      <main className="flex-1 ml-64 min-h-screen relative overflow-hidden flex flex-col">
-        {/* Subtle background glow effect */}
-        <div className="absolute top-0 inset-x-0 h-[500px] bg-hero-gradient pointer-events-none opacity-50" />
-        
-        {/* Dynamic Broadcast Alert Banner */}
+      <main className="flex-1 ml-64 min-h-screen relative flex flex-col">
+        <div className="absolute top-0 inset-x-0 h-[500px] bg-hero-gradient pointer-events-none opacity-40" />
+
         {cfg && AlertIcon && (
-          <div className={`relative z-40 w-full px-6 py-3 border-b ${cfg.bg} ${cfg.border} ${cfg.text} ${cfg.glow} backdrop-blur-md flex items-center gap-3 transition-all duration-300`}>
-            <div className="flex-shrink-0 animate-pulse">
-              <AlertIcon size={16} />
-            </div>
-            <div className="flex-1 text-xs font-semibold leading-relaxed tracking-wide">
-              <span className="uppercase font-extrabold mr-1.5">[Broadcast Notice]</span>
+          <div className={`relative z-40 w-full px-6 py-3 border-b ${cfg.bg} ${cfg.border} ${cfg.text} backdrop-blur-md flex items-center gap-3}`}>
+            <AlertIcon size={16} className="shrink-0" />
+            <span className="text-xs font-semibold leading-relaxed tracking-wide">
+              <span className="uppercase font-extrabold mr-1.5">[Notice]</span>
               {publicSettings?.alertBannerText}
-            </div>
+            </span>
           </div>
         )}
 
-        {title && (
-          <TopBar title={title} sub={sub} actions={headerActions} />
-        )}
-        
-        {/* Content area */}
+        {title && <TopBar title={title} sub={sub} actions={headerActions} />}
+
         <div className={title ? "flex-1 overflow-y-auto page-container relative z-10 animate-fade_in" : "page-container relative z-10 animate-fade_in"}>
           {children}
         </div>

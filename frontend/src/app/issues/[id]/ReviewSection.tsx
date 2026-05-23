@@ -68,7 +68,7 @@ function StarRow({ rating, size = 16, interactive = false, onChange }: {
               size={size}
               className={clsx(
                 'transition-colors duration-150',
-                filled ? 'text-[#FBBF24] fill-[#FBBF24]' : 'text-base-700 fill-base-900'
+                filled ? 'text-state-warning fill-state-warning' : 'text-base-700 fill-base-900'
               )}
             />
           </button>
@@ -86,7 +86,7 @@ function RatingBar({ label, count, total }: { label: string; count: number; tota
       <span className="text-content-muted w-14 text-right shrink-0">{label}</span>
       <div className="flex-1 bg-base-900 rounded-full h-1.5 overflow-hidden">
         <div
-          className="h-1.5 rounded-full bg-[#FBBF24] transition-all duration-500"
+          className="h-1.5 rounded-full bg-state-warning transition-all duration-500"
           style={{ width: `${pct}%` }}
         />
       </div>
@@ -192,7 +192,7 @@ export function ReviewSection({ issueId, isResolved }: { issueId: string; isReso
           <div className="flex flex-col sm:flex-row gap-6 items-start sm:items-center">
             {/* Big average */}
             <div className="flex flex-col items-center gap-2 shrink-0">
-              <span className="text-5xl font-black text-[#FBBF24] leading-none">{avgRating.toFixed(1)}</span>
+              <span className="text-5xl font-black text-state-warning leading-none">{avgRating.toFixed(1)}</span>
               <StarRow rating={Math.round(avgRating)} size={18} />
               <span className="text-[11px] text-content-muted font-medium">{totalReviews} review{totalReviews !== 1 ? 's' : ''}</span>
             </div>

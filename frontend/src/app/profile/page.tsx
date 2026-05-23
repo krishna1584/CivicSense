@@ -47,7 +47,7 @@ export default function ProfilePage() {
   if (!user) return (
     <AppLayout>
       <div className="flex flex-col items-center justify-center h-64 gap-4">
-        <p className="text-[#9CA3AF]">Please <Link href="/login" className="text-[#00aaef] hover:underline">sign in</Link> to view your profile.</p>
+        <p className="text-content-muted">Please <Link href="/login" className="text-accent-secondary hover:underline">sign in</Link> to view your profile.</p>
       </div>
     </AppLayout>
   );
@@ -157,17 +157,17 @@ export default function ProfilePage() {
           {/* Trust Score & engagement stats */}
           <div className="flex flex-wrap items-center justify-center md:justify-start gap-6 border-t border-border-subtle/40 pt-4 mt-2">
             <div className="flex items-center gap-2">
-              <Star size={16} className="text-[#F59E0B]" />
+              <Star size={16} className="text-state-warning" />
               <span className="text-content-primary font-semibold">{user.trust_score}</span>
               <span className="text-content-muted text-sm">Trust Score</span>
             </div>
             <div className="flex items-center gap-2">
-              <FileText size={16} className="text-[#3B82F6]" />
+              <FileText size={16} className="text-accent-secondary" />
               <span className="text-content-primary font-semibold">{issues.length}</span>
               <span className="text-content-muted text-sm">Issues Reported</span>
             </div>
             <div className="flex items-center gap-2">
-              <ThumbsUp size={16} className="text-[#00aaef]" />
+              <ThumbsUp size={16} className="text-accent-secondary" />
               <span className="text-content-primary font-semibold">{stats.totalVotes}</span>
               <span className="text-content-muted text-sm">Votes Cast</span>
             </div>
@@ -318,26 +318,26 @@ export default function ProfilePage() {
       {/* Recent Issues List */}
       <div>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="font-semibold text-white flex items-center gap-2">
-            <FileText size={16} className="text-[#00aaef]" /> Recent Reports
+          <h2 className="font-semibold text-content-primary flex items-center gap-2">
+            <FileText size={16} className="text-accent-secondary" /> Recent Reports
           </h2>
-          <Link href="/my-reports" className="text-[#00aaef] text-sm hover:underline">View all →</Link>
+          <Link href="/my-reports" className="text-accent-secondary text-sm hover:underline">View all →</Link>
         </div>
 
         {loading ? (
           <div className="flex items-center justify-center h-32">
-            <Loader2 size={20} className="text-[#00aaef] animate-spin" />
+            <Loader2 size={20} className="text-accent-secondary animate-spin" />
           </div>
         ) : issues.length === 0 ? (
-          <div className="card p-8 text-center text-[#9CA3AF]">
+          <div className="card p-8 text-center text-content-muted">
             No issues reported yet.{' '}
-            <Link href="/report" className="text-[#00aaef] hover:underline">Report one now</Link>.
+            <Link href="/report" className="text-accent-secondary hover:underline">Report one now</Link>.
           </div>
         ) : (
           <div className="card overflow-hidden">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-white/5 bg-[#11161D]">
+                <tr className="border-b border-border-subtle bg-base-900">
                   <th className="py-3 px-4 text-left label-micro">Issue</th>
                   <th className="py-3 px-4 text-left label-micro">Status</th>
                   <th className="py-3 px-4 text-left label-micro">Severity</th>
@@ -347,17 +347,17 @@ export default function ProfilePage() {
               </thead>
               <tbody>
                 {issues.map((issue) => (
-                  <tr key={issue.id} className="border-b border-white/3 hover:bg-white/2 transition-colors">
+                  <tr key={issue.id} className="border-b border-border-subtle/50 hover:bg-base-850 transition-colors">
                     <td className="py-3 px-4">
-                      <Link href={`/issues/${issue.id}`} className="text-white hover:text-[#00aaef] transition-colors truncate max-w-xs block">
+                      <Link href={`/issues/${issue.id}`} className="text-content-primary hover:text-accent-secondary transition-colors truncate max-w-xs block">
                         {issue.category_icon && <span className="mr-1">{issue.category_icon}</span>}
                         {issue.title}
                       </Link>
                     </td>
                     <td className="py-3 px-4"><StatusBadge status={issue.status} size="sm" /></td>
                     <td className="py-3 px-4"><SeverityBadge severity={issue.severity} /></td>
-                    <td className="py-3 px-4 text-[#00aaef] font-semibold">{issue.upvote_count}</td>
-                    <td className="py-3 px-4 text-[#9CA3AF] text-xs">
+                    <td className="py-3 px-4 text-accent-secondary font-semibold">{issue.upvote_count}</td>
+                    <td className="py-3 px-4 text-content-muted text-xs">
                       {formatDistanceToNow(new Date(issue.created_at), { addSuffix: true })}
                     </td>
                   </tr>

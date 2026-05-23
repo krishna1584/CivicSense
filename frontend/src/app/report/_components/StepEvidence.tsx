@@ -33,11 +33,11 @@ export function StepEvidence({ files, onFilesChange }: Props) {
     onFilesChange(files.filter((_, i) => i !== idx));
 
   return (
-    <div className="space-y-4 animate-fadeIn">
+    <div className="space-y-4 animate-fade_in">
       <div className="card p-5">
         <label className="label-micro block mb-3">
           Photo / Video Evidence{' '}
-          <span className="text-[#6B7280] normal-case tracking-normal font-normal">(optional — up to 5 files)</span>
+          <span className="text-content-muted normal-case tracking-normal font-normal">(optional — up to 5 files)</span>
         </label>
 
         {/* Drop zone */}
@@ -48,15 +48,15 @@ export function StepEvidence({ files, onFilesChange }: Props) {
           onClick={() => fileInputRef.current?.click()}
           className="border-2 border-dashed rounded-xl p-10 text-center transition-all cursor-pointer"
           style={{
-            borderColor: dragging ? '#61C0FF' : 'rgba(255,255,255,0.08)',
-            background:  dragging ? 'rgba(97,192,255,0.04)' : 'transparent',
+            borderColor: dragging ? 'rgb(var(--accent-primary))' : 'rgb(var(--border-subtle))',
+            background:  dragging ? 'rgb(var(--accent-primary) / 0.04)' : 'transparent',
           }}
         >
-          <Upload size={28} className="mx-auto mb-3" style={{ color: dragging ? '#61C0FF' : '#6B7280' }} />
-          <p className="text-sm font-medium" style={{ color: dragging ? '#61C0FF' : '#9CA3AF' }}>
+          <Upload size={28} className="mx-auto mb-3" style={{ color: dragging ? 'rgb(var(--accent-primary))' : 'rgb(var(--content-muted))' }} />
+          <p className="text-sm font-medium" style={{ color: dragging ? 'rgb(var(--accent-primary))' : 'rgb(var(--content-muted))' }}>
             Drag &amp; drop or click to upload
           </p>
-          <p className="text-xs text-[#6B7280] mt-1">JPG, PNG, MP4 · Max 50 MB each</p>
+          <p className="text-xs text-content-muted mt-1">JPG, PNG, MP4 · Max 50 MB each</p>
           <input
             ref={fileInputRef}
             type="file"
@@ -74,24 +74,24 @@ export function StepEvidence({ files, onFilesChange }: Props) {
               <div
                 key={i}
                 className="relative rounded-xl overflow-hidden group"
-                style={{ background: '#0E131A', border: '1px solid rgba(255,255,255,0.06)' }}
+                style={{ background: 'rgb(var(--base-900))', border: '1px solid rgb(var(--border-subtle))' }}
               >
                 {f.type.startsWith('image/') && previews[i] ? (
                   <img src={previews[i]} alt="" className="w-full h-24 object-cover" />
                 ) : (
                   <div className="w-full h-24 flex items-center justify-center">
-                    <FileImage size={24} className="text-[#6B7280]" />
+                    <FileImage size={24} className="text-content-muted" />
                   </div>
                 )}
                 <div className="p-2">
-                  <p className="text-white text-xs truncate">{f.name}</p>
-                  <p className="text-[#6B7280] text-[10px]">{(f.size / 1024 / 1024).toFixed(1)} MB</p>
+                  <p className="text-content-primary text-xs truncate">{f.name}</p>
+                  <p className="text-content-muted text-[10px]">{(f.size / 1024 / 1024).toFixed(1)} MB</p>
                 </div>
                 <button
                   onClick={e => { e.stopPropagation(); removeFile(i); }}
                   className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                 >
-                  <X size={12} className="text-white" />
+                  <X size={12} className="text-content-primary" />
                 </button>
               </div>
             ))}

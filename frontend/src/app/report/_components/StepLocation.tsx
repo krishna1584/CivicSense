@@ -37,7 +37,7 @@ export function StepLocation({ form, onChange, onError }: Props) {
   const coordsSet = form.latitude && form.longitude;
 
   return (
-    <div className="space-y-4 animate-fadeIn">
+    <div className="space-y-4 animate-fade_in">
       {/* Address */}
       <div className="card p-5">
         <label className="label-micro block mb-2">Address / Location Description *</label>
@@ -54,11 +54,11 @@ export function StepLocation({ form, onChange, onError }: Props) {
           onClick={handleGPS}
           disabled={locating}
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all w-full justify-center"
-          style={{
-            background: 'rgba(97,192,255,0.08)',
-            border:     '1px solid rgba(97,192,255,0.2)',
-            color:      '#61C0FF',
-          }}
+            style={{
+              background: 'rgba(59,130,246,0.08)',
+              border:     '1px solid rgba(59,130,246,0.2)',
+              color:      'rgb(var(--accent-primary))',
+            }}
         >
           {locating
             ? <><Loader2 size={14} className="animate-spin" /> Getting location…</>
@@ -81,7 +81,7 @@ export function StepLocation({ form, onChange, onError }: Props) {
         </label>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-xs text-[#6B7280] mb-1 block">Latitude</label>
+            <label className="text-xs text-content-muted mb-1 block">Latitude</label>
             <input
               className="input-dark"
               placeholder="e.g. 28.6139"
@@ -90,7 +90,7 @@ export function StepLocation({ form, onChange, onError }: Props) {
             />
           </div>
           <div>
-            <label className="text-xs text-[#6B7280] mb-1 block">Longitude</label>
+            <label className="text-xs text-content-muted mb-1 block">Longitude</label>
             <input
               className="input-dark"
               placeholder="e.g. 77.2090"

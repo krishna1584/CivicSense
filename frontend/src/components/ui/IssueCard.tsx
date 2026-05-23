@@ -18,7 +18,6 @@ export function IssueCard({ issue, compact = false }: IssueCardProps) {
         'card card-hover flex flex-col cursor-pointer group h-full',
         compact ? 'p-4' : 'p-5'
       )}>
-        {/* Header */}
         <div className="flex items-start justify-between gap-3 mb-4">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-base-850 border border-border-subtle flex items-center justify-center text-lg">
@@ -32,7 +31,6 @@ export function IssueCard({ issue, compact = false }: IssueCardProps) {
           </div>
         </div>
 
-        {/* Title */}
         <h3 className="font-semibold text-content-primary group-hover:text-accent-secondary transition-colors line-clamp-2 mb-2 text-base leading-snug">
           {issue.title}
         </h3>
@@ -44,26 +42,22 @@ export function IssueCard({ issue, compact = false }: IssueCardProps) {
               {issue.status === 'resolved' ? `Resolved by: ${issue.department}` : `Assigned: ${issue.department}`}
             </div>
             {issue.status === 'resolved' && issue.avg_rating && parseFloat(String(issue.avg_rating)) > 0 && (
-              <div className="flex items-center gap-1 text-[11px] font-bold text-[#FBBF24] bg-[#FBBF24]/10 border border-[#FBBF24]/20 rounded px-1.5 py-0.5">
+              <div className="flex items-center gap-1 text-[11px] font-bold text-state-warning bg-state-warning/10 border border-state-warning/20 rounded px-1.5 py-0.5">
                 <span>★</span>
                 <span>{parseFloat(String(issue.avg_rating)).toFixed(1)}</span>
                 {issue.review_count !== undefined && (
-                  <span className="text-[9px] text-[#FBBF24]/75 font-normal">
-                    ({issue.review_count})
-                  </span>
+                  <span className="text-[9px] text-state-warning/75 font-normal">({issue.review_count})</span>
                 )}
               </div>
             )}
           </div>
         ) : (
           issue.status === 'resolved' && issue.avg_rating && parseFloat(String(issue.avg_rating)) > 0 && (
-            <div className="flex items-center gap-1 text-[11px] font-bold text-[#FBBF24] bg-[#FBBF24]/10 border border-[#FBBF24]/20 rounded px-1.5 py-0.5 mb-3 w-fit">
+            <div className="flex items-center gap-1 text-[11px] font-bold text-state-warning bg-state-warning/10 border border-state-warning/20 rounded px-1.5 py-0.5 mb-3 w-fit">
               <span>★</span>
               <span>{parseFloat(String(issue.avg_rating)).toFixed(1)}</span>
               {issue.review_count !== undefined && (
-                <span className="text-[9px] text-[#FBBF24]/75 font-normal">
-                  ({issue.review_count})
-                </span>
+                <span className="text-[9px] text-state-warning/75 font-normal">({issue.review_count})</span>
               )}
             </div>
           )
@@ -75,7 +69,6 @@ export function IssueCard({ issue, compact = false }: IssueCardProps) {
           </p>
         )}
 
-        {/* Location */}
         {issue.address && (
           <div className="flex items-start gap-1.5 text-content-muted text-[13px] mb-4 mt-auto">
             <MapPin size={14} className="mt-0.5 shrink-0" />
@@ -83,7 +76,6 @@ export function IssueCard({ issue, compact = false }: IssueCardProps) {
           </div>
         )}
 
-        {/* Footer */}
         <div className="flex items-center justify-between pt-4 border-t border-border-subtle/60 mt-auto">
           <div className="flex items-center gap-4 text-content-muted text-[13px] font-medium">
             <span className="flex items-center gap-1.5 hover:text-content-primary transition-colors">
