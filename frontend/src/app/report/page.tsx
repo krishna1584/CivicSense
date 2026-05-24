@@ -135,7 +135,7 @@ export default function ReportIssuePage() {
 
   // ── Loading / auth guard ────────────────────────────────────────────────────
   if (authLoading) return (
-    <AppLayout>
+    <AppLayout title="Report Issue">
       <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
         <div className="w-8 h-8 border-2 border-accent-primary border-t-transparent rounded-full animate-spin"></div>
       </div>
@@ -145,7 +145,7 @@ export default function ReportIssuePage() {
 
   // ── Success screen ──────────────────────────────────────────────────────────
   if (submitted) return (
-    <AppLayout>
+    <AppLayout title="Report Issue">
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6 animate-fade_in">
         <div className="w-20 h-20 rounded-2xl flex items-center justify-center bg-state-success/10 border border-state-success/20 shadow-[0_0_40px_rgba(51,209,122,0.15)]">
           <CheckCircle2 size={44} className="text-state-success" strokeWidth={2} />
@@ -162,14 +162,11 @@ export default function ReportIssuePage() {
 
   // ── Main render ─────────────────────────────────────────────────────────────
   return (
-    <AppLayout>
-      {/* Header */}
-      <div className="mb-10 max-w-3xl mx-auto text-center">
-        <h1 className="text-3xl font-bold text-content-primary mb-3 tracking-tight">Report a Civic Issue</h1>
-        <p className="text-content-secondary text-base">
-          Document a problem in your community to notify the right authorities.
-        </p>
-      </div>
+    <AppLayout
+      title="Report Issue"
+      sub="Document a problem in your community to notify the right authorities"
+    >
+      <div className="pt-4">
 
       {/* Step indicator */}
       <StepIndicator current={step} onBack={handleBack} />
@@ -260,6 +257,7 @@ export default function ReportIssuePage() {
             userName={user.name}
           />
         </div>
+      </div>
       </div>
     </AppLayout>
   );

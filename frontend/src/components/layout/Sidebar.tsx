@@ -9,6 +9,15 @@ import {
 } from 'lucide-react';
 import { authApi } from '@/lib/api';
 
+const formatMediaUrl = (url: string) => {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+  const cleanBase = base.endsWith('/') ? base.slice(0, -1) : base;
+  const cleanPath = url.startsWith('/') ? url : `/${url}`;
+  return `${cleanBase}${cleanPath}`;
+};
+
 const citizenNav = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/report', label: 'Report Issue', icon: PlusCircle },
@@ -24,11 +33,13 @@ export function Sidebar() {
   const { user, setUser } = useAuthStore();
   const { unreadCount } = useNotificationStore();
 
+  const avatarUrl = user?.avatar_url ? formatMediaUrl(user.avatar_url) : '';
+  const initials = user?.name ? user.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) : 'AU';
+
   const getAdminNav = (role?: string) => {
     const base = [
       { href: '/admin?view=dashboard', label: 'Command Center', icon: Shield },
       { href: '/admin?view=issues', label: 'All Issues', icon: FileText },
-      { href: '/admin?view=analytics', label: 'Analytics', icon: BarChart2 },
     ];
 
     if (role === 'admin') {
@@ -85,7 +96,7 @@ export function Sidebar() {
                 <Icon size={18} strokeWidth={isActive ? 2.5 : 2} />
                 <span>{item.label}</span>
                 {item.href === '/notifications' && unreadCount > 0 && (
-                  <span className="ml-auto bg-accent-primary text-white text-[10px] font-bold min-w-[1.25rem] h-5 px-1 rounded-full flex items-center justify-center">
+                  <span className="ml-auto bg-state-error text-white text-[10px] font-bold min-w-[1.25rem] h-5 px-1 rounded-full flex items-center justify-center">
                     {unreadCount > 9 ? '9+' : unreadCount}
                   </span>
                 )}
@@ -98,11 +109,11 @@ export function Sidebar() {
       {user && (
         <div className="p-4 border-t border-border-subtle/50">
           <Link href="/profile" className="flex items-center gap-3 px-3 py-2 mb-3 bg-base-850 rounded-xl border border-border-subtle/50 hover:border-accent-secondary/30 hover:bg-base-800/50 transition-all duration-200 cursor-pointer group">
-            <div className="w-9 h-9 rounded-lg overflow-hidden flex items-center justify-center bg-accent-secondary/10 text-accent-secondary font-bold text-sm border border-accent-secondary/20 flex-shrink-0 group-hover:border-accent-secondary/40 transition-colors">
-              {user.avatar_url ? (
-                <img src={user.avatar_url} alt={user.name} className="w-full h-full object-cover" />
+            <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center bg-accent-secondary/10 text-accent-secondary font-bold text-xs border border-accent-secondary/20 flex-shrink-0 group-hover:border-accent-secondary/40 transition-colors">
+              {avatarUrl ? (
+                <img src={avatarUrl} alt={user.name} className="w-full h-full object-cover" />
               ) : (
-                user.name[0].toUpperCase()
+                initials
               )}
             </div>
             <div className="flex-1 min-w-0">

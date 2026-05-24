@@ -3,6 +3,8 @@ import { useEffect, useState, useMemo } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { usersApi } from '@/lib/api';
 import { Issue, IssueStatus } from '@/types';
+import { StatusBadge } from '@/components/ui/StatusBadge';
+import { SeverityBadge } from '@/components/ui/SeverityBadge';
 import {
   FileText, Loader2, AlertTriangle, RefreshCw, Plus, Search,
   MapPin, ThumbsUp, MessageSquare, Clock, X, ChevronDown,
@@ -29,27 +31,6 @@ const SEVERITY_CONFIG: Record<string, { color: string; bg: string }> = {
   high:     { color: '#FB7185', bg: 'rgba(251,113,133,0.08)' },
   critical: { color: '#EF4444', bg: 'rgba(239,68,68,0.08)' },
 };
-
-function StatusBadge({ status }: { status: IssueStatus }) {
-  const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.reported;
-  return (
-    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wider"
-      style={{ color: cfg.color, background: cfg.bg }}>
-      <span className="w-1.5 h-1.5 rounded-full" style={{ background: cfg.dot }} />
-      {cfg.label}
-    </span>
-  );
-}
-
-function SeverityBadge({ severity }: { severity: string }) {
-  const cfg = SEVERITY_CONFIG[severity] || SEVERITY_CONFIG.medium;
-  return (
-    <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase"
-      style={{ color: cfg.color, background: cfg.bg }}>
-      {severity}
-    </span>
-  );
-}
 
 // ── Issue Card (Grid) ──────────────────────────────────────────────────────────
 function IssueCardGrid({ issue }: { issue: Issue }) {
@@ -201,21 +182,18 @@ export default function MyReportsPage() {
   }), [issues]);
 
   return (
-    <AppLayout>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-content-primary flex items-center gap-2">
-            <FileText size={22} className="text-accent-primary" /> My Reports
-          </h1>
-          <p className="text-content-secondary text-sm mt-1">{total} issue{total !== 1 ? 's' : ''} submitted</p>
-        </div>
+    <AppLayout
+      title="My Reports"
+      sub={`${total} issue${total !== 1 ? 's' : ''} submitted`}
+      headerActions={
         <Link href="/report"
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200"
-          style={{ background: 'linear-gradient(135deg, #6366F1, #3B82F6)', color: '#FFFFFF', boxShadow: '0 4px 20px rgb(99 102 241 / 0.25)' }}>
-          <Plus size={16} /> New Report
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-200 shadow-md shadow-accent-primary/20 hover:shadow-accent-primary/30 hover:-translate-y-0.5"
+          style={{ background: 'linear-gradient(135deg, #6366F1, #3B82F6)', color: '#FFFFFF' }}>
+          <Plus size={14} /> New Report
         </Link>
-      </div>
+      }
+    >
+      <div className="pt-4">
 
       {/* Stats */}
       {!loading && issues.length > 0 && (
@@ -364,6 +342,7 @@ export default function MyReportsPage() {
           <TrendingUp size={20} className="text-state-success ml-auto flex-shrink-0" />
         </div>
       )}
+      </div>
     </AppLayout>
   );
 }

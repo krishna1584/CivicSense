@@ -125,7 +125,7 @@ router.get('/:id/profile', async (req, res) => {
     );
     if (!user.rows[0]) return res.status(404).json({ error: 'User not found' });
 
-    const [stats, satisfaction] = await Promise.all([
+    const [stats, satisfaction, adminReviews] = await Promise.all([
       pool.query(`
         SELECT
           COUNT(*) AS total_issues,
@@ -139,7 +139,17 @@ router.get('/:id/profile', async (req, res) => {
           COUNT(r.id) AS satisfaction_reviews
         FROM issue_reviews r
         JOIN issues i ON r.issue_id = i.id
-        WHERE i.user_id = $1 AND r.is_hidden = FALSE
+        WHERE i.user_id = $1 AND r.is_hidden = FALSE AND r.target_user_id IS NULL
+      `, [req.params.id]),
+      pool.query(`
+        SELECT r.id, r.rating, r.comment, r.created_at,
+               u.name AS admin_name, u.avatar_url AS admin_avatar,
+               i.title AS issue_title, i.id AS issue_id
+        FROM issue_reviews r
+        JOIN users u ON r.user_id = u.id
+        JOIN issues i ON r.issue_id = i.id
+        WHERE r.target_user_id = $1 AND r.is_hidden = FALSE
+        ORDER BY r.created_at DESC
       `, [req.params.id]),
     ]);
 
@@ -147,6 +157,7 @@ router.get('/:id/profile', async (req, res) => {
       user: user.rows[0],
       stats: stats.rows[0],
       satisfaction: satisfaction.rows[0],
+      adminReviews: adminReviews.rows,
     });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch profile' });

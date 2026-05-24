@@ -32,15 +32,8 @@ export default function NotificationsPage() {
   }, [setUnreadCount]);
 
   return (
-    <AppLayout>
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-content-primary flex items-center gap-3">
-          <span className="flex items-center justify-center w-9 h-9 rounded-xl bg-accent-secondary/10">
-            <Bell size={20} className="text-accent-secondary" />
-          </span>
-          Notifications
-        </h1>
-      </div>
+    <AppLayout title="Notifications" sub="Stay updated on community reports and activity">
+      <div className="pt-4">
 
       {loading ? (
         <div className="flex items-center justify-center h-64">
@@ -73,6 +66,7 @@ export default function NotificationsPage() {
           ))}
         </div>
       )}
+      </div>
     </AppLayout>
   );
 }

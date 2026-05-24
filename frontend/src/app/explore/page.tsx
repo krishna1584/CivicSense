@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { issuesApi } from '@/lib/api';
 import { Issue, IssueStatus, Severity } from '@/types';
+import { StatusBadge } from '@/components/ui/StatusBadge';
+import { SeverityBadge } from '@/components/ui/SeverityBadge';
 import {
   Search, Filter, MapPin, ThumbsUp, MessageSquare,
   Clock, LayoutGrid, List, ChevronDown, AlertTriangle,
@@ -37,27 +39,6 @@ const SORT_OPTIONS = [
   { value: 'upvotes', label: 'Most Upvoted' },
   { value: 'comments', label: 'Most Commented' },
 ];
-
-// ── Sub-components ─────────────────────────────────────────────────────────────
-function StatusBadge({ status }: { status: IssueStatus }) {
-  const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.reported;
-  return (
-    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wider"
-      style={{ color: cfg.color, background: cfg.bg }}>
-      <span className="w-1.5 h-1.5 rounded-full" style={{ background: cfg.dot }} />
-      {cfg.label}
-    </span>
-  );
-}
-
-function SeverityBadge({ severity }: { severity: Severity }) {
-  const cfg = SEVERITY_CONFIG[severity] || SEVERITY_CONFIG.medium;
-  return (
-    <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase" style={{ color: cfg.color, background: cfg.bg }}>
-      {severity}
-    </span>
-  );
-}
 
 function IssueCardGrid({ issue, idx }: { issue: Issue; idx: number }) {
   return (

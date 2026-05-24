@@ -10,17 +10,24 @@ async function migrate() {
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS issue_reviews (
-        id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        issue_id    UUID NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
-        user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        rating      SMALLINT NOT NULL CHECK (rating BETWEEN 1 AND 5),
-        comment     TEXT,
-        is_hidden   BOOLEAN NOT NULL DEFAULT FALSE,
-        created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        issue_id        UUID NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+        user_id         UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        target_user_id  UUID REFERENCES users(id) ON DELETE CASCADE,
+        rating          SMALLINT NOT NULL CHECK (rating BETWEEN 1 AND 5),
+        comment         TEXT,
+        is_hidden       BOOLEAN NOT NULL DEFAULT FALSE,
+        created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         UNIQUE (issue_id, user_id)
       )
     `);
     console.log('✓ issue_reviews table created');
+
+    await client.query(`
+      ALTER TABLE issue_reviews
+        ADD COLUMN IF NOT EXISTS target_user_id UUID REFERENCES users(id) ON DELETE CASCADE
+    `);
+    console.log('✓ target_user_id column added to issue_reviews if not exists');
 
     await client.query(`
       ALTER TABLE issues
@@ -34,6 +41,9 @@ async function migrate() {
     `);
     await client.query(`
       CREATE INDEX IF NOT EXISTS idx_issue_reviews_user_id ON issue_reviews(user_id)
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_issue_reviews_target_user_id ON issue_reviews(target_user_id)
     `);
     console.log('✓ Indexes created');
 

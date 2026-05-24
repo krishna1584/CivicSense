@@ -6,7 +6,8 @@ import {
   Moon, Sun, TrendingUp, TrendingDown, AlertTriangle, Clock,
   ThumbsUp, MessageSquare, Search, Filter, ChevronDown,
   Download, Eye, CheckCircle2, XCircle, Loader2, Users,
-  Activity, ArrowUpRight, MapPin, ChevronRight, X, ClipboardList, Camera, ExternalLink
+  Activity, ArrowUpRight, MapPin, ChevronRight, X, ClipboardList, Camera, ExternalLink,
+  Inbox, Star
 } from 'lucide-react';
 import { adminApi, issuesApi, usersApi, commentsApi } from '@/lib/api';
 import { formatDistanceToNow } from 'date-fns';
@@ -111,9 +112,32 @@ function BarChart({ data, labels = ['Roads', 'Garbage', 'Parks', 'Traffic', 'Wat
 
 function PieChart({ slices }: { slices: { value: number; color: string; label: string }[] }) {
   const total = slices.reduce((a, s) => a + s.value, 0);
+  
+  // Handlers for single-slice (100%) arc SVG rendering bug
+  const activeSlices = slices.filter(s => s.value > 0);
+  if (activeSlices.length === 1) {
+    const s = activeSlices[0];
+    return (
+      <div className="flex items-center gap-6">
+        <svg viewBox="0 0 200 200" className="w-36 h-36 shrink-0">
+          <circle cx="100" cy="100" r="80" fill={s.color} opacity="0.9" stroke="rgb(var(--base-800))" strokeWidth="2" />
+        </svg>
+        <div className="space-y-2">
+          {slices.map((p, i) => (
+            <div key={i} className="flex items-center gap-2 text-xs">
+              <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: p.color }} />
+              <span className="text-content-secondary">{p.label}</span>
+              <span className="text-content-primary font-semibold ml-auto pl-3">{p.value}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   let cumulative = 0;
   const paths = slices.map(s => {
-    const pct = s.value / total;
+    const pct = s.value / (total || 1);
     const start = cumulative;
     cumulative += pct;
     const startAngle = start * 2 * Math.PI - Math.PI / 2;
@@ -131,7 +155,7 @@ function PieChart({ slices }: { slices: { value: number; color: string; label: s
     <div className="flex items-center gap-6">
       <svg viewBox="0 0 200 200" className="w-36 h-36 shrink-0">
         {paths.map((p, i) => (
-          <path key={i} d={p.d} fill={p.color} opacity="0.9" stroke="#0F172A" strokeWidth="2" />
+          <path key={i} d={p.d} fill={p.color} opacity="0.9" stroke="rgb(var(--base-800))" strokeWidth="2" />
         ))}
       </svg>
       <div className="space-y-2">
@@ -139,7 +163,7 @@ function PieChart({ slices }: { slices: { value: number; color: string; label: s
           <div key={i} className="flex items-center gap-2 text-xs">
             <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: p.color }} />
             <span className="text-content-secondary">{p.label}</span>
-            <span className="text-white font-semibold ml-auto pl-3">{p.value}</span>
+            <span className="text-content-primary font-semibold ml-auto pl-3">{p.value}</span>
           </div>
         ))}
       </div>
@@ -171,7 +195,7 @@ function LineChart({ data, color = '#3B82F6' }: { data: number[]; color?: string
         <path d={areaD} fill="url(#lg)" />
         <path d={pathD} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         {pts.map(([x, y], i) => (
-          <circle key={i} cx={x} cy={y} r="3" fill={color} stroke="#0F172A" strokeWidth="1.5" />
+          <circle key={i} cx={x} cy={y} r="3" fill={color} stroke="rgb(var(--base-800))" strokeWidth="1.5" />
         ))}
       </svg>
       <div className="flex justify-between px-2 mt-1">
@@ -189,13 +213,13 @@ function DonutChart({ pct, color, label }: { pct: number; color: string; label: 
     <div className="flex flex-col items-center">
       <div className="relative">
         <svg viewBox="0 0 128 128" className="w-32 h-32 -rotate-90">
-          <circle cx={cx} cy={cy} r={r} fill="none" stroke="#0F172A" strokeWidth="12" />
+          <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgb(var(--base-850))" strokeWidth="12" />
           <circle cx={cx} cy={cy} r={r} fill="none" stroke={color} strokeWidth="12"
             strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"
             style={{ transition: 'stroke-dasharray 1s ease-out' }} />
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-xl font-black text-white">{pct}%</span>
+          <span className="text-xl font-black text-content-primary">{pct}%</span>
           <span className="text-[10px] text-content-secondary">rate</span>
         </div>
       </div>
@@ -205,17 +229,21 @@ function DonutChart({ pct, color, label }: { pct: number; color: string; label: 
 }
 
 // ─── Stat Card ─────────────────────────────────────────────────────────────────
-function StatCard({ label, value, sub, subUp, icon: Icon, color, delay = 0 }:
-  { label: string; value: string; sub: string; subUp?: boolean; icon: React.ElementType; color: string; delay?: number }) {
+function StatCard({ label, value, sub, subUp, icon: Icon, color, onClick, delay = 0 }:
+  { label: string; value: string; sub: string; subUp?: boolean; icon: React.ElementType; color: string; onClick?: () => void; delay?: number }) {
   return (
-    <div className="stat-card" style={{ '--accent': color } as React.CSSProperties}>
+    <div 
+      onClick={onClick}
+      className={`stat-card p-5 border border-border-subtle bg-base-800 rounded-xl ${onClick ? 'cursor-pointer hover:border-accent-primary/30 transition-all hover:shadow-card-hover active:scale-[0.99] hover:-translate-y-0.5 duration-200' : ''}`} 
+      style={{ '--accent': color } as React.CSSProperties}
+    >
       <div className="flex items-start justify-between mb-3">
         <p className="label-micro text-content-secondary">{label}</p>
         <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: color + '20' }}>
           <Icon size={15} style={{ color }} />
         </div>
       </div>
-      <div className="text-3xl font-black text-white mb-1">{value}</div>
+      <div className="text-3xl font-black text-content-primary mb-1">{value}</div>
       <div className={`flex items-center gap-1 text-xs font-medium ${subUp === undefined ? 'text-content-secondary' : subUp ? 'text-state-success' : 'text-state-error'}`}>
         {subUp !== undefined && (subUp ? <TrendingUp size={11} /> : <TrendingDown size={11} />)}
         {sub}
@@ -227,15 +255,44 @@ function StatCard({ label, value, sub, subUp, icon: Icon, color, delay = 0 }:
 // Shared TopBar component imported from '@/components/layout/TopBar'
 
 // ════════════════════════════════════════════════════════════════════════════════
-// VIEW: DASHBOARD
+// VIEW: COMMAND CENTER (COMBINED OVERVIEW & ANALYTICS)
+// ════════════════════════════════════════════════════════════════════════════════
+interface EmptyPlaceholderProps {
+  icon: React.ElementType;
+  title: string;
+  description: string;
+  variant?: 'card' | 'chart' | 'list';
+}
+
+function EmptyPlaceholder({ icon: Icon, title, description, variant = 'card' }: EmptyPlaceholderProps) {
+  return (
+    <div className={`flex flex-col items-center justify-center text-center p-6 rounded-xl border border-dashed border-border-subtle bg-base-900/30 w-full h-full select-none ${variant === 'chart' ? 'min-h-[11rem]' : ''}`}>
+      <div className="w-10 h-10 rounded-xl bg-base-850 flex items-center justify-center border border-border-subtle/50 mb-3 text-content-secondary shadow-sm">
+        <Icon size={18} className="text-content-muted" />
+      </div>
+      <h4 className="text-xs font-bold text-content-primary tracking-wide mb-1 uppercase">{title}</h4>
+      <p className="text-[10px] text-content-muted max-w-[200px] leading-relaxed font-medium">{description}</p>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════════════
+// VIEW: COMMAND CENTER (COMBINED OVERVIEW & ANALYTICS)
 // ════════════════════════════════════════════════════════════════════════════════
 function DashboardView({ setView }: { setView: (v: AdminView) => void }) {
+  const router = useRouter();
   const [data, setData] = useState<any>(null);
+  const [analyticsData, setAnalyticsData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    adminApi.dashboard().then(res => {
-      setData(res.data);
+    setLoading(true);
+    Promise.all([
+      adminApi.dashboard(),
+      adminApi.analytics()
+    ]).then(([dashRes, polyRes]) => {
+      setData(dashRes.data);
+      setAnalyticsData(polyRes.data);
       setLoading(false);
     }).catch(err => {
       console.error(err);
@@ -243,14 +300,20 @@ function DashboardView({ setView }: { setView: (v: AdminView) => void }) {
     });
   }, []);
 
-  if (loading || !data) {
-    return <div className="p-10 flex justify-center"><Loader2 className="animate-spin text-accent-secondary" /></div>;
+  if (loading || !data || !analyticsData) {
+    return (
+      <div className="p-20 flex flex-col items-center justify-center gap-4">
+        <Loader2 className="animate-spin text-accent-secondary" size={32} />
+        <span className="text-sm text-content-secondary font-medium animate-pulse">Consolidating Command Center data...</span>
+      </div>
+    );
   }
 
-  const { overview, byStatus, bySeverity, byCategory, slaViolations, recentIssues } = data;
+  const { overview, byStatus, byCategory, slaViolations, recentIssues } = data;
+  const { resolutionTrend, categoryTrend, departmentPerf, deptSatisfaction = [] } = analyticsData;
 
-  const barData = byCategory.map((c: any) => parseInt(c.count)).slice(0, 7);
-  const barLabels = byCategory.map((c: any) => c.name).slice(0, 7);
+  const barData = byCategory.map((c: any) => parseInt(c.count)).slice(0, 5);
+  const barLabels = byCategory.map((c: any) => c.name).slice(0, 5);
 
   const pieColors: Record<string, string> = {
     'reported': '#94A3B8', 'acknowledged': '#3B82F6', 'in_progress': '#F59E0B', 'resolved': '#4ADE80', 'rejected': '#EF4444'
@@ -259,98 +322,179 @@ function DashboardView({ setView }: { setView: (v: AdminView) => void }) {
     value: parseInt(s.count), color: pieColors[s.status] || '#94A3B8', label: s.status.replace('_', ' ')
   }));
 
+  const trendData = resolutionTrend.map((t: any) => parseInt(t.resolved) || 0);
+  const totalIssues = categoryTrend.reduce((acc: number, c: any) => acc + parseInt(c.total), 0);
+  const resolvedIssues = categoryTrend.reduce((acc: number, c: any) => acc + parseInt(c.resolved), 0);
+  const resolutionRate = totalIssues ? Math.round((resolvedIssues / totalIssues) * 100) : 0;
+
   const criticalIssues = recentIssues.filter((i: any) => i.severity === 'critical' || i.severity === 'high').slice(0, 3);
 
   return (
     <div className="p-6 space-y-6" style={{ animation: 'fadeUp 0.3s ease-out' }}>
-      {/* Stat cards */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-        <StatCard label="Total Issues"    value={overview.total || '0'} sub="All time"                  icon={Activity}    color="#3B82F6"  delay={0} />
-        <StatCard label="Open Issues"     value={overview.active || '0'} sub="Requires attention"        icon={AlertTriangle} color="#F59E0B" subUp={false} delay={1} />
-        <StatCard label="Avg Resolution"  value={`${overview.avg_resolution_hours || '0'}h`}  sub="Resolution time" icon={Clock} color="#4ADE80" subUp={true} delay={2} />
-        <StatCard label="SLA Breaches"    value={slaViolations?.length?.toString() || '0'} sub="Needs attention" icon={XCircle} color="#EF4444" subUp={false} delay={3} />
+      {/* Export row */}
+      <div className="flex justify-end gap-2">
+        <button className="btn-secondary h-9 px-4 text-xs font-semibold flex items-center gap-2 border border-border-subtle bg-base-850 hover:bg-base-800 text-content-primary">
+          <Download size={13} /> Export CSV
+        </button>
+        <button className="btn-secondary h-9 px-4 text-xs font-semibold flex items-center gap-2 border border-border-subtle bg-base-850 hover:bg-base-800 text-content-primary">
+          <Download size={13} /> Export PDF
+        </button>
       </div>
 
-      {/* Charts row */}
+      {/* Unified KPI Stat Cards Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <StatCard label="Total Reports"   value={overview.total || '0'} sub="All time"                  icon={Activity}    color="#3B82F6" onClick={() => router.push('/admin?view=issues')} />
+        <StatCard label="Open Workload"   value={overview.active || '0'} sub="Requires attention"        icon={AlertTriangle} color="#F59E0B" subUp={false} onClick={() => router.push('/admin?view=issues&filterStatus=Unresolved')} />
+        <StatCard label="Avg Resolution"  value={`${(parseFloat(overview.avg_resolution_hours || '0') / 24).toFixed(1)}d`}  sub="Operational speed" icon={Clock} color="#4ADE80" subUp={true} />
+      </div>
+
+      {/* Row 1: Status Distribution & SLA Compliance */}
       <div className="grid lg:grid-cols-2 gap-4">
-        {/* Bar chart */}
-        <div className="card p-5">
+        {/* Pie Chart */}
+        <div className="card p-5 border border-border-subtle">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-white text-sm">Issues by Category</h3>
+            <h3 className="font-bold text-content-primary text-sm">Status Distribution</h3>
           </div>
-          <div className="h-52">
-            {barData.length > 0 ? <BarChart data={barData} labels={barLabels} color="#3B82F6" /> : <div className="text-content-secondary text-sm h-full flex items-center justify-center">No data</div>}
+          <div className="flex items-center justify-center h-44 w-full">
+            {pieSlices.length > 0 && pieSlices.some((s: any) => s.value > 0) ? (
+              <PieChart slices={pieSlices} />
+            ) : (
+              <EmptyPlaceholder icon={Activity} title="No Status Breakdown" description="No active reports logged in the system to calculate status distribution." variant="chart" />
+            )}
           </div>
         </div>
 
-        {/* Pie chart */}
-        <div className="card p-5">
+        {/* Donut Chart: SLA Compliance */}
+        <div className="card p-5 border border-border-subtle">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-white text-sm">Status Distribution</h3>
+            <h3 className="font-bold text-content-primary text-sm">SLA Compliance Rate</h3>
           </div>
-          <div className="flex items-center justify-center h-52">
-            {pieSlices.length > 0 ? <PieChart slices={pieSlices} /> : <div className="text-content-secondary text-sm h-full flex items-center justify-center">No data</div>}
-          </div>
+          {totalIssues > 0 ? (
+            <div className="flex items-center gap-6 h-44">
+              <DonutChart pct={resolutionRate} color="#4ADE80" label="Resolution rate" />
+              <div className="flex-1 space-y-3">
+                {[
+                  { label: 'Resolved Reports', val: resolvedIssues, color: '#4ADE80' },
+                  { label: 'Pending Reports',  val: totalIssues - resolvedIssues, color: '#EF4444' },
+                ].map(r => (
+                  <div key={r.label} className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: r.color }} />
+                    <span className="text-xs text-content-secondary font-medium">{r.label}</span>
+                    <span className="text-xs font-bold text-content-primary ml-auto">{r.val}</span>
+                  </div>
+                ))}
+                <div className="pt-2 border-t border-border-subtle/50 text-[10px] text-content-secondary font-medium">
+                  Target SLA rate: <span className="text-content-primary font-bold">100%</span> (Current: <span className={resolutionRate >= 80 ? 'text-state-success font-bold' : 'text-state-warning font-bold'}>{resolutionRate}%</span>)
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="h-44 flex items-center justify-center">
+              <EmptyPlaceholder icon={CheckCircle2} title="No Compliance Metrics" description="No reports are currently recorded to calculate SLA performance statistics." variant="chart" />
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Bottom row */}
-      <div className="grid lg:grid-cols-2 gap-4">
-        {/* Critical Issues */}
-        <div className="card p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-white text-sm flex items-center gap-2">
-              <AlertTriangle size={14} className="text-state-error" />
-              Critical Issues
+      {/* Row 3: Actionable Feeds & Department Satisfaction */}
+      <div className="grid lg:grid-cols-3 gap-4">
+        {/* Critical Issues / Actions Required */}
+        <div className="card p-5 border border-border-subtle lg:col-span-1 flex flex-col h-80">
+          <div className="flex items-center justify-between mb-4 pb-2 border-b border-border-subtle/50 shrink-0">
+            <h3 className="font-bold text-content-primary text-xs flex items-center gap-1.5">
+              <AlertTriangle size={15} className="text-state-error" />
+              Critical Action Items
             </h3>
-            <button onClick={() => setView('issues')} className="text-accent-secondary text-xs hover:underline flex items-center gap-1">
+            <button onClick={() => setView('issues')} className="text-accent-secondary text-xs hover:underline flex items-center gap-0.5 font-semibold">
               View All <ChevronRight size={11} />
             </button>
           </div>
-          <div className="space-y-3">
-            {criticalIssues.map((issue: any) => (
-              <Link href={`/issues/${issue.id}`} key={issue.id} className="flex items-center gap-3 p-3 rounded-xl bg-base-900 border border-border-subtle hover:border-border-subtle transition-colors cursor-pointer group">
-                <img src={formatMediaUrl(issue.media?.[0]?.url) || 'https://images.unsplash.com/photo-1515162305285-0293e4b4e81e?w=80&q=70'} alt="" className="w-12 h-12 rounded-lg object-cover shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-white truncate group-hover:text-accent-secondary transition-colors">{issue.title}</p>
-                  <div className="flex items-center gap-3 mt-1 text-content-secondary text-xs">
-                    <span className="flex items-center gap-1"><Clock size={10} />{formatDistanceToNow(new Date(issue.created_at))} ago</span>
-                  </div>
-                </div>
-                <StatusBadge status={issue.status === 'resolved' ? 'Resolved' : issue.status === 'in_progress' ? 'In Progress' : issue.status === 'acknowledged' ? 'Acknowledged' : issue.status === 'rejected' ? 'Rejected' : 'Reported'} />
-              </Link>
-            ))}
-            {criticalIssues.length === 0 && <div className="text-xs text-content-secondary p-2 text-center">No critical issues</div>}
+          <div className="flex-1 overflow-y-auto pr-1 space-y-3 flex flex-col justify-center">
+            {criticalIssues.length > 0 ? (
+              <div className="space-y-3 h-full">
+                {criticalIssues.map((issue: any) => (
+                  <Link href={`/issues/${issue.id}`} key={issue.id} className="flex items-center gap-2.5 p-2 rounded-xl bg-base-900 border border-border-subtle hover:border-accent-secondary/30 transition-all cursor-pointer group">
+                    <img src={formatMediaUrl(issue.media?.[0]?.url) || 'https://images.unsplash.com/photo-1515162305285-0293e4b4e81e?w=80&q=70'} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-content-primary truncate group-hover:text-accent-secondary transition-colors">{issue.title}</p>
+                      <p className="text-[9px] text-content-muted mt-0.5 flex items-center gap-1"><Clock size={9} />{formatDistanceToNow(new Date(issue.created_at))} ago</p>
+                    </div>
+                    <StatusBadge status={issue.status === 'resolved' ? 'Resolved' : issue.status === 'in_progress' ? 'In Progress' : issue.status === 'acknowledged' ? 'Acknowledged' : issue.status === 'rejected' ? 'Rejected' : 'Reported'} />
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <EmptyPlaceholder icon={CheckCircle2} title="All Clear!" description="No critical or high severity action items are currently pending." variant="list" />
+            )}
           </div>
         </div>
 
-        {/* Recent Reports */}
-        <div className="card p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-white text-sm flex items-center gap-2">
-              <Clock size={14} className="text-accent-secondary" />
-              Recent Reports
+        {/* Real-time incoming reports feed */}
+        <div className="card p-5 border border-border-subtle lg:col-span-1 flex flex-col h-80">
+          <div className="flex items-center justify-between mb-4 pb-2 border-b border-border-subtle/50 shrink-0">
+            <h3 className="font-bold text-content-primary text-xs flex items-center gap-1.5">
+              <Clock size={15} className="text-accent-secondary" />
+              Incoming Reports
             </h3>
-            <button onClick={() => setView('issues')} className="text-accent-secondary text-xs hover:underline flex items-center gap-1">
+            <button onClick={() => setView('issues')} className="text-accent-secondary text-xs hover:underline flex items-center gap-0.5 font-semibold">
               View All <ChevronRight size={11} />
             </button>
           </div>
-          <div className="space-y-3">
-            {recentIssues.slice(0, 3).map((issue: any) => (
-              <Link href={`/issues/${issue.id}`} key={issue.id} className="flex items-center gap-3 p-3 rounded-xl bg-base-900 border border-border-subtle hover:border-border-subtle transition-colors cursor-pointer group">
-                <img src={formatMediaUrl(issue.media?.[0]?.url) || 'https://images.unsplash.com/photo-1520052205864-92d242b3a76b?w=80&q=70'} alt="" className="w-12 h-12 rounded-lg object-cover shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-white truncate group-hover:text-accent-secondary transition-colors">
-                    {issue.title}
-                  </p>
-                  <div className="flex items-center gap-3 mt-1 text-content-secondary text-xs">
-                    <span className="flex items-center gap-1"><Clock size={10} />{formatDistanceToNow(new Date(issue.created_at))} ago</span>
-                  </div>
-                </div>
-                <StatusBadge status={issue.status === 'resolved' ? 'Resolved' : issue.status === 'in_progress' ? 'In Progress' : issue.status === 'acknowledged' ? 'Acknowledged' : issue.status === 'rejected' ? 'Rejected' : 'Reported'} />
-              </Link>
-            ))}
-            {recentIssues.length === 0 && <div className="text-xs text-content-secondary p-2 text-center">No recent issues</div>}
+          <div className="flex-1 overflow-y-auto pr-1 space-y-3 flex flex-col justify-center">
+            {recentIssues.length > 0 ? (
+              <div className="space-y-3 h-full">
+                {recentIssues.slice(0, 3).map((issue: any) => (
+                  <Link href={`/issues/${issue.id}`} key={issue.id} className="flex items-center gap-2.5 p-2 rounded-xl bg-base-900 border border-border-subtle hover:border-accent-secondary/30 transition-all cursor-pointer group">
+                    <img src={formatMediaUrl(issue.media?.[0]?.url) || 'https://images.unsplash.com/photo-1520052205864-92d242b3a76b?w=80&q=70'} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-content-primary truncate group-hover:text-accent-secondary transition-colors">{issue.title}</p>
+                      <p className="text-[9px] text-content-muted mt-0.5 flex items-center gap-1"><Clock size={9} />{formatDistanceToNow(new Date(issue.created_at))} ago</p>
+                    </div>
+                    <StatusBadge status={issue.status === 'resolved' ? 'Resolved' : issue.status === 'in_progress' ? 'In Progress' : issue.status === 'acknowledged' ? 'Acknowledged' : issue.status === 'rejected' ? 'Rejected' : 'Reported'} />
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <EmptyPlaceholder icon={Inbox} title="Queue Empty" description="New incoming citizen reports will appear in this real-time feed." variant="list" />
+            )}
+          </div>
+        </div>
+
+        {/* Citizen Satisfaction scores */}
+        <div className="card p-5 border border-border-subtle lg:col-span-1 flex flex-col h-80">
+          <div className="flex items-center gap-1.5 mb-4 pb-2 border-b border-border-subtle/50 shrink-0">
+            <ThumbsUp size={15} className="text-state-warning" />
+            <h3 className="font-bold text-content-primary text-xs">Citizen Satisfaction</h3>
+          </div>
+          <div className="flex-1 overflow-y-auto pr-1 space-y-3 flex flex-col justify-center">
+            {deptSatisfaction.length > 0 ? (
+              <div className="space-y-3 h-full">
+                {deptSatisfaction.map((d: any) => {
+                  const avg = parseFloat(d.avg_rating || '0');
+                  const isLow = avg < 3.0;
+                  const filled = Math.round(avg);
+                  return (
+                    <div key={d.department} className={`p-2.5 rounded-xl border transition-all ${isLow ? 'border-state-error/20 bg-state-error/5' : 'border-border-subtle bg-base-900'}`}>
+                      <div className="flex items-start justify-between mb-1.5">
+                        <span className="text-xs font-bold text-content-primary truncate flex-1">{d.department}</span>
+                        {isLow && <span className="text-[8px] px-1.5 py-0.5 rounded bg-state-error/10 text-state-error font-extrabold border border-state-error/20 ml-1 shrink-0">LOW</span>}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {[1,2,3,4,5].map(n => (
+                          <svg key={n} width="11" height="11" viewBox="0 0 24 24" fill={n <= filled ? '#F59E0B' : 'none'} stroke={n <= filled ? '#F59E0B' : '#64748B'} strokeWidth="2.5">
+                            <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26" />
+                          </svg>
+                        ))}
+                        <span className={`text-xs font-bold ml-1 ${isLow ? 'text-state-error' : 'text-state-warning'}`}>{avg.toFixed(1)}</span>
+                        <span className="text-[9px] text-content-muted ml-auto font-medium">{d.review_count} review{parseInt(d.review_count) !== 1 ? 's' : ''}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <EmptyPlaceholder icon={Star} title="No Ratings Yet" description="Department performance ratings and citizen reviews will compile here." variant="list" />
+            )}
           </div>
         </div>
       </div>
@@ -363,6 +507,9 @@ function DashboardView({ setView }: { setView: (v: AdminView) => void }) {
 // ════════════════════════════════════════════════════════════════════════════════
 function IssueManagementView() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const filterParam = searchParams.get('filterStatus') as Status | 'All' | 'Unresolved';
+
   const [issues, setIssues] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -372,6 +519,11 @@ function IssueManagementView() {
   const [filterSev, setFilterSev] = useState<Severity | 'All'>('All');
   const [showFilters, setShowFilters] = useState(false);
   const [selected, setSelected] = useState<number[]>([]);
+
+  useEffect(() => {
+    setFilterStatus(filterParam || 'All');
+    setPage(1);
+  }, [filterParam]);
 
   const fetchIssues = () => {
     setLoading(true);
@@ -544,7 +696,7 @@ function IssueManagementView() {
                     <span className="text-xs text-content-secondary font-mono">#{issue.id}</span>
                   </td>
                   <td className="px-4 py-3.5 max-w-[220px]">
-                    <span className="text-sm text-white group-hover:text-accent-secondary transition-colors font-medium truncate block">
+                    <span className="text-sm text-content-primary group-hover:text-accent-secondary transition-colors font-medium truncate block">
                       {issue.title}
                     </span>
                   </td>
@@ -573,7 +725,7 @@ function IssueManagementView() {
         {!loading && issues.length === 0 && (
           <div className="py-16 text-center">
             <Search size={28} className="mx-auto mb-3 opacity-10" />
-            <p className="text-white font-semibold mb-1">No issues found</p>
+            <p className="text-content-primary font-semibold mb-1">No issues found</p>
             <p className="text-sm text-content-secondary">Try adjusting your filters</p>
           </div>
         )}
@@ -597,225 +749,7 @@ function IssueManagementView() {
   );
 }
 
-// ════════════════════════════════════════════════════════════════════════════════
-// VIEW: ANALYTICS
-// ════════════════════════════════════════════════════════════════════════════════
-function AnalyticsView() {
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    adminApi.analytics().then(res => {
-      setData(res.data);
-      setLoading(false);
-    }).catch(err => {
-      console.error(err);
-      setLoading(false);
-    });
-  }, []);
-
-  if (loading || !data) {
-    return <div className="p-10 flex justify-center"><Loader2 className="animate-spin text-accent-secondary" /></div>;
-  }
-
-  const { resolutionTrend, categoryTrend, departmentPerf, deptSatisfaction = [], catSatisfaction = [] } = data;
-
-  const deptData = departmentPerf.map((d: any) => ({
-    name: d.department,
-    resolved: parseInt(d.resolved),
-    pending: parseInt(d.total) - parseInt(d.resolved),
-    days: parseFloat(d.avg_hours) / 24 || 0
-  }));
-  const maxDays = Math.max(...deptData.map((d: any) => d.days), 6);
-
-  const trendData = resolutionTrend.map((t: any) => parseInt(t.resolved) || 0);
-
-  const pieColors: Record<string, string> = {
-    'Garbage': '#3B82F6', 'Water': '#F59E0B', 'Parks': '#4ADE80', 'Traffic': '#EF4444', 'Buildings': '#6366F1', 'Streetlights': '#EC4899', 'Roads': '#06B6D4'
-  };
-  const pieSlices = categoryTrend.map((c: any) => ({
-    value: parseInt(c.total), color: pieColors[c.name] || '#94A3B8', label: c.name
-  }));
-
-  const totalIssues = categoryTrend.reduce((acc: number, c: any) => acc + parseInt(c.total), 0);
-  const resolvedIssues = categoryTrend.reduce((acc: number, c: any) => acc + parseInt(c.resolved), 0);
-  const resolutionRate = totalIssues ? Math.round((resolvedIssues / totalIssues) * 100) : 0;
-  const avgResolutionHours = departmentPerf.reduce((acc: number, d: any) => acc + parseFloat(d.avg_hours || 0), 0) / (departmentPerf.length || 1);
-
-  return (
-    <div className="p-6 space-y-5" style={{ animation: 'fadeUp 0.3s ease-out' }}>
-      {/* Export row */}
-      <div className="flex justify-end gap-2">
-        <button className="btn-outline flex items-center gap-2 text-sm h-9 px-4">
-          <Download size={13} /> Export CSV
-        </button>
-        <button className="btn-outline flex items-center gap-2 text-sm h-9 px-4">
-          <Download size={13} /> Export PDF
-        </button>
-      </div>
-
-      {/* KPI row */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-        <StatCard label="Total Issues"    value={totalIssues.toString()} sub="All time"  icon={Activity}    color="#3B82F6" subUp={true}  />
-        <StatCard label="Resolved"        value={resolvedIssues.toString()}   sub="Issues resolved"  icon={CheckCircle2} color="#4ADE80" subUp={true}  />
-        <StatCard label="Avg Resolution"  value={`${(avgResolutionHours / 24).toFixed(1)}d`}  sub="Resolution time"         icon={Clock}       color="#3B82F6" subUp={true}  />
-        <StatCard label="Resolution Rate" value={`${resolutionRate}%`} sub="Current rate"          icon={TrendingUp}  color="#4ADE80" subUp={true}  />
-      </div>
-
-      {/* Charts row 1 */}
-      <div className="grid lg:grid-cols-2 gap-4">
-        <div className="card p-5">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="font-semibold text-white text-sm">Resolution Trend (Last 30 Days)</h3>
-          </div>
-          {trendData.length > 0 ? <LineChart data={trendData} color="#3B82F6" /> : <div className="text-content-secondary text-sm h-20 flex items-center justify-center">No data</div>}
-          <p className="text-[11px] text-content-secondary mt-2 flex items-center gap-1">
-            <span className="w-2 h-0.5 bg-accent-secondary inline-block rounded" /> Issues Resolved
-          </p>
-        </div>
-
-        <div className="card p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-white text-sm">Issues by Category</h3>
-          </div>
-          <div className="h-44 flex items-center justify-center">
-            {pieSlices.length > 0 ? <PieChart slices={pieSlices} /> : <div className="text-content-secondary text-sm h-full flex items-center justify-center">No data</div>}
-          </div>
-        </div>
-      </div>
-
-      {/* Department Performance */}
-      <div className="card p-5">
-        <h3 className="font-semibold text-white text-sm mb-5">Department Performance</h3>
-        {deptData.length > 0 ? (
-          <div className="flex items-end gap-3 h-44">
-            {deptData.map((d: any, i: number) => {
-              const maxTotal = Math.max(...deptData.map((x: any) => x.resolved + x.pending));
-              return (
-                <div key={d.name || i} className="flex-1 flex flex-col items-center gap-1">
-                  <div className="w-full flex flex-col justify-end gap-0.5 flex-1">
-                    <div
-                      className="w-full rounded-t-sm"
-                      style={{
-                        height: `${(d.pending / maxTotal) * 100}%`,
-                        background: '#F59E0B88',
-                        minHeight: 4,
-                      }}
-                    />
-                    <div
-                      className="w-full rounded-t-md"
-                      style={{
-                        height: `${(d.resolved / maxTotal) * 100}%`,
-                        background: 'linear-gradient(180deg, #4ADE80 0%, #4ADE8088 100%)',
-                        minHeight: 4,
-                      }}
-                    />
-                  </div>
-                  <span className="text-[9px] text-content-secondary text-center leading-tight w-full truncate">{d.name?.split(' ')[0] || 'Unknown'}</span>
-                </div>
-              );
-            })}
-          </div>
-        ) : <div className="text-content-secondary text-sm h-44 flex items-center justify-center">No department data</div>}
-        <div className="flex items-center gap-4 mt-3">
-          <span className="flex items-center gap-1.5 text-xs text-content-secondary"><span className="w-3 h-2 rounded-sm bg-state-success inline-block" />Resolved</span>
-          <span className="flex items-center gap-1.5 text-xs text-content-secondary"><span className="w-3 h-2 rounded-sm bg-[#F59E0B88] inline-block" />Pending</span>
-        </div>
-      </div>
-
-      {/* Department Satisfaction Scorecards */}
-      {deptSatisfaction.length > 0 && (
-        <div className="card p-5">
-          <div className="flex items-center gap-2 mb-5">
-            <span className="text-state-warning">★</span>
-            <h3 className="font-semibold text-white text-sm">Citizen Satisfaction by Department</h3>
-          </div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {deptSatisfaction.map((d: any) => {
-              const avg = parseFloat(d.avg_rating || '0');
-              const isLow = avg < 3;
-              const filled = Math.round(avg);
-              return (
-                <div key={d.department} className={`p-4 rounded-xl border ${isLow ? 'border-state-error/20 bg-state-error/5' : 'border-border-subtle bg-base-900'}`}>
-                  <div className="flex items-start justify-between mb-2">
-                    <span className="text-sm font-medium text-white truncate flex-1">{d.department}</span>
-                    {isLow && <span className="text-[10px] px-1.5 py-0.5 rounded bg-state-error/10 text-state-error font-bold border border-state-error/20 ml-1 shrink-0">LOW</span>}
-                  </div>
-                  <div className="flex items-center gap-1.5 mb-1">
-                    {[1,2,3,4,5].map(n => (
-                      <svg key={n} width="14" height="14" viewBox="0 0 24 24" fill={n <= filled ? '#F59E0B' : 'none'} stroke={n <= filled ? '#F59E0B' : '#64748B'} strokeWidth="2">
-                        <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26" />
-                      </svg>
-                    ))}
-                    <span className={`text-sm font-bold ml-1 ${isLow ? 'text-state-error' : 'text-state-warning'}`}>{avg.toFixed(1)}</span>
-                  </div>
-                  <span className="text-[11px] text-content-secondary">{d.review_count} review{parseInt(d.review_count) !== 1 ? 's' : ''}</span>
-                </div>
-              );
-            })}
-          </div>
-          {deptSatisfaction.some((d: any) => parseFloat(d.avg_rating) < 3) && (
-            <div className="mt-3 px-3 py-2 bg-state-error/5 border border-state-error/10 rounded-lg">
-              <span className="text-[11px] text-state-error">⚠ Departments below 3.0 stars need attention — citizens report poor resolution quality.</span>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Bottom row */}
-      <div className="grid lg:grid-cols-2 gap-4">
-        {/* SLA Compliance */}
-        <div className="card p-5">
-          <h3 className="font-semibold text-white text-sm mb-4">SLA Compliance Rate</h3>
-          <div className="flex items-center gap-6">
-            <DonutChart pct={Math.round((resolvedIssues / (totalIssues || 1)) * 100) || 0} color="#22C55E" label="Resolution rate" />
-            <div className="flex-1 space-y-3">
-              {[
-                { label: 'Resolved',  val: resolvedIssues, color: '#22C55E' },
-                { label: 'Pending', val: totalIssues - resolvedIssues,  color: 'rgb(var(--state-error))' },
-              ].map(r => (
-                <div key={r.label} className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: r.color }} />
-                  <span className="text-xs text-content-secondary">{r.label}</span>
-                  <span className="text-xs font-bold text-white ml-auto">{r.val}</span>
-                </div>
-              ))}
-              <p className="text-[10px] text-content-secondary pt-1 border-t border-border-subtle">{Math.round((resolvedIssues / (totalIssues || 1)) * 100) || 0}% resolution rate</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Dept Resolution Times */}
-        <div className="card p-5">
-          <h3 className="font-semibold text-white text-sm mb-4">Department Resolution Times</h3>
-          <div className="space-y-3">
-            {deptData.map((d: any) => (
-              <div key={d.name}>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs text-content-secondary">{d.name || 'Unknown'}</span>
-                  <span className="text-xs font-semibold text-white">{d.days.toFixed(1)} days</span>
-                </div>
-                <div className="h-1.5 bg-base-850 rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all duration-1000"
-                    style={{
-                      width: `${(d.days / (maxDays || 1)) * 100}%`,
-                      background: d.days <= 3 ? '#22C55E' : d.days <= 4.5 ? '#3B82F6' : '#F59E0B',
-                    }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="mt-4 px-3 py-2 bg-accent-secondary/5 border border-accent-secondary/10 rounded-lg flex items-center justify-center gap-2">
-            <span className="text-xs text-content-secondary">Target SLA</span>
-            <span className="text-xs font-bold text-accent-secondary">5 days</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ════════════════════════════════════════════════════════════════════════════════
 // VIEW: USERS MANAGEMENT
@@ -948,7 +882,7 @@ function UsersManagementView() {
                     </div>
                   </td>
                   <td className="px-4 py-3.5">
-                    <span className="text-sm font-medium text-white">{user.name}</span>
+                    <span className="text-sm font-medium text-content-primary">{user.name}</span>
                   </td>
                   <td className="px-4 py-3.5"><span className="text-sm text-content-secondary">{user.email}</span></td>
                   <td className="px-4 py-3.5">
@@ -994,7 +928,7 @@ function UsersManagementView() {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-base-900 border border-border-subtle rounded-2xl w-full max-w-sm shadow-2xl p-5" style={{ animation: 'fadeUp 0.2s ease-out' }}>
             <div className="flex justify-between items-center mb-5">
-              <h3 className="text-lg font-semibold text-white">Edit User</h3>
+              <h3 className="text-lg font-semibold text-content-primary">Edit User</h3>
               <button onClick={closeModal} className="text-content-secondary hover:text-content-primary"><X size={18} /></button>
             </div>
             
@@ -1042,7 +976,7 @@ function UsersManagementView() {
               </div>
               
               <div className="flex items-center justify-between p-3 border border-border-subtle rounded-lg bg-base-900">
-                <span className="text-sm font-medium">Account Active</span>
+                <span className="text-sm font-medium text-content-primary">Account Active</span>
                 <input type="checkbox" checked={editActive} onChange={e => setEditActive(e.target.checked)} className="w-4 h-4 accent-accent-secondary bg-transparent border-border-subtle/40 rounded cursor-pointer" />
               </div>
             </div>
@@ -1202,9 +1136,9 @@ function LogsView() {
                               <tr key={log.id} className="border-b border-border-subtle last:border-0 hover:bg-base-850 transition-colors">
                                 <td className="px-3 py-2.5 text-xs text-content-secondary">{new Date(log.created_at).toLocaleString()}</td>
                                 <td className="px-3 py-2.5">
-                                  <span className="text-xs text-white font-medium block">{log.admin_name}</span>
-                                  <span className="text-[9px] text-content-secondary">{log.admin_email}</span>
-                                </td>
+                                    <span className="text-xs text-content-primary font-medium block">{log.admin_name}</span>
+                                    <span className="text-[9px] text-content-secondary">{log.admin_email}</span>
+                                  </td>
                                 <td className="px-3 py-2.5">
                                   <span className={`text-[10px] px-2 py-0.5 rounded border font-mono ${action.includes('REJECTED') || action.includes('STILL_BROKEN') ? 'border-state-error/30 text-state-error bg-state-error/10' : 'border-accent-primary/30 text-accent-primary bg-accent-primary/10'}`}>
                                     {action}
@@ -1263,7 +1197,7 @@ function LogsView() {
                   <tr key={log.id} className="border-b border-border-subtle last:border-0 hover:bg-base-850 transition-colors" style={{ animation: `fadeUp 0.3s ease-out ${idx * 30}ms both` }}>
                     <td className="px-4 py-3.5"><span className="text-xs text-content-secondary">{new Date(log.created_at).toLocaleString()}</span></td>
                     <td className="px-4 py-3.5">
-                      <span className="text-sm text-white font-medium block">{log.admin_name}</span>
+                      <span className="text-sm text-content-primary font-medium block">{log.admin_name}</span>
                       <span className="text-[10px] text-content-secondary">{log.admin_email}</span>
                     </td>
                     <td className="px-4 py-3.5">
@@ -1370,7 +1304,7 @@ function SettingsView() {
       {/* Header Info */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-bold text-white">System Settings</h2>
+          <h2 className="text-lg font-bold text-content-primary">System Settings</h2>
           <p className="text-xs text-content-secondary mt-1">Configure global application rules, registration preferences, and municipal broadcasts.</p>
         </div>
       </div>
@@ -1391,7 +1325,7 @@ function SettingsView() {
               <Settings size={15} className="text-accent-secondary" />
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-white">General Platform</h3>
+              <h3 className="text-sm font-semibold text-content-primary">General Platform</h3>
               <p className="text-[10px] text-content-secondary">Customize public naming and contacts</p>
             </div>
           </div>
@@ -1404,7 +1338,7 @@ function SettingsView() {
                 value={settings.systemName} 
                 onChange={e => setSettings(s => ({ ...s, systemName: e.target.value }))}
                 required
-                className="w-full h-10 px-3.5 rounded-xl text-xs text-white placeholder-white/20 bg-base-900 border border-border-subtle focus:border-accent-secondary/30 outline-none transition-all"
+                className="w-full h-10 px-3.5 rounded-xl text-xs text-content-primary placeholder:text-content-muted/40 bg-base-900 border border-border-subtle focus:border-accent-secondary/30 outline-none transition-all"
               />
             </div>
             
@@ -1415,7 +1349,7 @@ function SettingsView() {
                 value={settings.supportEmail} 
                 onChange={e => setSettings(s => ({ ...s, supportEmail: e.target.value }))}
                 required
-                className="w-full h-10 px-3.5 rounded-xl text-xs text-white placeholder-white/20 bg-base-900 border border-border-subtle focus:border-accent-secondary/30 outline-none transition-all"
+                className="w-full h-10 px-3.5 rounded-xl text-xs text-content-primary placeholder:text-content-muted/40 bg-base-900 border border-border-subtle focus:border-accent-secondary/30 outline-none transition-all"
               />
             </div>
           </div>
@@ -1428,7 +1362,7 @@ function SettingsView() {
               <Zap size={15} className="text-state-success" />
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-white">Community & Automation Rules</h3>
+              <h3 className="text-sm font-semibold text-content-primary">Community & Automation Rules</h3>
               <p className="text-[10px] text-content-secondary">Submission logic and user privileges</p>
             </div>
           </div>
@@ -1453,7 +1387,7 @@ function SettingsView() {
             <div className="space-y-3 pt-2">
               <div className="flex items-center justify-between">
                 <div>
-                  <span className="text-xs font-medium text-white block">Enable Public Registration</span>
+                  <span className="text-xs font-medium text-content-primary block">Enable Public Registration</span>
                   <span className="text-[9px] text-content-secondary">Allow new citizens to sign up on the platform</span>
                 </div>
                 <button 
@@ -1467,7 +1401,7 @@ function SettingsView() {
 
               <div className="flex items-center justify-between">
                 <div>
-                  <span className="text-xs font-medium text-white block">Allow Anonymous Reporting</span>
+                  <span className="text-xs font-medium text-content-primary block">Allow Anonymous Reporting</span>
                   <span className="text-[9px] text-content-secondary">Citizens can choose to hide their name on issues</span>
                 </div>
                 <button 
@@ -1481,7 +1415,7 @@ function SettingsView() {
 
               <div className="flex items-center justify-between">
                 <div>
-                  <span className="text-xs font-medium text-white block">Allow Guest Comments</span>
+                  <span className="text-xs font-medium text-content-primary block">Allow Guest Comments</span>
                   <span className="text-[9px] text-content-secondary">Allow comments from users without verified profiles</span>
                 </div>
                 <button 
@@ -1504,7 +1438,7 @@ function SettingsView() {
                 <AlertTriangle size={15} className="text-state-error" />
               </div>
               <div>
-                <h3 className="text-sm font-semibold text-white">Emergency Broadcast Alert System</h3>
+                <h3 className="text-sm font-semibold text-content-primary">Emergency Broadcast Alert System</h3>
                 <p className="text-[10px] text-content-secondary">Broadcast notices across all citizen dashboard pages</p>
               </div>
             </div>
@@ -1527,7 +1461,7 @@ function SettingsView() {
                   required={settings.enableAlertBanner}
                   placeholder="e.g. Due to severe water maintenance, street block 4 will experience low pressure until 5 PM today."
                   rows={3}
-                  className="w-full p-3 rounded-xl text-xs text-white placeholder:text-content-muted/40 bg-base-900 border border-border-subtle focus:border-state-error/30 outline-none transition-all resize-none leading-relaxed"
+                  className="w-full p-3 rounded-xl text-xs text-content-primary placeholder:text-content-muted/40 bg-base-900 border border-border-subtle focus:border-state-error/30 outline-none transition-all resize-none leading-relaxed"
                 />
               </div>
 
@@ -1547,7 +1481,7 @@ function SettingsView() {
                       style={{ borderColor: settings.alertBannerType === t.value ? t.color : '' }}
                     >
                       <span className="w-1.5 h-1.5 rounded-full" style={{ background: t.color }} />
-                      <span style={{ color: settings.alertBannerType === t.value ? t.color : '#EEEEF5' }}>{t.label}</span>
+                      <span style={{ color: settings.alertBannerType === t.value ? t.color : 'rgb(var(--content-secondary))' }}>{t.label}</span>
                     </button>
                   ))}
                 </div>
@@ -1569,7 +1503,7 @@ function SettingsView() {
         <button
           type="submit"
           disabled={saving}
-          className="h-10 px-6 rounded-xl text-xs font-bold text-base-950 transition-all flex items-center gap-2 select-none"
+          className="h-10 px-6 rounded-xl text-xs font-bold text-white transition-all flex items-center gap-2 select-none"
           style={{ 
             background: saving ? 'rgb(59 130 246 / 0.2)' : 'linear-gradient(135deg,#3B82F6,#3B82F6)',
             boxShadow: saving ? 'none' : '0 4px 16px rgb(59 130 246 / 0.2)',
@@ -1612,7 +1546,12 @@ function AdminDashboardContent() {
   const [darkMode, setDarkMode] = useState(true);
 
   useEffect(() => {
-    if (viewParam && ['dashboard', 'issues', 'analytics', 'users', 'logs', 'settings'].includes(viewParam)) {
+    if (viewParam === 'analytics') {
+      setView('dashboard');
+      router.replace('/admin?view=dashboard');
+      return;
+    }
+    if (viewParam && ['dashboard', 'issues', 'users', 'logs', 'settings'].includes(viewParam)) {
       // Prevent non-admin staff from accessing restricted views
       if (['users', 'logs', 'settings'].includes(viewParam) && user?.role !== 'admin') {
         setView('dashboard');
@@ -1622,7 +1561,7 @@ function AdminDashboardContent() {
     } else {
       setView('dashboard');
     }
-  }, [viewParam, user]);
+  }, [viewParam, user, router]);
 
   const handleSetView = (newView: AdminView) => {
     setView(newView);
@@ -1638,10 +1577,10 @@ function AdminDashboardContent() {
         }
       `}</style>
 
-      <div className="flex min-h-screen bg-base-950">
+      <div className="flex h-screen overflow-hidden bg-base-950">
         <Sidebar />
 
-        <main className="flex-1 ml-64 min-h-screen relative overflow-hidden flex flex-col">
+        <main className="flex-1 ml-64 h-screen relative flex flex-col overflow-hidden">
           {/* Subtle background glow effect */}
           <div className="absolute top-0 inset-x-0 h-[500px] bg-hero-gradient pointer-events-none opacity-50" />
 
@@ -1655,7 +1594,6 @@ function AdminDashboardContent() {
           <div className="flex-1 overflow-y-auto relative z-10">
             {view === 'dashboard'  && <DashboardView setView={handleSetView} />}
             {view === 'issues'     && <IssueManagementView />}
-            {view === 'analytics'  && <AnalyticsView />}
             {view === 'users'      && <UsersManagementView />}
             {view === 'logs'       && <LogsView />}
             {view === 'settings'   && <SettingsView />}

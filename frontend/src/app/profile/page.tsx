@@ -13,11 +13,37 @@ import {
 import { formatDistanceToNow } from 'date-fns';
 import Link from 'next/link';
 
+const formatMediaUrl = (url: string) => {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+  const cleanBase = base.endsWith('/') ? base.slice(0, -1) : base;
+  const cleanPath = url.startsWith('/') ? url : `/${url}`;
+  return `${cleanBase}${cleanPath}`;
+};
+
+function StarRow({ rating, size = 12 }: { rating: number; size?: number }) {
+  return (
+    <div className="flex items-center gap-0.5">
+      {[1, 2, 3, 4, 5].map(n => (
+        <Star
+          key={n}
+          size={size}
+          className={
+            n <= rating ? 'text-state-warning fill-state-warning' : 'text-base-700 fill-base-900'
+          }
+        />
+      ))}
+    </div>
+  );
+}
+
 export default function ProfilePage() {
   const { user, setUser } = useAuthStore();
   const [issues, setIssues] = useState<Issue[]>([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ totalVotes: 0, totalComments: 0 });
+  const [adminReviews, setAdminReviews] = useState<any[]>([]);
 
   // Edit profile states
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -34,12 +60,14 @@ export default function ProfilePage() {
     Promise.all([
       usersApi.myIssues({ limit: 20 }),
       usersApi.dashboard(),
-    ]).then(([issuesRes, dashRes]) => {
+      usersApi.profile(user.id),
+    ]).then(([issuesRes, dashRes, profileRes]) => {
       setIssues(issuesRes.data.issues);
       setStats({
         totalVotes: dashRes.data.stats.totalVotes,
         totalComments: dashRes.data.stats.totalComments,
       });
+      setAdminReviews(profileRes.data.adminReviews || []);
     }).catch(console.error)
     .finally(() => setLoading(false));
   }, [user]);
@@ -116,7 +144,7 @@ export default function ProfilePage() {
   };
 
   return (
-    <AppLayout>
+    <AppLayout title="Profile" sub="Manage your profile and track your activity">
       {/* Profile Header */}
       <div className="card p-8 mb-6 flex flex-col md:flex-row items-center md:items-start gap-6 relative overflow-hidden">
         {/* Ambient background glow */}
@@ -314,6 +342,81 @@ export default function ProfilePage() {
           </div>
         </div>
       )}
+
+      {/* 🛡️ Administrative Feedback Section */}
+      <div className="mb-8 mt-4 animate-fade_in">
+        <h2 className="font-semibold text-content-primary flex items-center gap-2 mb-4">
+          <Shield size={16} className="text-accent-secondary" />
+          Administrative Feedback & Audits
+          <span className="text-[11px] font-bold text-content-muted bg-base-850 border border-border-subtle px-2 py-0.5 rounded-md">
+            {adminReviews.length}
+          </span>
+        </h2>
+
+        {adminReviews.length === 0 ? (
+          <div className="card p-8 text-center border-dashed">
+            <div className="w-12 h-12 rounded-full bg-base-800 border border-border-subtle flex items-center justify-center mx-auto mb-3">
+              <Shield size={20} className="text-content-muted animate-pulse" />
+            </div>
+            <p className="text-content-primary font-semibold mb-1 text-sm">No administrative feedback</p>
+            <p className="text-content-muted text-xs">No credibility audits have been logged for you by the administration yet.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {adminReviews.map((review) => {
+              const adminInitials = review.admin_name
+                ? review.admin_name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
+                : 'A';
+              const adminAvatar = review.admin_avatar ? formatMediaUrl(review.admin_avatar) : '';
+              
+              return (
+                <div key={review.id} className="card p-5 bg-gradient-to-r from-accent-primary/5 to-accent-secondary/5 border border-accent-secondary/20 relative overflow-hidden group hover:border-accent-secondary/40 transition-all duration-300">
+                  <div className="absolute top-0 right-0 w-20 h-20 bg-accent-secondary/5 rounded-full blur-xl pointer-events-none" />
+                  <div className="flex items-start gap-3 relative z-10">
+                    {/* Admin Avatar */}
+                    <div className="w-9 h-9 rounded-xl bg-accent-secondary/15 border border-accent-secondary/25 flex items-center justify-center text-[12px] font-bold text-accent-secondary overflow-hidden shrink-0 shadow-sm">
+                      {adminAvatar ? (
+                        <img src={adminAvatar} alt={review.admin_name} className="w-full h-full object-cover" />
+                      ) : adminInitials}
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <span className="text-[13px] font-bold text-content-primary truncate">{review.admin_name}</span>
+                        <span className="text-[11px] text-content-muted shrink-0">
+                          {formatDistanceToNow(new Date(review.created_at), { addSuffix: true })}
+                        </span>
+                      </div>
+                      
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent-secondary/10 border border-accent-secondary/20 text-accent-secondary font-bold uppercase tracking-wider">
+                          Staff Auditor
+                        </span>
+                        <StarRow rating={review.rating} />
+                      </div>
+
+                      {review.comment && (
+                        <p className="text-[13px] text-content-secondary leading-relaxed bg-base-950/60 p-3 rounded-lg border border-border-subtle/50 mb-2 italic">
+                          "{review.comment}"
+                        </p>
+                      )}
+                      {!review.comment && (
+                        <p className="text-[12.5px] text-content-muted italic mb-2">No written assessment provided.</p>
+                      )}
+
+                      {review.issue_title && (
+                        <div className="text-[11px] text-content-muted truncate">
+                          Audit reference: <Link href={`/issues/${review.issue_id}`} className="text-accent-secondary hover:underline font-medium">{review.issue_title}</Link>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
       {/* Recent Issues List */}
       <div>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Star, Send, Loader2, ShieldAlert, CheckCircle2, Eye, EyeOff } from 'lucide-react';
+import { Star, Send, Loader2, ShieldAlert, CheckCircle2, Eye, EyeOff, Shield } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { reviewsApi } from '@/lib/api';
 import { useAuthStore } from '@/lib/store';
@@ -26,6 +26,8 @@ interface Review {
   reviewer_name: string;
   reviewer_avatar: string | null;
   reviewer_trust: number;
+  target_user_id?: string | null;
+  target_user_name?: string | null;
 }
 
 interface Summary {
@@ -98,6 +100,7 @@ function RatingBar({ label, count, total }: { label: string; count: number; tota
 // ─── Main Component ───────────────────────────────────────────────────────────
 export function ReviewSection({ issueId, isResolved }: { issueId: string; isResolved: boolean }) {
   const { user } = useAuthStore();
+  const isAdmin = user?.role === 'admin' || user?.role === 'department_staff';
 
   const [reviews, setReviews] = useState<Review[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
@@ -138,6 +141,7 @@ export function ReviewSection({ issueId, isResolved }: { issueId: string; isReso
 
   const totalReviews = parseInt(summary?.total_reviews || '0');
   const avgRating = parseFloat(summary?.avg_rating || '0');
+  const hasReviews = reviews.length > 0;
 
   const handleSubmit = async () => {
     if (rating === 0) { setSubmitError('Please select a star rating.'); return; }
@@ -185,7 +189,7 @@ export function ReviewSection({ issueId, isResolved }: { issueId: string; isReso
                 <Star key={n} size={24} className="text-base-700" />
               ))}
             </div>
-            <p className="text-content-muted text-sm font-medium">No reviews yet</p>
+            <p className="text-content-muted text-sm font-medium">No community reviews yet</p>
             <p className="text-content-muted text-xs">Be the first to rate this resolution</p>
           </div>
         ) : (
@@ -216,7 +220,9 @@ export function ReviewSection({ issueId, isResolved }: { issueId: string; isReso
           <div className="pl-3">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-accent-secondary">Your Review</span>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-accent-secondary">
+                  {isAdmin ? 'Your Review of Citizen Reporter' : 'Your Review'}
+                </span>
                 <StarRow rating={userReview.rating} size={14} />
               </div>
               <button
@@ -240,7 +246,10 @@ export function ReviewSection({ issueId, isResolved }: { issueId: string; isReso
       {showForm && (
         <div className="card p-6 bg-base-800">
           <h3 className="label-micro mb-4 text-accent-primary">
-            {isEditing ? 'Update Your Review' : 'Rate This Resolution'}
+            {isEditing 
+              ? (isAdmin ? 'Update Citizen Review' : 'Update Your Review') 
+              : (isAdmin ? 'Review Citizen Reporter' : 'Rate This Resolution')
+            }
           </h3>
 
           {/* Not logged in */}
@@ -250,20 +259,21 @@ export function ReviewSection({ issueId, isResolved }: { issueId: string; isReso
             </p>
           )}
 
-
-
           {/* Form */}
           {user && userEligible && (
             <div className="space-y-4">
               {/* Star picker */}
               <div>
                 <label className="text-[11px] font-bold uppercase tracking-wider text-content-muted block mb-2">
-                  Your Rating
+                  {isAdmin ? 'Reporter Credibility Rating' : 'Your Rating'}
                 </label>
                 <StarRow rating={rating} size={28} interactive onChange={setRating} />
                 {rating > 0 && (
                   <p className="text-[12px] text-content-muted mt-1.5">
-                    {['', 'Very dissatisfied', 'Dissatisfied', 'Neutral', 'Satisfied', 'Very satisfied'][rating]}
+                    {isAdmin 
+                      ? ['', 'Highly unreliable / misleading', 'Low reliability / poor details', 'Neutral cooperation', 'Reliable / helpful report', 'Exemplary citizen credibility'][rating]
+                      : ['', 'Very dissatisfied', 'Dissatisfied', 'Neutral', 'Satisfied', 'Very satisfied'][rating]
+                    }
                   </p>
                 )}
               </div>
@@ -276,7 +286,10 @@ export function ReviewSection({ issueId, isResolved }: { issueId: string; isReso
                 <textarea
                   value={comment}
                   onChange={e => setComment(e.target.value)}
-                  placeholder="Was the pothole properly filled? Did the fix last? Share your experience..."
+                  placeholder={isAdmin 
+                    ? "Provide administrative feedback on the citizen's report quality, accuracy, behavior, or cooperation..."
+                    : "Was the pothole properly filled? Did the fix last? Share your experience..."
+                  }
                   rows={3}
                   className="input-dark w-full resize-none text-[14px] leading-relaxed p-3.5"
                   maxLength={500}
@@ -314,11 +327,11 @@ export function ReviewSection({ issueId, isResolved }: { issueId: string; isReso
       )}
 
       {/* ── Review List ── */}
-      {!loading && totalReviews > 0 && (
+      {!loading && hasReviews && (
         <div className="space-y-4">
           <h3 className="label-micro text-accent-primary">
-            Community Reviews
-            <span className="ml-2 text-content-muted font-normal normal-case text-xs">({totalReviews})</span>
+            Review Activity
+            <span className="ml-2 text-content-muted font-normal normal-case text-xs">({reviews.length})</span>
           </h3>
 
           {reviews.map(review => {
@@ -326,16 +339,28 @@ export function ReviewSection({ issueId, isResolved }: { issueId: string; isReso
               ? review.reviewer_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
               : 'U';
             const avatarUrl = review.reviewer_avatar ? formatMediaUrl(review.reviewer_avatar) : '';
-            const isAdmin = user?.role === 'admin' || user?.role === 'department_staff';
+            const isTargetReporter = !!review.target_user_id;
+            const isReviewerAdmin = !isTargetReporter && (review.reviewer_trust === 0); // fallback or target check
 
             return (
               <div key={review.id} className={clsx(
-                'card p-5 bg-base-800 group',
-                review.is_hidden && 'opacity-50 border-dashed'
+                'card p-5 relative overflow-hidden group transition-all duration-300',
+                review.is_hidden && 'opacity-50 border-dashed',
+                isTargetReporter 
+                  ? 'bg-gradient-to-r from-accent-primary/5 to-accent-secondary/5 border border-accent-secondary/20 shadow-sm'
+                  : 'bg-base-800'
               )}>
-                <div className="flex items-start gap-3">
+                {isTargetReporter && (
+                  <div className="absolute top-0 right-0 w-24 h-24 bg-accent-secondary/5 rounded-full blur-xl pointer-events-none" />
+                )}
+                <div className="flex items-start gap-3 relative z-10">
                   {/* Avatar */}
-                  <div className="w-9 h-9 rounded-xl bg-accent-secondary/10 border border-accent-secondary/20 flex items-center justify-center text-[12px] font-bold text-accent-secondary overflow-hidden shrink-0">
+                  <div className={clsx(
+                    'w-9 h-9 rounded-xl flex items-center justify-center text-[12px] font-bold overflow-hidden shrink-0 shadow-inner',
+                    isTargetReporter 
+                      ? 'bg-accent-secondary/15 text-accent-secondary border border-accent-secondary/25'
+                      : 'bg-accent-primary/10 text-accent-primary border border-accent-primary/20'
+                  )}>
                     {avatarUrl ? (
                       <img src={avatarUrl} alt={review.reviewer_name} className="w-full h-full object-cover" />
                     ) : initials}
@@ -345,7 +370,15 @@ export function ReviewSection({ issueId, isResolved }: { issueId: string; isReso
                     <div className="flex items-center justify-between gap-2 mb-1.5 flex-wrap">
                       <div className="flex items-center gap-2">
                         <span className="text-[13px] font-bold text-content-primary">{review.reviewer_name}</span>
-                        {review.reviewer_trust >= 50 && (
+                        <span className={clsx(
+                          'text-[9px] px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wide border',
+                          isTargetReporter
+                            ? 'border-accent-secondary/20 bg-accent-secondary/10 text-accent-secondary'
+                            : 'border-accent-primary/20 bg-accent-primary/10 text-accent-primary'
+                        )}>
+                          {isTargetReporter ? 'Staff Auditor' : 'Citizen'}
+                        </span>
+                        {review.reviewer_trust >= 50 && !isTargetReporter && (
                           <span className="text-[9px] px-1.5 py-0.5 rounded-md border border-state-success/20 bg-state-success/10 text-state-success font-bold uppercase tracking-wide">
                             Trusted
                           </span>
@@ -375,6 +408,13 @@ export function ReviewSection({ issueId, isResolved }: { issueId: string; isReso
                       </div>
                     </div>
 
+                    {isTargetReporter && (
+                      <div className="text-[11.5px] font-semibold text-accent-secondary/80 bg-accent-secondary/5 border border-accent-secondary/10 rounded-lg px-2.5 py-1 mb-2.5 inline-flex items-center gap-1.5">
+                        <Shield size={12} className="text-accent-secondary" />
+                        <span>Administrative review of citizen reporter: <strong className="text-content-primary">{review.target_user_name || 'Anonymous'}</strong></span>
+                      </div>
+                    )}
+
                     {review.comment && (
                       <p className="text-[14px] text-content-secondary leading-relaxed">{review.comment}</p>
                     )}
@@ -388,8 +428,6 @@ export function ReviewSection({ issueId, isResolved }: { issueId: string; isReso
           })}
         </div>
       )}
-
-
     </div>
   );
 }

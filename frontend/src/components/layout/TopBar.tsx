@@ -15,7 +15,7 @@ const formatMediaUrl = (url: string) => {
 };
 
 interface TopBarProps {
-  title: string;
+  title?: string;
   sub?: string;
   darkMode?: boolean;
   toggleDark?: () => void;
@@ -35,7 +35,7 @@ export function TopBar({ title, sub, actions }: TopBarProps) {
   return (
     <header className="sticky top-0 z-30 bg-base-900/80 backdrop-blur-xl border-b border-border-subtle h-14 flex items-center px-6 gap-4 shrink-0">
       <div className="flex-1 min-w-0">
-        <h1 className="font-bold text-base text-content-primary leading-tight truncate">{title}</h1>
+        {title && <h1 className="font-bold text-base text-content-primary leading-tight truncate">{title}</h1>}
         {sub && <p className="text-[10px] text-content-muted truncate">{sub}</p>}
       </div>
 

@@ -31,7 +31,7 @@ export default function DashboardPage() {
   }, []);
 
   if (loading) return (
-    <AppLayout>
+    <AppLayout title="Dashboard">
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6">
         <div className="relative">
           <div className="w-12 h-12 rounded-full border-2 border-accent-primary/30 border-t-accent-primary animate-spin"></div>
@@ -46,34 +46,24 @@ export default function DashboardPage() {
   );
 
   return (
-    <AppLayout>
-      <div className="relative">
+    <AppLayout
+      title="Dashboard"
+      sub={user?.name ? `Welcome back, ${user.name.split(' ')[0]}` : 'Welcome back'}
+      headerActions={
+        <Link
+          href="/report"
+          className="group relative inline-flex items-center gap-2.5 px-4 py-2 bg-accent-primary hover:bg-accent-primary_hover text-white font-semibold rounded-xl text-xs transition-all duration-200 shadow-md shadow-accent-primary/20 hover:shadow-accent-primary/30 hover:-translate-y-0.5"
+        >
+          <Plus size={14} strokeWidth={2.5} className="transition-transform duration-200 group-hover:rotate-90" />
+          New Report
+        </Link>
+      }
+    >
+      <div className="relative pt-6">
         <div className="absolute -top-24 -right-24 w-64 h-64 bg-accent-primary/5 rounded-full blur-3xl pointer-events-none"></div>
         <div className="absolute -bottom-32 -left-20 w-72 h-72 bg-accent-secondary/5 rounded-full blur-3xl pointer-events-none"></div>
 
         <div className="relative">
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
-            <div className="space-y-3">
-              <div className="flex items-center gap-2.5">
-                <span className="relative flex h-2.5 w-2.5">
-                  <span className="absolute inline-flex h-full w-full rounded-full bg-state-success opacity-75 animate-ping"></span>
-                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-state-success"></span>
-                </span>
-                <span className="text-content-muted text-xs uppercase tracking-widest font-semibold">Live Overview</span>
-              </div>
-              <div>
-                <h1 className="text-4xl md:text-5xl font-bold text-content-primary tracking-tight leading-tight">Dashboard</h1>
-                <p className="text-content-secondary mt-1.5 text-base">Welcome back{user?.name ? `, ${user.name.split(' ')[0]}` : ''}</p>
-              </div>
-            </div>
-            <Link
-              href="/report"
-              className="group relative inline-flex items-center gap-2.5 px-5 py-2.5 bg-accent-primary hover:bg-accent-primary_hover text-white font-semibold rounded-xl transition-all duration-200 shadow-lg shadow-accent-primary/20 hover:shadow-accent-primary/30 hover:-translate-y-0.5"
-            >
-              <Plus size={18} strokeWidth={2.5} className="transition-transform duration-200 group-hover:rotate-90" />
-              New Report
-            </Link>
-          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-14">
             <div className="transform transition-all duration-200 hover:-translate-y-0.5">

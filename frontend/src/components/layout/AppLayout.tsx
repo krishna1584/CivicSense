@@ -40,11 +40,11 @@ export function AppLayout({ children, title, sub, headerActions }: AppLayoutProp
   const AlertIcon = cfg?.icon;
 
   return (
-    <div className="flex min-h-screen bg-base-950">
+    <div className="flex h-screen overflow-hidden bg-base-950">
       <Suspense fallback={<aside className="fixed left-0 top-0 h-screen w-64 bg-base-900 border-r border-border-subtle flex flex-col z-50 animate-pulse" />}>
         <Sidebar />
       </Suspense>
-      <main className="flex-1 ml-64 min-h-screen relative flex flex-col">
+      <main className="flex-1 ml-64 h-screen relative flex flex-col overflow-hidden">
         <div className="absolute top-0 inset-x-0 h-[500px] bg-hero-gradient pointer-events-none opacity-40" />
 
         {cfg && AlertIcon && (
@@ -57,9 +57,9 @@ export function AppLayout({ children, title, sub, headerActions }: AppLayoutProp
           </div>
         )}
 
-        {title && <TopBar title={title} sub={sub} actions={headerActions} />}
+        <TopBar title={title} sub={sub} actions={headerActions} />
 
-        <div className={title ? "flex-1 overflow-y-auto page-container relative z-10 animate-fade_in" : "page-container relative z-10 animate-fade_in"}>
+        <div className="flex-1 overflow-y-auto page-container relative z-10 animate-fade_in">
           {children}
         </div>
       </main>

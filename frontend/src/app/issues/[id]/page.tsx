@@ -552,10 +552,10 @@ export default function IssueDetailPage() {
                         <CheckCircle2 size={20} strokeWidth={2.5} />
                       </div>
                       <div>
-                        <h3 className="text-lg font-bold text-white mb-1">
+                        <h3 className="text-lg font-bold text-content-primary mb-1">
                           {issue.department ? `Verify ${issue.department} Resolution` : 'Verify Admin Resolution'}
                         </h3>
-                        <p className="text-sm text-accent-secondary/80 leading-relaxed">
+                        <p className="text-sm text-content-secondary leading-relaxed">
                           {issue.department 
                             ? `The ${issue.department} has marked this issue as resolved. Please review the proof below and approve or reject the resolution.`
                             : 'An administrator has marked this issue as resolved. Please review the proof below and approve or reject the resolution.'}
@@ -588,7 +588,7 @@ export default function IssueDetailPage() {
                           placeholder="Describe why this issue isn't fully fixed yet..."
                           value={rejectComment}
                           onChange={e => setRejectComment(e.target.value)}
-                          className="w-full bg-base-900 border border-border-subtle focus:border-accent-secondary/50 rounded-xl p-3.5 text-sm text-white h-24 transition-colors resize-none outline-none placeholder:text-content-muted/50 shadow-inner"
+                          className="w-full bg-base-900 border border-border-subtle focus:border-accent-secondary/50 rounded-xl p-3.5 text-sm text-content-primary h-24 transition-colors resize-none outline-none placeholder:text-content-muted/50 shadow-inner"
                         />
                       </div>
                     )}
@@ -607,7 +607,7 @@ export default function IssueDetailPage() {
                           <button
                             onClick={() => { setShowRejectInput(false); setRejectComment(''); }}
                             disabled={verifying}
-                            className="text-content-secondary hover:text-white text-[13px] font-bold px-4 py-2 transition-colors disabled:opacity-50"
+                            className="text-content-muted hover:text-content-primary text-[13px] font-bold px-4 py-2 transition-colors disabled:opacity-50"
                           >
                             Cancel
                           </button>
@@ -625,7 +625,7 @@ export default function IssueDetailPage() {
                           <button
                             onClick={() => setShowRejectInput(true)}
                             disabled={verifying}
-                            className="bg-transparent border border-accent-secondary/30 text-white hover:bg-accent-secondary/10 px-5 py-2.5 rounded-xl text-[13px] font-bold flex items-center gap-2 active:scale-[0.98] transition-all disabled:opacity-50"
+                            className="bg-transparent border border-accent-secondary/30 text-accent-secondary hover:bg-accent-secondary/10 px-5 py-2.5 rounded-xl text-[13px] font-bold flex items-center gap-2 active:scale-[0.98] transition-all disabled:opacity-50"
                           >
                             <XCircle size={14} />
                             Reject Resolution
@@ -704,7 +704,7 @@ export default function IssueDetailPage() {
                           <CheckCircle2 size={18} strokeWidth={2.5} />
                         </div>
                         <div>
-                          <h3 className="text-base font-extrabold text-white leading-none mb-1.5">Official Resolution Proof</h3>
+                          <h3 className="text-base font-extrabold text-content-primary leading-none mb-1.5">Official Resolution Proof</h3>
                           <p className="text-[12px] font-semibold text-state-success/80">
                             {issue.department 
                               ? `Verified evidence uploaded by the ${issue.department}` 

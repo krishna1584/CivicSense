@@ -8,10 +8,26 @@ import { usersApi } from '@/lib/api';
 import { useAuthStore } from '@/lib/store';
 import {
   Star, FileText, ThumbsUp, CheckCircle2, Loader2,
-  ArrowLeft, Calendar, Award, AlertTriangle
+  ArrowLeft, Calendar, Award, AlertTriangle, Shield
 } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import Link from 'next/link';
+
+function StarRow({ rating, size = 12 }: { rating: number; size?: number }) {
+  return (
+    <div className="flex items-center gap-0.5">
+      {[1, 2, 3, 4, 5].map(n => (
+        <Star
+          key={n}
+          size={size}
+          className={
+            n <= rating ? 'text-state-warning fill-state-warning' : 'text-base-700 fill-base-900'
+          }
+        />
+      ))}
+    </div>
+  );
+}
 
 const formatMediaUrl = (url: string) => {
   if (!url) return '';
@@ -75,6 +91,7 @@ export default function PublicProfilePage() {
   const [profileUser, setProfileUser] = useState<PublicUser | null>(null);
   const [stats, setStats] = useState<PublicStats | null>(null);
   const [satisfaction, setSatisfaction] = useState<PublicSatisfaction | null>(null);
+  const [adminReviews, setAdminReviews] = useState<any[]>([]);
   const [issues, setIssues] = useState<PublicIssue[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -104,6 +121,7 @@ export default function PublicProfilePage() {
         setProfileUser(profileRes.data.user);
         setStats(profileRes.data.stats);
         setSatisfaction(profileRes.data.satisfaction || null);
+        setAdminReviews(profileRes.data.adminReviews || []);
         setIssues(userIssuesRes.data.issues || []);
       } catch (err: any) {
         if (err?.response?.status === 404) {
@@ -121,7 +139,7 @@ export default function PublicProfilePage() {
 
   if (loading) {
     return (
-      <AppLayout>
+      <AppLayout title="User Profile">
         <div className="flex flex-col items-center justify-center h-[50vh] gap-4">
           <div className="w-8 h-8 border-2 border-accent-primary border-t-transparent rounded-full animate-spin" />
           <p className="text-content-muted text-sm animate-pulse">Loading profile...</p>
@@ -132,7 +150,7 @@ export default function PublicProfilePage() {
 
   if (error || !profileUser) {
     return (
-      <AppLayout>
+      <AppLayout title="User Profile">
         <div className="flex flex-col items-center justify-center h-[50vh] gap-4">
           <AlertTriangle size={36} className="text-state-error" />
           <p className="text-content-secondary font-semibold">{error || 'User not found'}</p>
@@ -157,17 +175,19 @@ export default function PublicProfilePage() {
   const satisfactionReviews = parseInt(satisfaction?.satisfaction_reviews || '0');
 
   return (
-    <AppLayout>
-      {/* Back button */}
-      <div className="mb-6">
+    <AppLayout
+      title="User Profile"
+      sub="View user details and submitted reports"
+      headerActions={
         <button
           onClick={() => router.back()}
-          className="flex items-center gap-2 text-content-muted hover:text-content-primary transition-colors text-sm font-medium"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border-subtle text-content-secondary hover:text-content-primary hover:bg-base-850 transition-all duration-200 text-xs font-semibold"
         >
-          <ArrowLeft size={16} />
+          <ArrowLeft size={14} />
           Back
         </button>
-      </div>
+      }
+    >
 
       {/* Profile Header Card */}
       <div className="card p-8 mb-6 relative overflow-hidden">
@@ -289,6 +309,81 @@ export default function PublicProfilePage() {
         <p className="text-xs text-content-muted mt-2">
           {resolvedIssues} out of {totalIssues} reported issues have been resolved
         </p>
+      </div>
+
+      {/* 🛡️ Administrative Feedback Section */}
+      <div className="mb-8">
+        <h2 className="font-semibold text-content-primary flex items-center gap-2 mb-4">
+          <Shield size={16} className="text-accent-secondary" />
+          Administrative Feedback & Audits
+          <span className="text-[11px] font-bold text-content-muted bg-base-850 border border-border-subtle px-2 py-0.5 rounded-md">
+            {adminReviews.length}
+          </span>
+        </h2>
+
+        {adminReviews.length === 0 ? (
+          <div className="card p-8 text-center border-dashed">
+            <div className="w-12 h-12 rounded-full bg-base-800 border border-border-subtle flex items-center justify-center mx-auto mb-3">
+              <Shield size={20} className="text-content-muted animate-pulse" />
+            </div>
+            <p className="text-content-primary font-semibold mb-1 text-sm">No administrative feedback</p>
+            <p className="text-content-muted text-xs">No credibility audits have been logged for this citizen by the staff.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {adminReviews.map((review) => {
+              const adminInitials = review.admin_name
+                ? review.admin_name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
+                : 'A';
+              const adminAvatar = review.admin_avatar ? formatMediaUrl(review.admin_avatar) : '';
+              
+              return (
+                <div key={review.id} className="card p-5 bg-gradient-to-r from-accent-primary/5 to-accent-secondary/5 border border-accent-secondary/20 relative overflow-hidden group hover:border-accent-secondary/40 transition-all duration-300">
+                  <div className="absolute top-0 right-0 w-20 h-20 bg-accent-secondary/5 rounded-full blur-xl pointer-events-none" />
+                  <div className="flex items-start gap-3 relative z-10">
+                    {/* Admin Avatar */}
+                    <div className="w-9 h-9 rounded-xl bg-accent-secondary/15 border border-accent-secondary/25 flex items-center justify-center text-[12px] font-bold text-accent-secondary overflow-hidden shrink-0 shadow-sm">
+                      {adminAvatar ? (
+                        <img src={adminAvatar} alt={review.admin_name} className="w-full h-full object-cover" />
+                      ) : adminInitials}
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <span className="text-[13px] font-bold text-content-primary truncate">{review.admin_name}</span>
+                        <span className="text-[11px] text-content-muted shrink-0">
+                          {formatDistanceToNow(new Date(review.created_at), { addSuffix: true })}
+                        </span>
+                      </div>
+                      
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent-secondary/10 border border-accent-secondary/20 text-accent-secondary font-bold uppercase tracking-wider">
+                          Staff Auditor
+                        </span>
+                        <StarRow rating={review.rating} />
+                      </div>
+
+                      {review.comment && (
+                        <p className="text-[13px] text-content-secondary leading-relaxed bg-base-950/60 p-3 rounded-lg border border-border-subtle/50 mb-2 italic">
+                          "{review.comment}"
+                        </p>
+                      )}
+                      {!review.comment && (
+                        <p className="text-[12.5px] text-content-muted italic mb-2">No written assessment provided.</p>
+                      )}
+
+                      {review.issue_title && (
+                        <div className="text-[11px] text-content-muted truncate">
+                          Audit reference: <Link href={`/issues/${review.issue_id}`} className="text-accent-secondary hover:underline font-medium">{review.issue_title}</Link>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Public Issues */}
