@@ -23,6 +23,9 @@ const reviewsRoutes = require('./routes/reviews');
 const app = express();
 const server = http.createServer(app);
 
+// Trust Render's reverse proxy so express-rate-limit can read the real client IP
+app.set('trust proxy', 1);
+
 const allowedOrigins = [
   process.env.CLIENT_URL,
   process.env.FRONTEND_URL,
