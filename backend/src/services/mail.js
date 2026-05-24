@@ -254,19 +254,19 @@ const sendResolutionPendingEmail = async (email, name, issueTitle, issueId) => {
       const { data, error } = await resend.emails.send({
         from: smtpFrom,
         to: email,
-        subject: \`Action Required: Resolution pending review for "\${issueTitle}"\`,
+        subject: `Action Required: Resolution pending review for "${issueTitle}"`,
         html: htmlContent,
       });
       if (error) {
-        console.error(\`❌ Failed to send resolution-pending email to \${email}:\`, error);
+        console.error(`❌ Failed to send resolution-pending email to ${email}:`, error);
       } else {
-        console.log(\`📧 Resolution-pending email sent to: \${email}\`);
+        console.log(`📧 Resolution-pending email sent to: ${email}`);
       }
     } catch (err) {
-      console.error(\`❌ Failed to send resolution-pending email to \${email}:\`, err.message);
+      console.error(`❌ Failed to send resolution-pending email to ${email}:`, err.message);
     }
   } else {
-    console.log(\`[DEV] Resolution-pending email → \${email} | Issue: "\${issueTitle}"\`);
+    console.log(`[DEV] Resolution-pending email → ${email} | Issue: "${issueTitle}"`);
   }
 };
 
@@ -297,20 +297,20 @@ const sendResolvedEmail = async (email, name, issueTitle, issueId) => {
       const { data, error } = await resend.emails.send({
         from: smtpFrom,
         to: email,
-        subject: \`✅ Issue Resolved: "\${issueTitle}"\`,
+        subject: `✅ Issue Resolved: "${issueTitle}"`,
         html: htmlContent,
       });
       
       if (error) {
-         console.error(\`❌ Failed to send resolved email to \${email}:\`, error);
+         console.error(`❌ Failed to send resolved email to ${email}:`, error);
       } else {
-         console.log(\`📧 Resolved email sent to: \${email}\`);
+         console.log(`📧 Resolved email sent to: ${email}`);
       }
     } catch (err) {
-      console.error(\`❌ Failed to send resolved email to \${email}:\`, err.message);
+      console.error(`❌ Failed to send resolved email to ${email}:`, err.message);
     }
   } else {
-    console.log(\`[DEV] Resolved email → \${email} | Issue: "\${issueTitle}"\`);
+    console.log(`[DEV] Resolved email → ${email} | Issue: "${issueTitle}"`);
   }
 };
 
