@@ -1,49 +1,32 @@
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 
-// Read SMTP configurations from environment
-const smtpConfig = {
-  host: process.env.SMTP_HOST,
-  port: parseInt(process.env.SMTP_PORT || '587', 10),
-  secure: process.env.SMTP_PORT === '465',
-  family: 4, // Force IPv4 — Render free tier cannot reach Gmail over IPv6
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-};
+// Read Resend API Key from environment
+const resendApiKey = process.env.RESEND_API_KEY;
 
-const smtpFrom = process.env.SMTP_FROM || '"CivicSense" <no-reply@civicsense.org>';
+// Use a verified domain or resend's testing domain for sending
+const smtpFrom = process.env.SMTP_FROM || 'CivicSense <onboarding@resend.dev>';
 
-// Check if SMTP is fully configured
-const isSmtpConfigured = !!(
-  process.env.SMTP_HOST &&
-  process.env.SMTP_USER &&
-  process.env.SMTP_PASS
-);
+const isResendConfigured = !!resendApiKey;
 
-let transporter = null;
+let resend = null;
 
-if (isSmtpConfigured) {
+if (isResendConfigured) {
   try {
-    transporter = nodemailer.createTransport(smtpConfig);
-    console.log('📧 Mailer initialized with SMTP configuration:', smtpConfig.host);
+    resend = new Resend(resendApiKey);
+    console.log('📧 Mailer initialized with Resend API');
   } catch (err) {
-    console.error('❌ Failed to initialize Nodemailer transporter:', err);
+    console.error('❌ Failed to initialize Resend client:', err);
   }
 } else {
-  console.log('⚡ SMTP host or credentials not set in .env. Falling back to Developer Debug Mode.');
+  console.log('⚡ RESEND_API_KEY not set in .env. Falling back to Developer Debug Mode.');
 }
 
 /**
  * Sends a high-fidelity email verification OTP.
- * If SMTP is not configured, prints a beautiful banner in console logs.
+ * If Resend is not configured, prints a beautiful banner in console logs.
  */
 const sendOtpEmail = async (email, name, otp) => {
-  const mailOptions = {
-    from: smtpFrom,
-    to: email,
-    subject: 'Verify your CivicSense account',
-    html: `
+  const htmlContent = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -175,15 +158,25 @@ const sendOtpEmail = async (email, name, otp) => {
   </div>
 </body>
 </html>
-    `,
-  };
+  `;
 
-  if (isSmtpConfigured && transporter) {
+  if (isResendConfigured && resend) {
     try {
-      await transporter.sendMail(mailOptions);
-      console.log(`📧 OTP successfully sent via SMTP to: ${email}`);
+      const { data, error } = await resend.emails.send({
+        from: smtpFrom,
+        to: email,
+        subject: 'Verify your CivicSense account',
+        html: htmlContent,
+      });
+      
+      if (error) {
+        console.error(`❌ Resend API error for ${email}:`, error);
+        logOtpFallback(email, name, otp);
+      } else {
+        console.log(`📧 OTP successfully sent via Resend API to: ${email}`);
+      }
     } catch (err) {
-      console.error(`❌ SMTP mail delivery failed for ${email}:`, err);
+      console.error(`❌ Resend mail delivery failed for ${email}:`, err);
       logOtpFallback(email, name, otp);
     }
   } else {
@@ -240,11 +233,7 @@ const BASE_STYLES = `
  */
 const sendResolutionPendingEmail = async (email, name, issueTitle, issueId) => {
   const issueUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/issues/${issueId}`;
-  const mailOptions = {
-    from: smtpFrom,
-    to: email,
-    subject: `Action Required: Resolution pending review for "${issueTitle}"`,
-    html: `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Resolution Pending</title><style>${BASE_STYLES}</style></head>
+  const htmlContent = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Resolution Pending</title><style>${BASE_STYLES}</style></head>
 <body><div class="wrapper"><div class="container">
   <div><span class="logo-icon">⚡</span><span class="logo-text">Civic<span class="logo-highlight">Sense</span></span></div>
   <span class="badge badge-yellow">⏳ Awaiting Your Review</span>
@@ -258,18 +247,26 @@ const sendResolutionPendingEmail = async (email, name, issueTitle, issueId) => {
   <p>Visit the issue page to approve or reject the proposed resolution. If you approve, the issue will be marked as <span class="accent">Resolved</span>. If you reject it, it will be sent back for further action.</p>
   <a href="${issueUrl}" class="issue-link link-primary">Review Resolution →</a>
   <p class="footer-note">This is an automated message from CivicSense. Please do not reply directly to this email.</p>
-</div></div></body></html>`,
-  };
+</div></div></body></html>`;
 
-  if (isSmtpConfigured && transporter) {
+  if (isResendConfigured && resend) {
     try {
-      await transporter.sendMail(mailOptions);
-      console.log(`📧 Resolution-pending email sent to: ${email}`);
+      const { data, error } = await resend.emails.send({
+        from: smtpFrom,
+        to: email,
+        subject: \`Action Required: Resolution pending review for "\${issueTitle}"\`,
+        html: htmlContent,
+      });
+      if (error) {
+        console.error(\`❌ Failed to send resolution-pending email to \${email}:\`, error);
+      } else {
+        console.log(\`📧 Resolution-pending email sent to: \${email}\`);
+      }
     } catch (err) {
-      console.error(`❌ Failed to send resolution-pending email to ${email}:`, err.message);
+      console.error(\`❌ Failed to send resolution-pending email to \${email}:\`, err.message);
     }
   } else {
-    console.log(`[DEV] Resolution-pending email → ${email} | Issue: "${issueTitle}"`);
+    console.log(\`[DEV] Resolution-pending email → \${email} | Issue: "\${issueTitle}"\`);
   }
 };
 
@@ -279,11 +276,7 @@ const sendResolutionPendingEmail = async (email, name, issueTitle, issueId) => {
  */
 const sendResolvedEmail = async (email, name, issueTitle, issueId) => {
   const issueUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/issues/${issueId}`;
-  const mailOptions = {
-    from: smtpFrom,
-    to: email,
-    subject: `✅ Issue Resolved: "${issueTitle}"`,
-    html: `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Issue Resolved</title><style>${BASE_STYLES}</style></head>
+  const htmlContent = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Issue Resolved</title><style>${BASE_STYLES}</style></head>
 <body><div class="wrapper"><div class="container">
   <div><span class="logo-icon">⚡</span><span class="logo-text">Civic<span class="logo-highlight">Sense</span></span></div>
   <span class="badge badge-green">✅ Resolved</span>
@@ -297,18 +290,27 @@ const sendResolvedEmail = async (email, name, issueTitle, issueId) => {
   <p>You can view the full resolution history and any evidence uploaded by the authorities on the issue page.</p>
   <a href="${issueUrl}" class="issue-link link-primary">View Issue →</a>
   <p class="footer-note">This is an automated message from CivicSense. Please do not reply directly to this email.</p>
-</div></div></body></html>`,
-  };
+</div></div></body></html>`;
 
-  if (isSmtpConfigured && transporter) {
+  if (isResendConfigured && resend) {
     try {
-      await transporter.sendMail(mailOptions);
-      console.log(`📧 Resolved email sent to: ${email}`);
+      const { data, error } = await resend.emails.send({
+        from: smtpFrom,
+        to: email,
+        subject: \`✅ Issue Resolved: "\${issueTitle}"\`,
+        html: htmlContent,
+      });
+      
+      if (error) {
+         console.error(\`❌ Failed to send resolved email to \${email}:\`, error);
+      } else {
+         console.log(\`📧 Resolved email sent to: \${email}\`);
+      }
     } catch (err) {
-      console.error(`❌ Failed to send resolved email to ${email}:`, err.message);
+      console.error(\`❌ Failed to send resolved email to \${email}:\`, err.message);
     }
   } else {
-    console.log(`[DEV] Resolved email → ${email} | Issue: "${issueTitle}"`);
+    console.log(\`[DEV] Resolved email → \${email} | Issue: "\${issueTitle}"\`);
   }
 };
 
