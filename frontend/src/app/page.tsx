@@ -1,3 +1,4 @@
+// Trigger Vercel Build (Cloud Deployment Sync)
 'use client';
 import Link from 'next/link';
 import { ArrowRight, MapPin, TrendingUp, Shield, Zap, BarChart3, Globe, Hexagon } from 'lucide-react';
