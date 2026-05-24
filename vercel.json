@@ -3,5 +3,8 @@
   "outputDirectory": "frontend/.next",
   "installCommand": "cd frontend && npm install",
   "framework": "nextjs",
-  "rootDirectory": "frontend"
+  "rootDirectory": "frontend",
+  "env": {
+    "NEXT_PUBLIC_API_URL": "https://civicsense-backend-8ep6.onrender.com"
+  }
 }
