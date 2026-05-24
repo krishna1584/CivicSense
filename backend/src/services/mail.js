@@ -5,6 +5,7 @@ const smtpConfig = {
   host: process.env.SMTP_HOST,
   port: parseInt(process.env.SMTP_PORT || '587', 10),
   secure: process.env.SMTP_PORT === '465',
+  family: 4, // Force IPv4 — Render free tier cannot reach Gmail over IPv6
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
