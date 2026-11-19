@@ -94,8 +94,20 @@ const sendMailHelper = async (email, name, otp, subject, htmlContent) => {
   }
 };
 
-const sendOtpEmail = async (email, name, otp) => {
-  const subject = 'Verify your CivicSense account';
+const VERIFY_EMAIL_COPY = {
+  subject: 'Verify your CivicSense account',
+  heading: 'Confirm your email address',
+  intro: 'Thank you for joining CivicSense! To complete your registration and secure your account, please enter the following 6-digit One-Time Password (OTP) in the verification page.',
+};
+
+const RESET_PASSWORD_COPY = {
+  subject: 'Reset your CivicSense password',
+  heading: 'Reset your password',
+  intro: 'We received a request to reset your CivicSense password. Enter the following 6-digit code on the password reset page.',
+};
+
+const sendOtpEmail = async (email, name, otp, copy = VERIFY_EMAIL_COPY) => {
+  const subject = copy.subject;
   const htmlContent = `
 <!DOCTYPE html>
 <html>
@@ -127,9 +139,9 @@ const sendOtpEmail = async (email, name, otp) => {
         <span class="logo-text">Civic<span class="logo-highlight">Sense</span></span>
       </div>
       
-      <h1>Confirm your email address</h1>
+      <h1>${copy.heading}</h1>
       <p>Hello <span class="accent">${name}</span>,</p>
-      <p>Thank you for joining CivicSense! To complete your registration and secure your account, please enter the following 6-digit One-Time Password (OTP) in the verification page. This code is valid for <span class="accent">10 minutes</span>.</p>
+      <p>${copy.intro} This code is valid for <span class="accent">10 minutes</span>.</p>
       
       <div class="otp-box">
         <div class="otp-code">${otp}</div>
@@ -231,8 +243,11 @@ const sendResolvedEmail = async (email, name, issueTitle, issueId) => {
   await sendMailHelper(email, name, null, subject, htmlContent);
 };
 
+const sendPasswordResetEmail = (email, name, otp) => sendOtpEmail(email, name, otp, RESET_PASSWORD_COPY);
+
 module.exports = {
   sendOtpEmail,
+  sendPasswordResetEmail,
   sendResolutionPendingEmail,
   sendResolvedEmail,
 };

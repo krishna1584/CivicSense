@@ -8,7 +8,7 @@ interface Props {
 
 export function StepIndicator({ current, onBack }: Props) {
   return (
-    <div className="flex items-center gap-0 mb-10 w-full max-w-3xl mx-auto">
+    <div className="flex items-center gap-0 mb-6 sm:mb-10 w-full max-w-3xl mx-auto">
       {STEPS.map((label, i) => {
         const isPast = i < current;
         const isCurrent = i === current;
@@ -45,7 +45,7 @@ export function StepIndicator({ current, onBack }: Props) {
             {i < STEPS.length - 1 && (
               <div
                 className={clsx(
-                  "flex-1 h-px mx-4 transition-colors duration-300",
+                  "flex-1 h-px mx-2 sm:mx-4 transition-colors duration-300",
                   isPast ? "bg-accent-primary" : "bg-border-subtle"
                 )}
               />

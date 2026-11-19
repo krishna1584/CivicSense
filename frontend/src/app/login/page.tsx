@@ -15,6 +15,13 @@ const FEATURES = [
   { icon: Users, title: 'Community-driven', desc: 'Upvote and follow civic issues that matter.' },
 ];
 
+const destinationAfterLogin = (role: string) => {
+  // Only same-site paths are honoured, so the link can't send users elsewhere.
+  const target = new URLSearchParams(window.location.search).get('redirect');
+  if (target && /^\/(?![/\\])/.test(target)) return target;
+  return role === 'admin' || role === 'department_staff' ? '/admin' : '/dashboard';
+};
+
 export default function LoginPage() {
   const router = useRouter();
   const { user, setUser } = useAuthStore();
@@ -28,9 +35,7 @@ export default function LoginPage() {
   useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
-    if (user) {
-      router.push(user.role === 'admin' || user.role === 'department_staff' ? '/admin' : '/dashboard');
-    }
+    if (user) router.push(destinationAfterLogin(user.role));
   }, [user, router]);
 
   const handleChange = (field: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -46,7 +51,6 @@ export default function LoginPage() {
     try {
       const res = await authApi.login(form);
       setUser(res.data.user);
-      router.push(res.data.user.role === 'admin' ? '/admin' : '/dashboard');
     } catch (err: unknown) {
       const e = err as { response?: { data?: { error?: string }; status?: number } };
       const status = e?.response?.status;
@@ -105,9 +109,9 @@ export default function LoginPage() {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label htmlFor="login-password" className="label-micro">Password</label>
-                <button type="button" className="text-xs text-accent-secondary hover:text-accent-secondary/80 transition-colors" tabIndex={-1}>
+                <Link href="/forgot-password" className="text-xs text-accent-secondary hover:text-accent-secondary/80 transition-colors">
                   Forgot password?
-                </button>
+                </Link>
               </div>
               <div className="relative">
                 <input id="login-password" type={showPassword ? 'text' : 'password'} autoComplete="current-password"
@@ -135,6 +139,11 @@ export default function LoginPage() {
             Don&apos;t have an account?{' '}
             <Link href="/register" className="font-semibold text-accent-secondary hover:text-accent-secondary/80 transition-colors">
               Create one free
+            </Link>
+          </p>
+          <p className="text-center text-sm text-content-muted mt-3">
+            <Link href="/report/anonymous" className="font-semibold text-accent-secondary hover:text-accent-secondary/80 transition-colors">
+              Report anonymously without an account
             </Link>
           </p>
         </div>

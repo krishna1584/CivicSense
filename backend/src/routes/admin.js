@@ -2,45 +2,15 @@ const express = require('express');
 const pool = require('../db/pool');
 const { auth, requireRole } = require('../middleware/auth');
 const issuesService = require('../services/issues.service');
-const { upload } = require('../middleware/upload');
-const fs = require('fs').promises;
-const path = require('path');
+const { uploadAvatar, storeUpload } = require('../middleware/upload');
+const { getSettings, updateSettings } = require('../services/settings.service');
 
 const router = express.Router();
-
-const SETTINGS_FILE = path.join(__dirname, '../data/settings.json');
-
-// Default settings
-const DEFAULT_SETTINGS = {
-  systemName: "CivicSense Command Center",
-  supportEmail: "support@civicsense.gov",
-  enableRegistration: true,
-  minUpvotesForAutoAcknowledge: 5,
-  enableAnonymousReporting: true,
-  allowGuestComments: false,
-  enableAlertBanner: false,
-  alertBannerText: "",
-  alertBannerType: "warning"
-};
-
-// Helper to get settings
-async function getSettingsData() {
-  try {
-    const data = await fs.readFile(SETTINGS_FILE, 'utf8');
-    return JSON.parse(data);
-  } catch (err) {
-    try {
-      await fs.mkdir(path.dirname(SETTINGS_FILE), { recursive: true });
-      await fs.writeFile(SETTINGS_FILE, JSON.stringify(DEFAULT_SETTINGS, null, 2), 'utf8');
-    } catch (_) {}
-    return DEFAULT_SETTINGS;
-  }
-}
 
 // GET /api/admin/settings/public (Unauthenticated)
 router.get('/settings/public', async (req, res) => {
   try {
-    const settings = await getSettingsData();
+    const settings = await getSettings();
     res.json({
       systemName: settings.systemName,
       enableRegistration: settings.enableRegistration,
@@ -111,7 +81,7 @@ router.get('/dashboard', async (req, res) => {
 
 // GET /api/admin/issues - paginated with all filters
 router.get('/issues', async (req, res) => {
-  const { page = 1, limit = 25, status, severity, category, search, sort = 'newest', assigned } = req.query;
+  const { page = 1, limit = 25, status, severity, category, search, sort = 'newest', assigned, moderation } = req.query;
   const offset = (parseInt(page) - 1) * parseInt(limit);
   const conditions = [];
   const values = [];
@@ -127,6 +97,7 @@ router.get('/issues', async (req, res) => {
   }
   if (severity) { conditions.push(`i.severity = $${idx++}`); values.push(severity); }
   if (assigned) { conditions.push(`i.assigned_to = $${idx++}`); values.push(assigned); }
+  if (moderation) { conditions.push(`i.moderation_status = $${idx++}`); values.push(moderation); }
   if (search) { conditions.push(`i.search_vector @@ plainto_tsquery('english', $${idx++})`); values.push(search); }
 
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -160,6 +131,10 @@ router.get('/issues', async (req, res) => {
 router.patch('/issues/bulk-status', requireRole('admin'), async (req, res) => {
   const { issueIds, status, comment } = req.body;
   if (!Array.isArray(issueIds) || !issueIds.length) return res.status(400).json({ error: 'issueIds required' });
+  // Resolving needs proof and citizen verification, so it stays a per-issue action.
+  if (!['reported', 'acknowledged', 'in_progress', 'rejected'].includes(status)) {
+    return res.status(400).json({ error: 'This status cannot be applied in bulk.' });
+  }
 
   const client = await pool.connect();
   try {
@@ -195,6 +170,48 @@ router.patch('/issues/bulk-status', requireRole('admin'), async (req, res) => {
   } catch (err) {
     await client.query('ROLLBACK');
     res.status(500).json({ error: 'Bulk update failed' });
+  } finally {
+    client.release();
+  }
+});
+
+// PATCH /api/admin/issues/:id/moderation - approve or reject a held anonymous report
+router.patch('/issues/:id/moderation', async (req, res) => {
+  const { decision, reason } = req.body;
+  if (!['approve', 'reject'].includes(decision)) return res.status(400).json({ error: 'Decision must be approve or reject.' });
+  const cleanReason = typeof reason === 'string' ? reason.trim() : '';
+  if (decision === 'reject' && (!cleanReason || cleanReason.length > 500)) {
+    return res.status(400).json({ error: 'A rejection reason of up to 500 characters is required.' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const updated = decision === 'approve'
+      ? await client.query(`UPDATE issues SET moderation_status = 'approved', publish_after = NULL, updated_at = NOW() WHERE id = $1 AND moderation_status = 'held' RETURNING id, status`, [req.params.id])
+      : await client.query(`UPDATE issues SET moderation_status = 'rejected', status = 'rejected', rejection_reason = $2, publish_after = NULL, updated_at = NOW() WHERE id = $1 AND moderation_status = 'held' RETURNING id, status`, [req.params.id, cleanReason]);
+
+    if (!updated.rows[0]) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: 'This report is not awaiting review.' });
+    }
+
+    if (decision === 'reject') {
+      await client.query(
+        'INSERT INTO issue_status_history (issue_id, old_status, new_status, updated_by, comment) VALUES ($1, $2, $3, $4, $5)',
+        [req.params.id, 'reported', 'rejected', req.user.id, `Rejected during review: ${cleanReason}`]
+      );
+    }
+    await client.query(
+      `INSERT INTO admin_logs (id, admin_id, action, entity_type, entity_id, details) VALUES (gen_random_uuid(), $1, $2, 'issue', $3, $4)`,
+      [req.user.id, decision === 'approve' ? 'APPROVE_ANONYMOUS_REPORT' : 'REJECT_ANONYMOUS_REPORT', req.params.id, cleanReason || null]
+    );
+    await client.query('COMMIT');
+    res.json({ moderation_status: decision === 'approve' ? 'approved' : 'rejected' });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error(err);
+    res.status(500).json({ error: 'Failed to save the review decision' });
   } finally {
     client.release();
   }
@@ -308,7 +325,7 @@ router.get('/users', requireRole('admin'), async (req, res) => {
 });
 
 // PATCH /api/admin/users/:id
-router.patch('/users/:id', requireRole('admin'), upload.single('avatar'), async (req, res) => {
+router.patch('/users/:id', requireRole('admin'), uploadAvatar.single('avatar'), async (req, res) => {
   const { role, is_active } = req.body;
   const targetUserId = req.params.id;
   let avatarUrl = null;
@@ -332,35 +349,7 @@ router.patch('/users/:id', requireRole('admin'), upload.single('avatar'), async 
     }
 
     if (req.file) {
-      const cloudinaryConfigured = process.env.CLOUDINARY_CLOUD_NAME &&
-        process.env.CLOUDINARY_CLOUD_NAME !== 'your_cloud_name';
-
-      if (cloudinaryConfigured) {
-        const { uploadToCloudinary } = require('../middleware/upload');
-        try {
-          const result = await uploadToCloudinary(req.file.buffer, {
-            folder: 'civicsense/avatars',
-            resource_type: 'image',
-            public_id: `avatar_${targetUserId}_${Date.now()}`,
-          });
-          avatarUrl = result.secure_url;
-        } catch (err) {
-          console.warn('Cloudinary upload failed for avatar, falling back to local storage:', err.message);
-        }
-      }
-
-      // Local storage fallback if Cloudinary is not configured or failed
-      if (!avatarUrl) {
-        const fs = require('fs').promises;
-        const path = require('path');
-        const ext = path.extname(req.file.originalname) || '.jpg';
-        const fileName = `avatar_${targetUserId}_${Date.now()}${ext}`;
-        const uploadDir = path.join(__dirname, '../../public/uploads');
-        await fs.mkdir(uploadDir, { recursive: true });
-        await fs.writeFile(path.join(uploadDir, fileName), req.file.buffer);
-        avatarUrl = `${req.protocol}://${req.get('host')}/uploads/${fileName}`;
-      }
-
+      ({ mediaUrl: avatarUrl } = await storeUpload(req.file, req, { folder: 'civicsense/avatars', prefix: `avatar_${targetUserId}` }));
       updates.push(`avatar_url = $${idx++}`);
       values.push(avatarUrl);
     }
@@ -436,10 +425,10 @@ router.get('/logs', requireRole('admin'), async (req, res) => {
       const [logsResult, countResult] = await Promise.all([
         pool.query(`
           SELECT h.id, h.issue_id, h.old_status, h.new_status, h.comment as details, h.updated_at as created_at,
-                 u.name as admin_name, u.email as admin_email,
+                 COALESCE(u.name, 'System') as admin_name, u.email as admin_email,
                  i.title as issue_title
           FROM issue_status_history h
-          JOIN users u ON h.updated_by = u.id
+          LEFT JOIN users u ON h.updated_by = u.id
           JOIN issues i ON h.issue_id = i.id
           ORDER BY h.updated_at DESC
           LIMIT $1 OFFSET $2
@@ -496,7 +485,7 @@ router.get('/logs', requireRole('admin'), async (req, res) => {
 // GET /api/admin/settings (Authenticated: Admin or Department Staff)
 router.get('/settings', async (req, res) => {
   try {
-    const settings = await getSettingsData();
+    const settings = await getSettings();
     res.json(settings);
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch settings' });
@@ -506,11 +495,7 @@ router.get('/settings', async (req, res) => {
 // PATCH /api/admin/settings (Authenticated: Admin only)
 router.patch('/settings', requireRole('admin'), async (req, res) => {
   try {
-    const current = await getSettingsData();
-    const updated = { ...current, ...req.body };
-    
-    // Save to settings.json
-    await fs.writeFile(SETTINGS_FILE, JSON.stringify(updated, null, 2), 'utf8');
+    const updated = await updateSettings(req.body);
 
     // Audit log using PostgreSQL gen_random_uuid()
     await pool.query(

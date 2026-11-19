@@ -124,7 +124,7 @@
   }
 
   .page-container {
-    @apply max-w-[1200px] mx-auto px-6 py-8 w-full;
+    @apply max-w-[1200px] mx-auto px-4 sm:px-6 py-4 sm:py-8 w-full;
   }
 
   .badge-dot {
@@ -133,6 +133,23 @@
 }
 
 @layer utilities {
+  /* Shown on hover where hovering exists; always visible on touch screens */
+  .hover-reveal {
+    transition: opacity 200ms;
+  }
+
+  @media (hover: hover) {
+    .hover-reveal {
+      opacity: 0;
+    }
+
+    .group:hover .hover-reveal,
+    .hover-reveal:focus-visible,
+    .hover-reveal:focus-within {
+      opacity: 1;
+    }
+  }
+
   .bg-grid {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Cpath d='M 40 0 L 0 0 0 40' fill='none' stroke='rgb(var(--border-subtle))' stroke-opacity='0.3' stroke-width='0.4'/%3E%3C/svg%3E");
   }

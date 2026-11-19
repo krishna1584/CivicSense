@@ -27,6 +27,7 @@ export interface IssueMedia {
   id: string;
   url: string;
   type: 'image' | 'video';
+  is_resolution?: boolean;
 }
 
 export interface Issue {
@@ -45,6 +46,7 @@ export interface Issue {
   longitude?: number;
   address?: string;
   is_anonymous: boolean;
+  is_owner?: boolean;
   upvote_count: number;
   downvote_count: number;
   follow_count: number;

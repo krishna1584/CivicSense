@@ -1,7 +1,8 @@
 const express = require('express');
 const pool = require('../db/pool');
 const { auth, optionalAuth } = require('../middleware/auth');
-const { validate, createCommentSchema } = require('../middleware/validate');
+const { validate, createCommentSchema, updateCommentSchema } = require('../middleware/validate');
+const { getSettings } = require('../services/settings.service');
 
 const router = express.Router({ mergeParams: true });
 
@@ -9,15 +10,16 @@ const router = express.Router({ mergeParams: true });
 router.get('/', optionalAuth, async (req, res) => {
   const { page = 1, limit = 20 } = req.query;
   const offset = (parseInt(page) - 1) * parseInt(limit);
+  const isStaff = ['admin', 'department_staff'].includes(req.user?.role);
   try {
     const result = await pool.query(`
       SELECT c.*, u.name AS author_name, u.avatar_url AS author_avatar, u.role AS author_role
       FROM comments c
       LEFT JOIN users u ON c.user_id = u.id
-      WHERE c.issue_id = $1 AND c.is_internal = FALSE AND c.parent_id IS NULL
+      WHERE c.issue_id = $1 AND (c.is_internal = FALSE OR $4::boolean) AND c.parent_id IS NULL
       ORDER BY c.created_at ASC
       LIMIT $2 OFFSET $3
-    `, [req.params.issueId, parseInt(limit), offset]);
+    `, [req.params.issueId, parseInt(limit), offset, isStaff]);
 
     res.json({ comments: result.rows });
   } catch (err) {
@@ -34,6 +36,13 @@ router.post('/', auth, validate(createCommentSchema), async (req, res) => {
   const internal = is_internal && isAdmin ? true : false;
 
   try {
+    if (!req.user.is_verified) {
+      const { allowGuestComments } = await getSettings();
+      if (!allowGuestComments) {
+        return res.status(403).json({ error: 'Please verify your email address to do this.', code: 'EMAIL_NOT_VERIFIED' });
+      }
+    }
+
     const issueResult = await pool.query('SELECT id, title FROM issues WHERE id = $1', [req.params.issueId]);
     if (!issueResult.rows[0]) return res.status(404).json({ error: 'Issue not found' });
 
@@ -42,29 +51,50 @@ router.post('/', auth, validate(createCommentSchema), async (req, res) => {
       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *
     `, [req.params.issueId, req.user.id, content, isAdminComment, internal, parent_id || null]);
 
-    await pool.query('UPDATE issues SET comment_count = comment_count + 1, updated_at = NOW() WHERE id = $1', [req.params.issueId]);
-
     const comment = { ...result.rows[0], author_name: req.user.name, author_role: req.user.role };
 
-    // Notify followers (except commenter)
-    const followers = await pool.query(
-      'SELECT user_id FROM follows WHERE issue_id = $1 AND user_id != $2',
-      [req.params.issueId, req.user.id]
-    );
-    for (const f of followers.rows) {
-      await pool.query(
-        'INSERT INTO notifications (user_id, issue_id, type, message) VALUES ($1, $2, $3, $4)',
-        [f.user_id, req.params.issueId, 'new_comment', `${req.user.name} commented on an issue you follow`]
-      );
-    }
+    // Internal staff notes stay out of public counts, notifications and broadcasts
+    if (!internal) {
+      await pool.query('UPDATE issues SET comment_count = comment_count + 1, updated_at = NOW() WHERE id = $1', [req.params.issueId]);
 
-    const io = req.app.get('io');
-    if (io) io.to(`issue_${req.params.issueId}`).emit('new_comment', { comment });
+      // Notify followers (except commenter)
+      const followers = await pool.query(
+        'SELECT user_id FROM follows WHERE issue_id = $1 AND user_id != $2',
+        [req.params.issueId, req.user.id]
+      );
+      for (const f of followers.rows) {
+        await pool.query(
+          'INSERT INTO notifications (user_id, issue_id, type, message) VALUES ($1, $2, $3, $4)',
+          [f.user_id, req.params.issueId, 'new_comment', `${req.user.name} commented on an issue you follow`]
+        );
+      }
+
+      const io = req.app.get('io');
+      if (io) io.to(`issue_${req.params.issueId}`).emit('new_comment', { comment });
+    }
 
     res.status(201).json({ comment });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to post comment' });
+  }
+});
+
+// PATCH /api/issues/:issueId/comments/:commentId
+router.patch('/:commentId', auth, validate(updateCommentSchema), async (req, res) => {
+  try {
+    const existing = await pool.query('SELECT user_id FROM comments WHERE id = $1 AND issue_id = $2', [req.params.commentId, req.params.issueId]);
+    if (!existing.rows[0]) return res.status(404).json({ error: 'Comment not found' });
+    if (existing.rows[0].user_id !== req.user.id) return res.status(403).json({ error: 'You can only edit your own comments' });
+
+    const result = await pool.query(
+      'UPDATE comments SET content = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
+      [req.body.content, req.params.commentId]
+    );
+    res.json({ comment: result.rows[0] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to update comment' });
   }
 });
 
@@ -80,7 +110,9 @@ router.delete('/:commentId', auth, async (req, res) => {
     if (!isOwner && !isAdmin) return res.status(403).json({ error: 'Cannot delete this comment' });
 
     await pool.query('DELETE FROM comments WHERE id = $1', [req.params.commentId]);
-    await pool.query('UPDATE issues SET comment_count = GREATEST(comment_count - 1, 0) WHERE id = $1', [req.params.issueId]);
+    if (!comment.is_internal) {
+      await pool.query('UPDATE issues SET comment_count = GREATEST(comment_count - 1, 0) WHERE id = $1', [req.params.issueId]);
+    }
 
     res.json({ message: 'Comment deleted' });
   } catch (err) {

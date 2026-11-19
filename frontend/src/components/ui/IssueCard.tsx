@@ -18,7 +18,7 @@ export function IssueCard({ issue, compact = false }: IssueCardProps) {
         'card card-hover flex flex-col cursor-pointer group h-full',
         compact ? 'p-4' : 'p-5'
       )}>
-        <div className="flex items-start justify-between gap-3 mb-4">
+        <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-base-850 border border-border-subtle flex items-center justify-center text-lg">
               {issue.category_icon || '📋'}
@@ -76,7 +76,7 @@ export function IssueCard({ issue, compact = false }: IssueCardProps) {
           </div>
         )}
 
-        <div className="flex items-center justify-between pt-4 border-t border-border-subtle/60 mt-auto">
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-4 border-t border-border-subtle/60 mt-auto">
           <div className="flex items-center gap-4 text-content-muted text-[13px] font-medium">
             <span className="flex items-center gap-1.5 hover:text-content-primary transition-colors">
               <ThumbsUp size={14} />

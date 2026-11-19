@@ -26,6 +26,7 @@ interface Review {
   reviewer_name: string;
   reviewer_avatar: string | null;
   reviewer_trust: number;
+  is_staff_review?: boolean;
   target_user_id?: string | null;
   target_user_name?: string | null;
 }
@@ -339,7 +340,7 @@ export function ReviewSection({ issueId, isResolved }: { issueId: string; isReso
               ? review.reviewer_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
               : 'U';
             const avatarUrl = review.reviewer_avatar ? formatMediaUrl(review.reviewer_avatar) : '';
-            const isTargetReporter = !!review.target_user_id;
+            const isTargetReporter = !!review.is_staff_review;
             const isReviewerAdmin = !isTargetReporter && (review.reviewer_trust === 0); // fallback or target check
 
             return (
@@ -399,7 +400,7 @@ export function ReviewSection({ issueId, isResolved }: { issueId: string; isReso
                         {isAdmin && (
                           <button
                             onClick={() => handleHide(review.id)}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity text-content-muted hover:text-state-error p-1 rounded"
+                            className="hover-reveal text-content-muted hover:text-state-error p-1 rounded"
                             title={review.is_hidden ? 'Show review' : 'Hide review'}
                           >
                             {review.is_hidden ? <Eye size={13} /> : <EyeOff size={13} />}

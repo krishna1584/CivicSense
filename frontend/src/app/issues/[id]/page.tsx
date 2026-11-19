@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   ArrowLeft, MapPin, ThumbsUp, MessageSquare, Eye,
@@ -10,8 +10,9 @@ import {
   RefreshCw, Bell, BellOff, Edit2, Trash2, Camera, Star
 } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
-import { issuesApi, commentsApi, adminApi } from '@/lib/api';
+import { issuesApi, commentsApi, adminApi, engagementApi } from '@/lib/api';
 import { useAuthStore } from '@/lib/store';
+import { getSocket } from '@/lib/socket';
 import { ReviewSection } from './ReviewSection';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -46,6 +47,17 @@ interface Update {
   author: string;
   created_at: string;
 }
+
+const toComment = (c: any, viewer: { id: string; role: string } | null): Comment => ({
+  id: c.id,
+  author: c.author_name || 'Anonymous',
+  initials: (c.author_name || 'A').substring(0, 2).toUpperCase(),
+  avatarColor: '#6366F1', // using primary accent
+  content: c.content,
+  created_at: c.created_at,
+  isOwn: viewer?.id === c.user_id,
+  canDelete: viewer?.id === c.user_id || viewer?.role === 'admin',
+});
 
 // ─── Mock Issue Data ───────────────────────────────────────────────────────────
 const MOCK_ISSUE = {
@@ -118,7 +130,7 @@ function CommentBubble({ comment, onEdit, onDelete }: { comment: Comment; onEdit
         {comment.initials}
       </div>
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2.5 mb-2">
+        <div className="flex flex-wrap items-center gap-2.5 mb-2">
           <span className="text-[14px] font-semibold text-content-primary">{comment.author}</span>
           {comment.isOwn && (
             <span className="text-[10px] px-1.5 py-0.5 rounded-md border border-accent-secondary/20 bg-accent-secondary/10 text-accent-secondary font-bold uppercase tracking-wide">You</span>
@@ -128,7 +140,7 @@ function CommentBubble({ comment, onEdit, onDelete }: { comment: Comment; onEdit
             {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
           </span>
           {(comment.isOwn || comment.canDelete) && (
-            <div className="flex gap-1.5 ml-2 opacity-0 group-hover:opacity-100 transition-opacity bg-base-800 border border-border-subtle px-1.5 py-0.5 rounded-md">
+            <div className="hover-reveal flex gap-1.5 bg-base-800 border border-border-subtle px-1.5 py-0.5 rounded-md">
               {comment.isOwn && (
                 <button onClick={() => onEdit(comment.id, comment.content)} className="text-content-muted hover:text-accent-secondary transition-colors p-1" title="Edit">
                   <Edit2 size={12} />
@@ -176,8 +188,9 @@ function UpdateEntry({ update }: { update: Update }) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function IssueDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const issueId = params?.id as string;
-  const { user } = useAuthStore();
+  const { user, isLoading: authLoading } = useAuthStore();
 
   const [issue, setIssue] = useState<any>(MOCK_ISSUE);
   const [loading, setLoading] = useState(!!issueId);
@@ -191,6 +204,8 @@ export default function IssueDetailPage() {
   const [upvoted, setUpvoted] = useState(false);
   const [upvoteCount, setUpvoteCount] = useState(0);
   const [following, setFollowing] = useState(false);
+  const [voting, setVoting] = useState(false);
+  const [followPending, setFollowPending] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [activeMediaIndex, setActiveMediaIndex] = useState(0);
 
@@ -208,14 +223,19 @@ export default function IssueDetailPage() {
   const [resolutionFiles, setResolutionFiles] = useState<File[]>([]);
   const [rejectionReason, setRejectionReason] = useState('');
   const [adminSubmitting, setAdminSubmitting] = useState(false);
+  const [moderationReason, setModerationReason] = useState('');
+  const [moderating, setModerating] = useState(false);
 
   // Fetch issue data from API
   useEffect(() => {
-    if (!issueId) return;
+    // Wait for the session check so the request carries a fresh token: ownership
+    // and vote state depend on it, e.g. when arriving from an emailed link.
+    if (!issueId || authLoading) return;
 
     const fetchIssue = async () => {
       try {
-        setLoading(true);
+        // Later refreshes (live updates, saves) happen without a full-page spinner
+        if (issue.id !== issueId) setLoading(true);
         setError(null);
         const response = await issuesApi.get(issueId);
 
@@ -246,6 +266,9 @@ export default function IssueDetailPage() {
         setIssue({
           id: data.id,
           reporter_id: data.is_anonymous ? null : data.user_id,
+          is_owner: !!data.is_owner,
+          moderation_status: data.moderation_status,
+          publish_after: data.publish_after,
           title: data.title,
           description: data.description,
           category: data.category_name || 'Uncategorized',
@@ -259,12 +282,14 @@ export default function IssueDetailPage() {
           created_at: data.created_at,
           updated_at: data.updated_at,
           author: data.is_anonymous ? 'Anonymous' : (data.reporter_name || 'Anonymous'),
-          author_initials: (data.reporter_name || 'A').substring(0, 2).toUpperCase(),
+          author_initials: data.is_anonymous ? 'A' : (data.reporter_name || 'A').substring(0, 2).toUpperCase(),
           reporter_avatar: data.is_anonymous ? null : (data.reporter_avatar || null),
           media: data.media || [],
           department: data.department || null,
         });
         setUpvoteCount(data.upvote_count || 0);
+        setUpvoted(response.data.userInteraction?.voted === 'upvote');
+        setFollowing(!!response.data.userInteraction?.following);
         setOriginalStatus(data.status);
         setOriginalDept(data.department || '');
         setEditStatus(data.status);
@@ -283,24 +308,14 @@ export default function IssueDetailPage() {
     };
 
     fetchIssue();
-  }, [issueId, refreshCount]);
+  }, [issueId, refreshCount, authLoading, user?.id]);
 
   useEffect(() => {
     if (!issueId || !issue.id || issue.id === '1') return;
     const fetchComments = async () => {
       try {
-        const res = await commentsApi.list(issueId);
-        const fetchedComments = res.data.comments.map((c: any) => ({
-          id: c.id,
-          author: c.author_name || 'Anonymous',
-          initials: (c.author_name || 'A').substring(0, 2).toUpperCase(),
-          avatarColor: '#6366F1', // using primary accent
-          content: c.content,
-          created_at: c.created_at,
-          isOwn: user?.id === c.user_id,
-          canDelete: user?.id === c.user_id || user?.id === issue.reporter_id || user?.role === 'admin'
-        }));
-        setComments(fetchedComments);
+        const res = await commentsApi.list(issueId, { limit: 100 });
+        setComments(res.data.comments.map((c: any) => toComment(c, user)));
       } catch (err) {
         console.error('Failed to fetch comments', err);
       }
@@ -329,12 +344,62 @@ export default function IssueDetailPage() {
     fetchHistory();
   }, [issueId, issue.id, issue.reporter_id, user, refreshCount]);
 
-  const handleUpvote = () => {
-    setUpvoted(v => !v);
-    setUpvoteCount(c => upvoted ? c - 1 : c + 1);
+  // Live updates for everyone viewing this issue
+  useEffect(() => {
+    if (!issueId || authLoading) return;
+    const socket = getSocket();
+    const join = () => socket.emit('join_issue', issueId);
+    const onStatus = () => setRefreshCount(c => c + 1);
+    const onUpvote = (data: { upvote_count: number }) => setUpvoteCount(data.upvote_count);
+    const onComment = ({ comment }: { comment: any }) =>
+      setComments(prev => prev.some(c => c.id === comment.id) ? prev : [...prev, toComment(comment, user)]);
+
+    socket.on('connect', join); // rooms are lost on reconnect
+    socket.on('issue_status_updated', onStatus);
+    socket.on('new_upvote', onUpvote);
+    socket.on('new_comment', onComment);
+    if (socket.connected) join();
+
+    return () => {
+      if (socket.connected) socket.emit('leave_issue', issueId);
+      socket.off('connect', join);
+      socket.off('issue_status_updated', onStatus);
+      socket.off('new_upvote', onUpvote);
+      socket.off('new_comment', onComment);
+    };
+  }, [issueId, authLoading, user]);
+
+  const goToLogin = () => router.push(`/login?redirect=${encodeURIComponent(`/issues/${issueId}`)}`);
+
+  const handleUpvote = async () => {
+    if (!user) { goToLogin(); return; }
+    if (voting) return;
+    setVoting(true);
+    try {
+      const res = await engagementApi.vote(issueId, 'upvote');
+      setUpvoted(res.data.action !== 'removed');
+      setUpvoteCount(res.data.upvote_count);
+    } catch (err: any) {
+      alert(err?.response?.data?.error || 'Could not save your vote. Please try again.');
+    } finally {
+      setVoting(false);
+    }
   };
 
-  const handleFollow = () => setFollowing(v => !v);
+  const handleFollow = async () => {
+    if (!user) { goToLogin(); return; }
+    if (followPending) return;
+    setFollowPending(true);
+    try {
+      const res = await engagementApi.follow(issueId);
+      setFollowing(res.data.following);
+      setIssue((prev: any) => ({ ...prev, follow_count: res.data.follow_count }));
+    } catch (err: any) {
+      alert(err?.response?.data?.error || 'Could not update follow status. Please try again.');
+    } finally {
+      setFollowPending(false);
+    }
+  };
 
   const handlePostComment = async () => {
     const text = commentText.trim();
@@ -348,23 +413,12 @@ export default function IssueDetailPage() {
         setEditingCommentId(null);
       } else {
         const res = await commentsApi.create(issueId, { content: text });
-        const c = res.data.comment;
-        const newComment: Comment = {
-          id: c.id,
-          author: c.author_name || 'Anonymous',
-          initials: (c.author_name || 'A').substring(0, 2).toUpperCase(),
-          avatarColor: '#6366F1',
-          content: c.content,
-          created_at: c.created_at,
-          isOwn: true,
-          canDelete: true
-        };
-        setComments(prev => [...prev, newComment]);
-        setIssue((prev: any) => ({ ...prev, comment_count: prev.comment_count + 1 }));
+        const newComment = toComment(res.data.comment, user);
+        setComments(prev => prev.some(c => c.id === newComment.id) ? prev : [...prev, newComment]);
       }
       setCommentText('');
-    } catch (err) {
-      console.error('Failed to save comment', err);
+    } catch (err: any) {
+      alert(err?.response?.data?.error || 'Could not save your comment. Please try again.');
     } finally {
       setSubmitting(false);
       setActiveTab('comments');
@@ -382,9 +436,8 @@ export default function IssueDetailPage() {
     try {
       await commentsApi.delete(issueId, id);
       setComments(prev => prev.filter(c => c.id !== id));
-      setIssue((prev: any) => ({ ...prev, comment_count: Math.max(0, prev.comment_count - 1) }));
-    } catch (err) {
-      console.error('Failed to delete comment', err);
+    } catch (err: any) {
+      alert(err?.response?.data?.error || 'Could not delete the comment. Please try again.');
     }
   };
 
@@ -408,6 +461,23 @@ export default function IssueDetailPage() {
       alert('Failed to process action. Please try again.');
     } finally {
       setVerifying(false);
+    }
+  };
+
+  const handleModeration = async (decision: 'approve' | 'reject') => {
+    if (decision === 'reject' && !moderationReason.trim()) {
+      alert('A reason is required to reject a report.');
+      return;
+    }
+    setModerating(true);
+    try {
+      await adminApi.moderate(issueId, { decision, reason: moderationReason.trim() || undefined });
+      setModerationReason('');
+      setRefreshCount(c => c + 1);
+    } catch (err: any) {
+      alert(err?.response?.data?.error || 'Could not save the review decision.');
+    } finally {
+      setModerating(false);
     }
   };
 
@@ -456,7 +526,7 @@ export default function IssueDetailPage() {
 
   const reportedMedia = issue.media?.filter((m: any) => !m.is_resolution) || [];
   const resolutionMedia = issue.media?.filter((m: any) => m.is_resolution) || [];
-  const showPurplePanel = issue.status === 'Pending Verification' && user?.id === issue.reporter_id;
+  const showPurplePanel = issue.status === 'Pending Verification' && issue.is_owner;
 
   const isResolved = issue.status === 'Resolved';
 
@@ -667,13 +737,15 @@ export default function IssueDetailPage() {
                       <>
                         <button
                           onClick={() => setActiveMediaIndex(p => (p === 0 ? reportedMedia.length - 1 : p - 1))}
-                          className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-base-950/80 border border-border-subtle backdrop-blur-sm flex items-center justify-center text-content-primary opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-base-850 active:scale-90 shadow-lg"
+                          aria-label="Previous photo"
+                          className="hover-reveal absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-base-950/80 border border-border-subtle backdrop-blur-sm flex items-center justify-center text-content-primary hover:bg-base-850 active:scale-90 shadow-lg"
                         >
                           <ChevronLeft size={18} />
                         </button>
                         <button
                           onClick={() => setActiveMediaIndex(p => (p === reportedMedia.length - 1 ? 0 : p + 1))}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-base-950/80 border border-border-subtle backdrop-blur-sm flex items-center justify-center text-content-primary opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-base-850 active:scale-90 shadow-lg"
+                          aria-label="Next photo"
+                          className="hover-reveal absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-base-950/80 border border-border-subtle backdrop-blur-sm flex items-center justify-center text-content-primary hover:bg-base-850 active:scale-90 shadow-lg"
                         >
                           <ChevronRight size={18} />
                         </button>
@@ -733,7 +805,7 @@ export default function IssueDetailPage() {
                 )}
 
                 {/* Practical Action Bar */}
-                <div className="flex items-center gap-3 mb-8 pb-8 border-b border-border-subtle">
+                <div className="flex flex-wrap items-center gap-3 mb-8 pb-8 border-b border-border-subtle">
                   <button
                     onClick={handleUpvote}
                     className={`flex items-center gap-2 text-[14px] font-semibold px-5 py-2.5 rounded-xl transition-all duration-200 active:scale-[0.98] ${upvoted
@@ -749,17 +821,17 @@ export default function IssueDetailPage() {
                     className="flex items-center gap-2 text-[14px] font-semibold px-5 py-2.5 rounded-xl bg-base-850 text-content-primary border border-border-subtle hover:bg-base-800 transition-all duration-200 active:scale-[0.98]"
                   >
                     <MessageSquare size={18} />
-                    {comments.length + issue.comment_count} <span className="hidden sm:inline">Comments</span>
+                    {comments.length} <span className="hidden sm:inline">Comments</span>
                   </button>
                 </div>
 
                 {/* Tabs */}
-                <div className="flex bg-base-900 border border-border-subtle rounded-xl p-1.5 mb-8 shadow-sm">
+                <div className="flex overflow-x-auto bg-base-900 border border-border-subtle rounded-xl p-1.5 mb-8 shadow-sm">
                   {tabs.map(tab => (
                     <button
                       key={tab.key}
                       onClick={() => setActiveTab(tab.key as 'overview' | 'updates' | 'comments' | 'reviews')}
-                      className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-[13px] md:text-[14px] font-semibold transition-all duration-200 ${activeTab === tab.key
+                      className={`flex-1 flex items-center justify-center gap-2 px-2 py-2.5 whitespace-nowrap rounded-lg text-[13px] md:text-[14px] font-semibold transition-all duration-200 ${activeTab === tab.key
                           ? 'bg-base-800 text-content-primary border border-border-subtle shadow-sm'
                           : 'text-content-secondary border border-transparent hover:text-content-primary hover:bg-base-850'
                         }`}
@@ -832,6 +904,10 @@ export default function IssueDetailPage() {
                           This issue is marked as <span className="text-state-success font-bold">Resolved</span>. New comments are closed.
                         </p>
                       </div>
+                    ) : !user ? (
+                      <div className="card p-5 bg-base-800 text-center text-sm text-content-secondary">
+                        <Link href={`/login?redirect=${encodeURIComponent(`/issues/${issueId}`)}`} className="text-accent-secondary font-semibold hover:underline">Sign in</Link> to join the discussion.
+                      </div>
                     ) : (
                       <div className="card p-5 bg-base-800">
                         <div className="flex gap-4">
@@ -900,6 +976,29 @@ export default function IssueDetailPage() {
 
               {/* RIGHT — sidebar */}
               <div className="lg:w-[320px] shrink-0 space-y-6">
+                {/* Review of held anonymous reports */}
+                {(user?.role === 'admin' || user?.role === 'department_staff') && issue.moderation_status === 'held' && (
+                  <div className="card p-6 bg-base-800 border border-state-warning/30 space-y-3">
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-state-warning">Anonymous Report Review</h3>
+                    <p className="text-xs text-content-secondary leading-relaxed">
+                      {issue.publish_after && new Date(issue.publish_after) > new Date()
+                        ? `Publishes automatically ${formatDistanceToNow(new Date(issue.publish_after), { addSuffix: true })} unless rejected.`
+                        : 'The review window has passed, so this report is already public. You can still reject it.'}
+                    </p>
+                    <textarea
+                      value={moderationReason}
+                      onChange={e => setModerationReason(e.target.value)}
+                      placeholder="Reason (required to reject, shown to the reporter)"
+                      maxLength={500}
+                      className="input-dark w-full text-xs p-2.5 min-h-[70px] resize-none"
+                    />
+                    <div className="flex gap-2">
+                      <button onClick={() => handleModeration('approve')} disabled={moderating} className="btn-accent flex-1 text-xs py-2 disabled:opacity-60">Approve</button>
+                      <button onClick={() => handleModeration('reject')} disabled={moderating} className="btn-secondary flex-1 text-xs py-2 disabled:opacity-60">Reject</button>
+                    </div>
+                  </div>
+                )}
+
                 {/* Administrative command panel */}
                 {(user?.role === 'admin' || user?.role === 'department_staff') && (
                   <div className="card p-6 bg-base-800 border border-accent-secondary/20 relative overflow-hidden shadow-glow-secondary animate-fade_in">
@@ -947,7 +1046,7 @@ export default function IssueDetailPage() {
                             <div className="relative group overflow-hidden rounded-xl border border-dashed border-state-success/30 hover:border-state-success/60 transition-all bg-state-success/5 p-4 flex flex-col items-center justify-center gap-2 min-h-[80px] cursor-pointer">
                               <input
                                 type="file"
-                                accept="image/*,video/*"
+                                accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime"
                                 multiple
                                 onChange={e => {
                                   if (e.target.files) {
@@ -1082,7 +1181,7 @@ export default function IssueDetailPage() {
                       { label: 'Last Updated', value: format(new Date(issue.updated_at), 'MMM d, yyyy') },
                       { label: 'Category', value: `${issue.category_icon} ${issue.category}` },
                       { label: 'Severity', value: issue.severity },
-                      { label: 'Followers', value: String(issue.follow_count + (following ? 1 : 0)) },
+                      { label: 'Followers', value: String(issue.follow_count) },
                       ...(issue.department ? [{ label: issue.status === 'Resolved' ? 'Resolved By' : 'Assigned Department', value: issue.department }] : []),
                     ].map(row => (
                       <div key={row.label} className="flex items-center justify-between pb-3 border-b border-border-subtle/50 last:border-0 last:pb-0">
@@ -1099,8 +1198,8 @@ export default function IssueDetailPage() {
                   <div className="grid grid-cols-3 gap-3">
                     {[
                       { icon: ThumbsUp, val: upvoteCount, label: 'Upvotes' },
-                      { icon: MessageSquare, val: comments.length + issue.comment_count, label: 'Comments' },
-                      { icon: Eye, val: issue.follow_count + (following ? 1 : 0), label: 'Views' },
+                      { icon: MessageSquare, val: comments.length, label: 'Comments' },
+                      { icon: Bell, val: issue.follow_count, label: 'Followers' },
                     ].map(({ icon: Icon, val, label }) => (
                       <div key={label} className="text-center bg-base-950 rounded-xl p-3 border border-border-subtle hover:bg-base-900 transition-colors shadow-sm">
                         <Icon size={16} className="mx-auto mb-2 text-accent-secondary" />

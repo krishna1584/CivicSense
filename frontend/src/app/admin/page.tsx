@@ -118,7 +118,7 @@ function PieChart({ slices }: { slices: { value: number; color: string; label: s
   if (activeSlices.length === 1) {
     const s = activeSlices[0];
     return (
-      <div className="flex items-center gap-6">
+      <div className="flex flex-col min-[400px]:flex-row items-center gap-4 min-[400px]:gap-6">
         <svg viewBox="0 0 200 200" className="w-36 h-36 shrink-0">
           <circle cx="100" cy="100" r="80" fill={s.color} opacity="0.9" stroke="rgb(var(--base-800))" strokeWidth="2" />
         </svg>
@@ -284,6 +284,7 @@ function DashboardView({ setView }: { setView: (v: AdminView) => void }) {
   const [data, setData] = useState<any>(null);
   const [analyticsData, setAnalyticsData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -296,9 +297,14 @@ function DashboardView({ setView }: { setView: (v: AdminView) => void }) {
       setLoading(false);
     }).catch(err => {
       console.error(err);
+      setLoadFailed(true);
       setLoading(false);
     });
   }, []);
+
+  if (loadFailed) {
+    return <div className="p-20 text-center text-sm text-state-error">Could not load the Command Center. Please refresh the page.</div>;
+  }
 
   if (loading || !data || !analyticsData) {
     return (
@@ -330,7 +336,7 @@ function DashboardView({ setView }: { setView: (v: AdminView) => void }) {
   const criticalIssues = recentIssues.filter((i: any) => i.severity === 'critical' || i.severity === 'high').slice(0, 3);
 
   return (
-    <div className="p-6 space-y-6" style={{ animation: 'fadeUp 0.3s ease-out' }}>
+    <div className="p-4 sm:p-6 space-y-6" style={{ animation: 'fadeUp 0.3s ease-out' }}>
       {/* Export row */}
       <div className="flex justify-end gap-2">
         <button className="btn-secondary h-9 px-4 text-xs font-semibold flex items-center gap-2 border border-border-subtle bg-base-850 hover:bg-base-800 text-content-primary">
@@ -349,13 +355,13 @@ function DashboardView({ setView }: { setView: (v: AdminView) => void }) {
       </div>
 
       {/* Row 1: Status Distribution & SLA Compliance */}
-      <div className="grid lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Pie Chart */}
         <div className="card p-5 border border-border-subtle">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-bold text-content-primary text-sm">Status Distribution</h3>
           </div>
-          <div className="flex items-center justify-center h-44 w-full">
+          <div className="flex items-center justify-center min-h-44 w-full">
             {pieSlices.length > 0 && pieSlices.some((s: any) => s.value > 0) ? (
               <PieChart slices={pieSlices} />
             ) : (
@@ -370,9 +376,9 @@ function DashboardView({ setView }: { setView: (v: AdminView) => void }) {
             <h3 className="font-bold text-content-primary text-sm">SLA Compliance Rate</h3>
           </div>
           {totalIssues > 0 ? (
-            <div className="flex items-center gap-6 h-44">
+            <div className="flex flex-col sm:flex-row items-center gap-6 sm:h-44">
               <DonutChart pct={resolutionRate} color="#4ADE80" label="Resolution rate" />
-              <div className="flex-1 space-y-3">
+              <div className="flex-1 w-full space-y-3">
                 {[
                   { label: 'Resolved Reports', val: resolvedIssues, color: '#4ADE80' },
                   { label: 'Pending Reports',  val: totalIssues - resolvedIssues, color: '#EF4444' },
@@ -397,7 +403,7 @@ function DashboardView({ setView }: { setView: (v: AdminView) => void }) {
       </div>
 
       {/* Row 3: Actionable Feeds & Department Satisfaction */}
-      <div className="grid lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Critical Issues / Actions Required */}
         <div className="card p-5 border border-border-subtle lg:col-span-1 flex flex-col h-80">
           <div className="flex items-center justify-between mb-4 pb-2 border-b border-border-subtle/50 shrink-0">
@@ -517,6 +523,7 @@ function IssueManagementView() {
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<Status | 'All' | 'Unresolved'>('All');
   const [filterSev, setFilterSev] = useState<Severity | 'All'>('All');
+  const [needsReviewOnly, setNeedsReviewOnly] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [selected, setSelected] = useState<number[]>([]);
 
@@ -532,7 +539,8 @@ function IssueManagementView() {
       limit: 25,
       search: search || undefined,
       status: filterStatus === 'All' ? undefined : (filterStatus === 'Unresolved' ? 'unresolved' : filterStatus.toLowerCase().replace(' ', '_')),
-      severity: filterSev === 'All' ? undefined : filterSev.toLowerCase()
+      severity: filterSev === 'All' ? undefined : filterSev.toLowerCase(),
+      moderation: needsReviewOnly ? 'held' : undefined
     }).then(res => {
       setIssues(res.data.issues);
       setTotal(res.data.total);
@@ -548,7 +556,7 @@ function IssueManagementView() {
       fetchIssues();
     }, 500);
     return () => clearTimeout(timeoutId);
-  }, [page, search, filterStatus, filterSev]);
+  }, [page, search, filterStatus, filterSev, needsReviewOnly]);
 
   const toggle = (id: number) => setSelected(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
   const toggleAll = () => setSelected(p => p.length === issues.length ? [] : issues.map(i => i.id));
@@ -573,7 +581,7 @@ function IssueManagementView() {
   const mapSev = (s: string): Severity => s === 'critical' ? 'Critical' : s === 'high' ? 'High' : s === 'medium' ? 'Medium' : 'Low';
 
   return (
-    <div className="p-6 space-y-5" style={{ animation: 'fadeUp 0.3s ease-out' }}>
+    <div className="p-4 sm:p-6 space-y-5" style={{ animation: 'fadeUp 0.3s ease-out' }}>
       {/* Search + filter bar */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
@@ -606,6 +614,13 @@ function IssueManagementView() {
         >
           <span className={`w-1.5 h-1.5 rounded-full ${filterStatus === 'Unresolved' ? 'bg-accent-secondary animate-pulse' : 'bg-content-secondary/40'}`} />
           Unresolved Only
+        </button>
+
+        <button
+          onClick={() => { setNeedsReviewOnly(v => !v); setPage(1); }}
+          className={`h-10 px-4 rounded-xl text-sm font-semibold border transition-all ${needsReviewOnly ? 'border-state-warning/40 bg-state-warning/10 text-state-warning' : 'border-border-subtle bg-base-850 text-content-secondary'}`}
+        >
+          Needs Review
         </button>
 
         <button
@@ -646,7 +661,7 @@ function IssueManagementView() {
 
       {/* Bulk actions */}
       {selected.length > 0 && (
-        <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-accent-secondary/10 border border-accent-secondary/20">
+        <div className="flex flex-wrap items-center gap-3 px-4 py-2.5 rounded-xl bg-accent-secondary/10 border border-accent-secondary/20">
           <span className="text-sm text-accent-secondary font-medium">{selected.length} selected</span>
           <div className="flex-1" />
           <button onClick={() => handleBulkAction('acknowledged')} className="btn-outline text-xs py-1 px-3 h-7">Acknowledge</button>
@@ -699,6 +714,9 @@ function IssueManagementView() {
                     <span className="text-sm text-content-primary group-hover:text-accent-secondary transition-colors font-medium truncate block">
                       {issue.title}
                     </span>
+                    {issue.moderation_status === 'held' && (
+                      <span className="text-[10px] font-semibold text-state-warning">Needs review</span>
+                    )}
                   </td>
                   <td className="px-4 py-3.5">
                     <span className="text-sm text-content-secondary">{issue.category_name}</span>
@@ -837,7 +855,7 @@ function UsersManagementView() {
   const totalPages = Math.ceil(total / 25) || 1;
 
   return (
-    <div className="p-6 space-y-5" style={{ animation: 'fadeUp 0.3s ease-out' }}>
+    <div className="p-4 sm:p-6 space-y-5" style={{ animation: 'fadeUp 0.3s ease-out' }}>
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1 max-w-md">
           <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-content-secondary" />
@@ -943,7 +961,7 @@ function UsersManagementView() {
                   ) : (
                     <span className="text-2xl font-bold text-accent-secondary">{selectedUser.name?.[0]?.toUpperCase()}</span>
                   )}
-                  <label className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-1 cursor-pointer transition-opacity text-white text-[10px] font-semibold">
+                  <label className="hover-reveal absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-1 cursor-pointer text-white text-[10px] font-semibold">
                     <Camera size={16} />
                     Change
                     <input 
@@ -1048,9 +1066,9 @@ function LogsView() {
   }, [logs, activeTab]);
 
   return (
-    <div className="p-6 space-y-5" style={{ animation: 'fadeUp 0.3s ease-out' }}>
+    <div className="p-4 sm:p-6 space-y-5" style={{ animation: 'fadeUp 0.3s ease-out' }}>
       {/* Sleek Tab Switcher Bar */}
-      <div className="flex gap-2 border-b border-border-subtle pb-2">
+      <div className="flex flex-wrap gap-2 border-b border-border-subtle pb-2">
         <button
           onClick={() => handleTabChange('users')}
           className={`px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all duration-200 rounded-lg ${activeTab === 'users' ? 'bg-accent-secondary text-black shadow-glow-secondary' : 'text-content-secondary hover:text-content-primary hover:bg-base-850'}`}
@@ -1300,7 +1318,7 @@ function SettingsView() {
   }
 
   return (
-    <form onSubmit={handleSave} className="p-6 space-y-6 max-w-4xl" style={{ animation: 'fadeUp 0.35s ease-out' }}>
+    <form onSubmit={handleSave} className="p-4 sm:p-6 space-y-6 max-w-4xl" style={{ animation: 'fadeUp 0.35s ease-out' }}>
       {/* Header Info */}
       <div className="flex items-center justify-between">
         <div>
@@ -1540,10 +1558,16 @@ function AdminDashboardContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const viewParam = searchParams.get('view') as AdminView;
-  const { user } = useAuthStore();
+  const { user, isLoading } = useAuthStore();
+  const isStaff = user?.role === 'admin' || user?.role === 'department_staff';
 
   const [view, setView] = useState<AdminView>('dashboard');
   const [darkMode, setDarkMode] = useState(true);
+
+  useEffect(() => {
+    if (isLoading || isStaff) return;
+    router.replace(user ? '/dashboard' : '/login?redirect=/admin');
+  }, [isLoading, isStaff, user, router]);
 
   useEffect(() => {
     if (viewParam === 'analytics') {
@@ -1568,6 +1592,14 @@ function AdminDashboardContent() {
     router.push(`/admin?view=${newView}`);
   };
 
+  if (!isStaff) {
+    return (
+      <div className="min-h-screen bg-base-950 flex items-center justify-center">
+        <Loader2 className="animate-spin text-accent-primary" size={32} />
+      </div>
+    );
+  }
+
   return (
     <>
       <style>{`
@@ -1577,10 +1609,10 @@ function AdminDashboardContent() {
         }
       `}</style>
 
-      <div className="flex h-screen overflow-hidden bg-base-950">
+      <div className="flex h-dvh overflow-hidden bg-base-950">
         <Sidebar />
 
-        <main className="flex-1 ml-64 h-screen relative flex flex-col overflow-hidden">
+        <main className="flex-1 min-w-0 lg:ml-64 h-dvh relative flex flex-col overflow-hidden">
           {/* Subtle background glow effect */}
           <div className="absolute top-0 inset-x-0 h-[500px] bg-hero-gradient pointer-events-none opacity-50" />
 

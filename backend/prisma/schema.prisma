@@ -111,7 +111,9 @@ model Subcategory {
 
 model Issue {
   id             String        @id @default(uuid()) @db.Uuid
-  user_id         String        @db.Uuid
+  user_id         String?       @db.Uuid
+  moderation_status String      @default("approved") @db.VarChar(20)
+  publish_after   DateTime?     @db.Timestamptz
   title          String        @db.VarChar(255)
   description    String        @db.Text
   category_id     String?       @db.Uuid
@@ -137,7 +139,7 @@ model Issue {
   updated_at      DateTime      @default(now()) @updatedAt @db.Timestamptz
   resolved_at     DateTime?     @db.Timestamptz
 
-  user         User         @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user         User?        @relation(fields: [user_id], references: [id], onDelete: Cascade)
   category     Category?    @relation(fields: [category_id], references: [id])
   subcategory  Subcategory? @relation(fields: [subcategory_id], references: [id])
   assignedUser User?        @relation("AssignedIssues", fields: [assigned_to], references: [id])

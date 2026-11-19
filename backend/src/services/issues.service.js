@@ -29,6 +29,101 @@ const ISSUE_SELECT = `
   c.icon        AS category_icon
 `;
 
+/**
+ * Prepare an issue row for a public response. Reporter details on anonymous
+ * issues are only returned to the reporter themselves.
+ */
+function presentIssue(issue, viewerId) {
+  const is_owner = !!viewerId && issue.user_id === viewerId;
+  if (!issue.is_anonymous || is_owner) return { ...issue, is_owner };
+  return { ...issue, is_owner, user_id: null, reporter_name: null, reporter_avatar: null, reporter_trust: null };
+}
+
+// Anonymous reports are held for review and publish themselves once the window
+// passes. Computing this at read time means there is no job that can be missed.
+const PUBLIC_ISSUE_SQL = `(i.moderation_status = 'approved' OR (i.moderation_status = 'held' AND i.publish_after <= NOW()))`;
+const ANONYMOUS_REVIEW_HOURS = 24;
+const ANONYMOUS_VERIFICATION_DAYS = 7;
+const SLA_HOURS = { low: 120, medium: 72, high: 48, critical: 24 };
+
+/** Insert a report, its media and first history entry inside the caller's transaction. */
+async function insertReport(client, { userId, fields, isAnonymous, media, holdForReview, historyComment }) {
+  const { title, description, category_id, subcategory_id, severity, latitude, longitude, address } = fields;
+  const slaHours = SLA_HOURS[severity] || 72;
+  const slaDeadline = new Date(Date.now() + slaHours * 60 * 60 * 1000);
+  const publishAfter = holdForReview ? new Date(Date.now() + ANONYMOUS_REVIEW_HOURS * 60 * 60 * 1000) : null;
+
+  const result = await client.query(`
+    INSERT INTO issues (user_id, title, description, category_id, subcategory_id, severity, location, latitude, longitude, address, is_anonymous, sla_hours, sla_deadline, moderation_status, publish_after)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+    RETURNING *
+  `, [userId, title, description, category_id, subcategory_id || null, severity, `POINT(${longitude} ${latitude})`, parseFloat(latitude), parseFloat(longitude), address, isAnonymous, slaHours, slaDeadline, holdForReview ? 'held' : 'approved', publishAfter]);
+  const issue = result.rows[0];
+
+  for (const { mediaUrl, publicId, mediaType } of media) {
+    await client.query(
+      'INSERT INTO issue_media (issue_id, media_url, public_id, media_type) VALUES ($1, $2, $3, $4)',
+      [issue.id, mediaUrl, publicId, mediaType]
+    );
+  }
+
+  await client.query(
+    'INSERT INTO issue_status_history (issue_id, old_status, new_status, updated_by, comment, is_public) VALUES ($1, NULL, $2, $3, $4, TRUE)',
+    [issue.id, 'reported', userId, historyComment]
+  );
+  return issue;
+}
+
+/** Apply a reporter's accept/reject decision inside the caller's transaction. */
+async function recordResolutionDecision(client, issue, { approved, comment, actorId }) {
+  const nextStatus = approved ? 'resolved' : 'in_progress';
+  const updated = await client.query(
+    'UPDATE issues SET status = $1, resolved_at = $2, updated_at = NOW() WHERE id = $3 RETURNING *',
+    [nextStatus, approved ? new Date() : null, issue.id]
+  );
+  const note = approved
+    ? 'Resolution approved by reporter.'
+    : `Resolution rejected by reporter. Note: ${comment || 'None'}`;
+  await client.query(
+    'INSERT INTO issue_status_history (issue_id, old_status, new_status, updated_by, comment) VALUES ($1, $2, $3, $4, $5)',
+    [issue.id, issue.status, nextStatus, actorId, note]
+  );
+  const notifications = await notifyFollowers(client, { issueId: issue.id, issueTitle: issue.title, newStatus: nextStatus, actorId });
+  return { nextStatus, updatedIssue: updated.rows[0], notifications };
+}
+
+/** An anonymous reporter can lose their token, so an unanswered resolution eventually closes. */
+async function closeUnansweredAnonymousReports() {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const expired = await client.query(`
+      SELECT i.id, i.title, i.status FROM issues i
+      WHERE i.user_id IS NULL AND i.status = 'pending_verification'
+        AND (SELECT MAX(h.updated_at) FROM issue_status_history h
+             WHERE h.issue_id = i.id AND h.new_status = 'pending_verification')
+            < NOW() - make_interval(days => $1)
+      FOR UPDATE
+    `, [ANONYMOUS_VERIFICATION_DAYS]);
+
+    for (const issue of expired.rows) {
+      await client.query(`UPDATE issues SET status = 'resolved', resolved_at = NOW(), updated_at = NOW() WHERE id = $1`, [issue.id]);
+      await client.query(
+        'INSERT INTO issue_status_history (issue_id, old_status, new_status, updated_by, comment) VALUES ($1, $2, $3, NULL, $4)',
+        [issue.id, issue.status, 'resolved', `Closed automatically: no response from the anonymous reporter within ${ANONYMOUS_VERIFICATION_DAYS} days.`]
+      );
+      await notifyFollowers(client, { issueId: issue.id, issueTitle: issue.title, newStatus: 'resolved' });
+    }
+    await client.query('COMMIT');
+    return expired.rows.length;
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 // ── Category queries ──────────────────────────────────────────────────────────
 
 async function getAllCategories() {
@@ -232,7 +327,7 @@ async function notifyFollowers(client, { issueId, issueTitle, newStatus, actorId
       UNION
       SELECT user_id FROM votes WHERE issue_id = $1 AND vote_type = 'upvote'
       UNION
-      SELECT user_id AS user_id FROM issues WHERE id = $1
+      SELECT user_id AS user_id FROM issues WHERE id = $1 AND user_id IS NOT NULL
     ) AS recipients
   `;
   const result = await client.query(sql, [issueId]);
@@ -313,6 +408,11 @@ async function getUserInteraction(issueId, userId) {
 }
 
 module.exports = {
+  PUBLIC_ISSUE_SQL,
+  insertReport,
+  recordResolutionDecision,
+  closeUnansweredAnonymousReports,
+  presentIssue,
   getAllCategories,
   listIssues,
   getIssueById,

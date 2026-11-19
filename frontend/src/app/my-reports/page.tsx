@@ -186,10 +186,10 @@ export default function MyReportsPage() {
       title="My Reports"
       sub={`${total} issue${total !== 1 ? 's' : ''} submitted`}
       headerActions={
-        <Link href="/report"
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-200 shadow-md shadow-accent-primary/20 hover:shadow-accent-primary/30 hover:-translate-y-0.5"
+        <Link href="/report" aria-label="New Report"
+          className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-200 shadow-md shadow-accent-primary/20 hover:shadow-accent-primary/30 hover:-translate-y-0.5"
           style={{ background: 'linear-gradient(135deg, #6366F1, #3B82F6)', color: '#FFFFFF' }}>
-          <Plus size={14} /> New Report
+          <Plus size={14} /> <span className="hidden sm:inline">New Report</span>
         </Link>
       }
     >
@@ -206,9 +206,9 @@ export default function MyReportsPage() {
       )}
 
       {/* Controls */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-4">
+      <div className="flex flex-wrap gap-3 mb-4">
         {/* Search */}
-        <div className="relative flex-1">
+        <div className="relative basis-full sm:basis-0 sm:flex-1">
           <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-content-secondary" />
           <input type="text" placeholder="Search your reports…" value={search}
             onChange={e => setSearch(e.target.value)}

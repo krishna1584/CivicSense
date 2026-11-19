@@ -1,7 +1,7 @@
 const express = require('express');
 const pool = require('../db/pool');
-const { auth, requireRole } = require('../middleware/auth');
-const { upload } = require('../middleware/upload');
+const { auth, requireRole, optionalAuth } = require('../middleware/auth');
+const { uploadAvatar, storeUpload } = require('../middleware/upload');
 
 const router = express.Router();
 
@@ -117,7 +117,7 @@ router.get('/me/notifications/unread-count', auth, async (req, res) => {
 });
 
 // GET /api/users/:id/profile
-router.get('/:id/profile', async (req, res) => {
+router.get('/:id/profile', optionalAuth, async (req, res) => {
   try {
     const user = await pool.query(
       'SELECT id, name, avatar_url, trust_score, role, created_at FROM users WHERE id = $1 AND is_active = TRUE',
@@ -139,7 +139,7 @@ router.get('/:id/profile', async (req, res) => {
           COUNT(r.id) AS satisfaction_reviews
         FROM issue_reviews r
         JOIN issues i ON r.issue_id = i.id
-        WHERE i.user_id = $1 AND r.is_hidden = FALSE AND r.target_user_id IS NULL
+        WHERE i.user_id = $1 AND i.is_anonymous = FALSE AND r.is_hidden = FALSE AND r.target_user_id IS NULL
       `, [req.params.id]),
       pool.query(`
         SELECT r.id, r.rating, r.comment, r.created_at,
@@ -149,8 +149,9 @@ router.get('/:id/profile', async (req, res) => {
         JOIN users u ON r.user_id = u.id
         JOIN issues i ON r.issue_id = i.id
         WHERE r.target_user_id = $1 AND r.is_hidden = FALSE
+          AND (i.is_anonymous = FALSE OR r.target_user_id = $2)
         ORDER BY r.created_at DESC
-      `, [req.params.id]),
+      `, [req.params.id, req.user?.id || null]),
     ]);
 
     res.json({
@@ -200,10 +201,9 @@ router.get('/:id/issues', async (req, res) => {
 
 
 // PATCH /api/users/me
-router.patch('/me', auth, upload.single('avatar'), async (req, res) => {
+router.patch('/me', auth, uploadAvatar.single('avatar'), async (req, res) => {
   const { name, address } = req.body;
   const userId = req.user.id;
-  let avatarUrl = null;
 
   try {
     const updates = [];
@@ -221,37 +221,9 @@ router.patch('/me', auth, upload.single('avatar'), async (req, res) => {
     }
 
     if (req.file) {
-      const cloudinaryConfigured = process.env.CLOUDINARY_CLOUD_NAME &&
-        process.env.CLOUDINARY_CLOUD_NAME !== 'your_cloud_name';
-
-      if (cloudinaryConfigured) {
-        const { uploadToCloudinary } = require('../middleware/upload');
-        try {
-          const result = await uploadToCloudinary(req.file.buffer, {
-            folder: 'civicsense/avatars',
-            resource_type: 'image',
-            public_id: `avatar_${userId}_${Date.now()}`,
-          });
-          avatarUrl = result.secure_url;
-        } catch (err) {
-          console.warn('Cloudinary upload failed for avatar, falling back to local storage:', err.message);
-        }
-      }
-
-      // Local storage fallback if Cloudinary is not configured or failed
-      if (!avatarUrl) {
-        const fs = require('fs').promises;
-        const path = require('path');
-        const ext = path.extname(req.file.originalname) || '.jpg';
-        const fileName = `avatar_${userId}_${Date.now()}${ext}`;
-        const uploadDir = path.join(__dirname, '../../public/uploads');
-        await fs.mkdir(uploadDir, { recursive: true });
-        await fs.writeFile(path.join(uploadDir, fileName), req.file.buffer);
-        avatarUrl = `${req.protocol}://${req.get('host')}/uploads/${fileName}`;
-      }
-
+      const { mediaUrl } = await storeUpload(req.file, req, { folder: 'civicsense/avatars', prefix: `avatar_${userId}` });
       updates.push(`avatar_url = $${idx++}`);
-      values.push(avatarUrl);
+      values.push(mediaUrl);
     }
 
     if (updates.length === 0) {
@@ -263,7 +235,7 @@ router.patch('/me', auth, upload.single('avatar'), async (req, res) => {
       UPDATE users 
       SET ${updates.join(', ')}, updated_at = NOW() 
       WHERE id = $${idx} 
-      RETURNING id, name, email, role, trust_score, avatar_url, address, created_at
+      RETURNING id, name, email, role, trust_score, avatar_url, address, is_verified, created_at
     `;
 
     const result = await pool.query(query, values);

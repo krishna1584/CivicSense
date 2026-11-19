@@ -6,12 +6,12 @@ import { useAuthStore } from '@/lib/store';
 import { authApi } from '@/lib/api';
 
 const features = [
-  { icon: MapPin, title: 'Location-Based Reporting', desc: 'GPS-powered issue pinning with reverse geocoding and proximity search.' },
+  { icon: MapPin, title: 'Location-Based Reporting', desc: 'Report issues with your GPS coordinates and a clear location description.' },
   { icon: TrendingUp, title: 'Real-Time Tracking', desc: 'Live status updates via WebSocket. Watch your issue move from Reported to Resolved.' },
   { icon: Shield, title: 'Transparent Audit Trail', desc: 'Every status change, admin action, and resolution is publicly logged forever.' },
-  { icon: BarChart3, title: 'Analytics Dashboard', desc: 'City-level KPIs: resolution rates, SLA adherence, department performance.' },
+  { icon: BarChart3, title: 'Analytics Dashboard', desc: 'City-level KPIs: resolution rates, workload, and citizen satisfaction by department.' },
   { icon: Globe, title: 'Community Engagement', desc: 'Upvote, follow, and comment. Civic impact measured by real community data.' },
-  { icon: Zap, title: 'Admin Command Center', desc: 'Bulk actions, heatmaps, SLA timers, and department assignment workflows.' },
+  { icon: Zap, title: 'Admin Command Center', desc: 'Bulk actions, audit logs, and department assignment workflows.' },
 ];
 
 const stats = [
@@ -32,15 +32,15 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-base-950">
       <nav className="fixed top-0 left-0 right-0 z-50 glass-panel">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5 group">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
+          <Link href="/" className="flex items-center gap-2.5 group shrink-0">
             <div className="w-8 h-8 rounded-lg bg-accent-primary/15 flex items-center justify-center group-hover:bg-accent-primary/25 transition-colors">
               <Hexagon size={16} className="text-accent-primary" />
             </div>
-            <span className="font-bold text-lg text-content-primary">Civic<span className="text-accent-secondary">Sense</span></span>
+            <span className="hidden min-[360px]:inline font-bold text-lg text-content-primary">Civic<span className="text-accent-secondary">Sense</span></span>
           </Link>
-          <div className="flex items-center gap-4">
-            <Link href="/explore" className="text-content-muted hover:text-content-primary text-sm transition-colors">Explore</Link>
+          <div className="flex items-center gap-2 sm:gap-4 [&>a]:whitespace-nowrap [&>button]:whitespace-nowrap">
+            <Link href="/explore" className="hidden sm:inline text-content-muted hover:text-content-primary text-sm transition-colors">Explore</Link>
             {isLoading ? (
               <div className="w-24 h-8 rounded-lg bg-base-800 animate-pulse" />
             ) : user ? (
@@ -48,21 +48,21 @@ export default function LandingPage() {
                 <Link href={user.role === 'admin' || user.role === 'department_staff' ? '/admin' : '/dashboard'} className="btn-primary text-sm py-2 px-4">
                   Dashboard
                 </Link>
-                <button onClick={handleLogout} className="btn-secondary text-sm py-2 px-4">
+                <button onClick={handleLogout} className="hidden sm:inline-flex btn-secondary text-sm py-2 px-4">
                   Sign Out
                 </button>
               </>
             ) : (
               <>
-                <Link href="/login" className="btn-secondary text-sm py-2 px-4">Sign In</Link>
-                <Link href="/register" className="btn-primary text-sm py-2 px-4">Get Started</Link>
+                <Link href="/login" className="btn-secondary text-sm py-2 px-3 sm:px-4">Sign In</Link>
+                <Link href="/register" className="btn-primary text-sm py-2 px-3 sm:px-4">Get Started</Link>
               </>
             )}
           </div>
         </div>
       </nav>
 
-      <section className="relative pt-32 pb-24 px-6 overflow-hidden">
+      <section className="relative pt-24 sm:pt-32 pb-16 sm:pb-24 px-4 sm:px-6 overflow-hidden">
         <div className="absolute inset-0 bg-grid opacity-100" />
         <div className="absolute inset-0 bg-hero-gradient" />
         <div className="absolute inset-0 bg-hero-glow-alt" />
@@ -73,13 +73,13 @@ export default function LandingPage() {
             <span className="text-accent-primary text-xs font-medium uppercase tracking-widest">System Operational</span>
           </div>
 
-          <h1 className="text-6xl md:text-7xl font-black mb-6 leading-[1.05] tracking-tight">
+          <h1 className="text-4xl sm:text-6xl md:text-7xl font-black mb-6 leading-[1.05] tracking-tight">
             <span className="text-gradient">Empower Your City.</span>
             <br />
             <span className="text-accent-secondary">In Real Time.</span>
           </h1>
 
-          <p className="text-xl text-content-muted max-w-2xl mx-auto mb-10 leading-relaxed">
+          <p className="text-lg sm:text-xl text-content-muted max-w-2xl mx-auto mb-10 leading-relaxed">
             Report public infrastructure issues, track government response, and demand transparency—all in one civic intelligence platform.
           </p>
 
@@ -101,11 +101,17 @@ export default function LandingPage() {
               Explore Issues
             </Link>
           </div>
+
+          <p className="mt-6 text-sm text-content-muted">
+            <Link href="/report/anonymous" className="text-accent-secondary font-semibold hover:underline">Report anonymously, no account needed</Link>
+            <span className="mx-2">·</span>
+            <Link href="/track" className="hover:text-content-primary hover:underline">Track an anonymous report</Link>
+          </p>
         </div>
       </section>
 
       <section className="py-10 border-y border-border-subtle bg-base-900">
-        <div className="max-w-5xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-8">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 grid grid-cols-2 md:grid-cols-4 gap-8">
           {stats.map((s) => (
             <div key={s.label} className="text-center">
               <div className="text-3xl font-black text-accent-secondary mb-1">{s.value}</div>
@@ -115,11 +121,11 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="py-24 px-6">
+      <section className="py-16 sm:py-24 px-4 sm:px-6">
         <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-16">
+          <div className="text-center mb-10 sm:mb-16">
             <p className="label-micro mb-3 text-accent-primary">Platform Features</p>
-            <h2 className="text-4xl font-bold text-gradient">Built for Civic Accountability</h2>
+            <h2 className="text-3xl sm:text-4xl font-bold text-gradient">Built for Civic Accountability</h2>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
             {features.map((f) => {
@@ -138,19 +144,19 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="py-24 px-6">
-        <div className="max-w-3xl mx-auto text-center card p-12 relative overflow-hidden">
+      <section className="pb-16 sm:py-24 px-4 sm:px-6">
+        <div className="max-w-3xl mx-auto text-center card p-6 sm:p-12 relative overflow-hidden">
           <div className="absolute inset-0 bg-accent-primary/[0.03] rounded-2xl" />
           <div className="relative">
             {isLoading ? (
               <div className="space-y-4 flex flex-col items-center">
                 <div className="h-10 w-64 bg-base-800 rounded-lg animate-pulse" />
-                <div className="h-4 w-96 bg-base-800 rounded-lg animate-pulse" />
+                <div className="h-4 w-full max-w-96 bg-base-800 rounded-lg animate-pulse" />
                 <div className="h-12 w-48 bg-base-800 rounded-xl animate-pulse mt-4" />
               </div>
             ) : user ? (
               <>
-                <h2 className="text-4xl font-bold mb-4 text-gradient">Welcome back, {user.name}!</h2>
+                <h2 className="text-3xl sm:text-4xl font-bold mb-4 text-gradient break-words">Welcome back, {user.name}!</h2>
                 <p className="text-content-secondary mb-8">Access your personalized dashboard to track issues and browse notifications.</p>
                 <Link href={user.role === 'admin' || user.role === 'department_staff' ? '/admin' : '/dashboard'} className="btn-primary inline-flex items-center gap-2 text-base py-3 px-10">
                   Go to Dashboard
@@ -159,7 +165,7 @@ export default function LandingPage() {
               </>
             ) : (
               <>
-                <h2 className="text-4xl font-bold mb-4 text-gradient">Ready to Make Your Voice Count?</h2>
+                <h2 className="text-3xl sm:text-4xl font-bold mb-4 text-gradient">Ready to Make Your Voice Count?</h2>
                 <p className="text-content-secondary mb-8">Join thousands of citizens driving civic change through data and transparency.</p>
                 <Link href="/register" className="btn-primary inline-flex items-center gap-2 text-base py-3 px-10">
                   Start Reporting Free
@@ -172,7 +178,7 @@ export default function LandingPage() {
       </section>
 
       <footer className="border-t border-border-subtle py-8 px-6">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
           <span className="font-bold text-content-primary">Civic<span className="text-accent-secondary">Sense</span></span>
           <p className="text-content-muted text-sm">© 2026 CivicSense. All rights reserved.</p>
         </div>

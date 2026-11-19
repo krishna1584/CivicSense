@@ -1,8 +1,8 @@
 'use client';
 
-import { Bell, Moon, Sun } from 'lucide-react';
+import { Bell, Menu, Moon, Sun } from 'lucide-react';
 import Link from 'next/link';
-import { useAuthStore, useNotificationStore } from '@/lib/store';
+import { useAuthStore, useNotificationStore, useUiStore } from '@/lib/store';
 import { useTheme } from '@/components/providers/ThemeProvider';
 
 const formatMediaUrl = (url: string) => {
@@ -26,6 +26,7 @@ export function TopBar({ title, sub, actions }: TopBarProps) {
   const { user } = useAuthStore();
   const { unreadCount } = useNotificationStore();
   const { theme, toggleTheme } = useTheme();
+  const { sidebarOpen, setSidebarOpen } = useUiStore();
 
   const avatarUrl = user?.avatar_url ? formatMediaUrl(user.avatar_url) : '';
   const initials = user?.name ? user.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) : 'AU';
@@ -33,13 +34,22 @@ export function TopBar({ title, sub, actions }: TopBarProps) {
   const displayRole = user?.role ? user.role.replace('_', ' ') : 'Admin';
 
   return (
-    <header className="sticky top-0 z-30 bg-base-900/80 backdrop-blur-xl border-b border-border-subtle h-14 flex items-center px-6 gap-4 shrink-0">
+    <header className="sticky top-0 z-30 bg-base-900/80 backdrop-blur-xl border-b border-border-subtle h-14 flex items-center px-3 sm:px-6 gap-2 sm:gap-4 shrink-0">
+      <button
+        onClick={() => setSidebarOpen(true)}
+        aria-label="Open menu"
+        aria-expanded={sidebarOpen}
+        className="lg:hidden w-9 h-9 flex items-center justify-center rounded-lg text-content-secondary hover:bg-base-850 shrink-0"
+      >
+        <Menu size={20} />
+      </button>
+
       <div className="flex-1 min-w-0">
         {title && <h1 className="font-bold text-base text-content-primary leading-tight truncate">{title}</h1>}
-        {sub && <p className="text-[10px] text-content-muted truncate">{sub}</p>}
+        {sub && <p className="hidden sm:block text-[10px] text-content-muted truncate">{sub}</p>}
       </div>
 
-      {actions && <div className="flex items-center gap-2">{actions}</div>}
+      {actions && <div className="flex items-center gap-2 shrink-0">{actions}</div>}
 
       <button
         onClick={toggleTheme}
@@ -69,7 +79,7 @@ export function TopBar({ title, sub, actions }: TopBarProps) {
       )}
 
       {user && (
-        <Link href="/profile" className="flex items-center gap-2.5 cursor-pointer group shrink-0">
+        <Link href="/profile" className="hidden sm:flex items-center gap-2.5 cursor-pointer group shrink-0">
           <div className="w-8 h-8 rounded-full bg-accent-secondary/10 border border-accent-secondary/20 flex items-center justify-center text-xs font-bold text-accent-secondary overflow-hidden group-hover:border-accent-secondary/40 transition-all duration-200">
             {avatarUrl ? (
               <img src={avatarUrl} alt={displayName} className="w-full h-full object-cover" />

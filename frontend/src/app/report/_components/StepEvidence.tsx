@@ -1,15 +1,26 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Upload, X, FileImage } from 'lucide-react';
+import { ACCEPTED_MEDIA_TYPES, MAX_MEDIA_FILES, MAX_MEDIA_SIZE_MB } from './types';
 
 interface Props {
   files: File[];
   onFilesChange: (files: File[]) => void;
+  acceptedTypes?: string[];
+  maxSizeMb?: number;
+  formatsLabel?: string;
 }
 
-export function StepEvidence({ files, onFilesChange }: Props) {
+export function StepEvidence({
+  files,
+  onFilesChange,
+  acceptedTypes = ACCEPTED_MEDIA_TYPES,
+  maxSizeMb = MAX_MEDIA_SIZE_MB,
+  formatsLabel = 'JPG, PNG, WEBP, GIF, MP4, MOV',
+}: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [previews, setPreviews] = useState<string[]>([]);
+  const [notice, setNotice] = useState('');
 
   // Regenerate object-URL previews whenever files change
   useEffect(() => {
@@ -19,8 +30,15 @@ export function StepEvidence({ files, onFilesChange }: Props) {
   }, [files]);
 
   const addFiles = (incoming: File[]) => {
-    const valid = incoming.filter(f => f.type.startsWith('image/') || f.type.startsWith('video/'));
-    onFilesChange([...files, ...valid].slice(0, 5));
+    const problems: string[] = [];
+    const valid = incoming.filter(f => {
+      if (!acceptedTypes.includes(f.type)) { problems.push(`${f.name}: unsupported file type`); return false; }
+      if (f.size > maxSizeMb * 1024 * 1024) { problems.push(`${f.name}: larger than ${maxSizeMb} MB`); return false; }
+      return true;
+    });
+    if (files.length + valid.length > MAX_MEDIA_FILES) problems.push(`Only ${MAX_MEDIA_FILES} files can be attached.`);
+    setNotice(problems.join(' · '));
+    onFilesChange([...files, ...valid].slice(0, MAX_MEDIA_FILES));
   };
 
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -37,7 +55,7 @@ export function StepEvidence({ files, onFilesChange }: Props) {
       <div className="card p-5">
         <label className="label-micro block mb-3">
           Photo / Video Evidence{' '}
-          <span className="text-content-muted normal-case tracking-normal font-normal">(optional — up to 5 files)</span>
+          <span className="text-content-muted normal-case tracking-normal font-normal">(required — up to {MAX_MEDIA_FILES} files)</span>
         </label>
 
         {/* Drop zone */}
@@ -46,7 +64,7 @@ export function StepEvidence({ files, onFilesChange }: Props) {
           onDragOver={e => { e.preventDefault(); setDragging(true); }}
           onDragLeave={() => setDragging(false)}
           onClick={() => fileInputRef.current?.click()}
-          className="border-2 border-dashed rounded-xl p-10 text-center transition-all cursor-pointer"
+          className="border-2 border-dashed rounded-xl p-6 sm:p-10 text-center transition-all cursor-pointer"
           style={{
             borderColor: dragging ? 'rgb(var(--accent-primary))' : 'rgb(var(--border-subtle))',
             background:  dragging ? 'rgb(var(--accent-primary) / 0.04)' : 'transparent',
@@ -56,16 +74,22 @@ export function StepEvidence({ files, onFilesChange }: Props) {
           <p className="text-sm font-medium" style={{ color: dragging ? 'rgb(var(--accent-primary))' : 'rgb(var(--content-muted))' }}>
             Drag &amp; drop or click to upload
           </p>
-          <p className="text-xs text-content-muted mt-1">JPG, PNG, MP4 · Max 50 MB each</p>
+          <p className="text-xs text-content-muted mt-1">{formatsLabel} · Max {maxSizeMb} MB each</p>
           <input
             ref={fileInputRef}
             type="file"
             multiple
-            accept="image/*,video/*"
+            accept={acceptedTypes.join(',')}
             className="hidden"
-            onChange={e => addFiles(Array.from(e.target.files || []))}
+            onClick={e => e.stopPropagation()}
+            onChange={e => {
+              addFiles(Array.from(e.target.files || []));
+              e.target.value = ''; // lets the same file be chosen again after removing it
+            }}
           />
         </div>
+
+        {notice && <p className="text-xs text-state-error mt-3">{notice}</p>}
 
         {/* File grid */}
         {files.length > 0 && (
@@ -89,9 +113,10 @@ export function StepEvidence({ files, onFilesChange }: Props) {
                 </div>
                 <button
                   onClick={e => { e.stopPropagation(); removeFile(i); }}
-                  className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  aria-label={`Remove ${f.name}`}
+                  className="hover-reveal absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 flex items-center justify-center"
                 >
-                  <X size={12} className="text-content-primary" />
+                  <X size={13} className="text-white" />
                 </button>
               </div>
             ))}

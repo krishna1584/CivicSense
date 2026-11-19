@@ -112,7 +112,7 @@ function VerifyEmailContent() {
       </div>
 
       <div className="w-full max-w-[460px] relative z-10 animate-slide_up">
-        <div className="rounded-2xl p-8 text-center bg-base-900/90 backdrop-blur-xl border border-border-subtle shadow-card">
+        <div className="rounded-2xl p-5 sm:p-8 text-center bg-base-900/90 backdrop-blur-xl border border-border-subtle shadow-card">
           {success ? (
             <div className="py-8 flex flex-col items-center">
               <div className="w-16 h-16 bg-state-success/10 rounded-full flex items-center justify-center mb-6">
@@ -141,13 +141,13 @@ function VerifyEmailContent() {
               )}
 
               <form onSubmit={(e) => { e.preventDefault(); handleVerification(otp.join('')); }}>
-                <div className="flex items-center justify-center gap-2.5 mb-8">
+                <div className="flex items-center justify-center gap-1.5 sm:gap-2.5 mb-8">
                   {otp.map((digit, idx) => (
                     <input key={idx} ref={el => { inputRefs.current[idx] = el; }}
                       type="text" inputMode="numeric" maxLength={6} value={digit}
                       onChange={e => handleChange(idx, e.target.value)}
                       onKeyDown={e => handleKeyDown(idx, e)}
-                      className="w-12 h-14 rounded-xl text-center text-xl font-bold text-content-primary outline-none transition-all duration-200 bg-base-950 border border-border-subtle focus:border-accent-primary/50 focus:ring-2 focus:ring-accent-primary/10" />
+                      className="flex-1 min-w-0 max-w-12 h-12 sm:h-14 rounded-xl text-center text-xl font-bold text-content-primary outline-none transition-all duration-200 bg-base-950 border border-border-subtle focus:border-accent-primary/50 focus:ring-2 focus:ring-accent-primary/10" />
                   ))}
                 </div>
 

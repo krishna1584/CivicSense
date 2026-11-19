@@ -35,7 +35,7 @@ export function StepReview({ form, categories, files, userName }: Props) {
           label="Location"
           value={form.address || (form.latitude ? `${form.latitude}, ${form.longitude}` : 'Not set')}
         />
-        <ROW label="Anonymous" value={form.is_anonymous ? 'Yes' : 'No'} />
+        <ROW label="Name hidden publicly" value={form.is_anonymous ? 'Yes' : 'No'} />
         <ROW label="Evidence"  value={files.length > 0 ? `${files.length} file(s)` : 'None'} />
         <ROW label="Reported by" value={form.is_anonymous ? 'Anonymous' : userName} />
       </div>

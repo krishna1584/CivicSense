@@ -190,7 +190,7 @@ export default function PublicProfilePage() {
     >
 
       {/* Profile Header Card */}
-      <div className="card p-8 mb-6 relative overflow-hidden">
+      <div className="card p-5 sm:p-8 mb-6 relative overflow-hidden">
         {/* Ambient glow */}
         <div className="absolute -top-12 -right-12 w-56 h-56 bg-accent-primary/8 rounded-full blur-3xl -z-10" />
         <div className="absolute -bottom-8 -left-8 w-40 h-40 bg-accent-secondary/8 rounded-full blur-3xl -z-10" />

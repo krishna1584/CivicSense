@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { issuesApi } from '@/lib/api';
-import { Issue, IssueStatus, Severity } from '@/types';
+import { Category, Issue, IssueStatus, Severity } from '@/types';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { SeverityBadge } from '@/components/ui/SeverityBadge';
 import {
@@ -33,14 +33,17 @@ const SEVERITY_CONFIG: Record<Severity, { color: string; bg: string }> = {
 };
 
 const STATUS_FILTERS: string[] = ['all', 'unresolved', 'reported', 'acknowledged', 'in_progress', 'pending_verification', 'resolved', 'rejected'];
-const CATEGORY_FILTERS = ['All', 'Roads', 'Water', 'Traffic', 'Garbage', 'Electricity', 'Parks', 'Vandalism', 'Other'];
 const SORT_OPTIONS = [
   { value: 'newest', label: 'Most Recent' },
   { value: 'upvotes', label: 'Most Upvoted' },
   { value: 'comments', label: 'Most Commented' },
 ];
 
+const coverImage = (issue: Issue) =>
+  issue.media?.find((m) => m.type === 'image' && !m.is_resolution)?.url;
+
 function IssueCardGrid({ issue, idx }: { issue: Issue; idx: number }) {
+  const image = coverImage(issue);
   return (
     <Link href={`/issues/${issue.id}`}>
       <article
@@ -60,9 +63,9 @@ function IssueCardGrid({ issue, idx }: { issue: Issue; idx: number }) {
         }}
       >
         {/* Image */}
-        {issue.media?.[0]?.url && (
+        {image && (
           <div className="relative h-44 overflow-hidden bg-base-850">
-            <img src={issue.media[0].url} alt={issue.title}
+            <img src={image} alt={issue.title}
               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 opacity-80 group-hover:opacity-100" />
             <div className="absolute top-3 right-3"><StatusBadge status={issue.status} /></div>
             <div className="absolute inset-0 bg-gradient-to-t from-base-900 via-transparent to-transparent" />
@@ -93,12 +96,12 @@ function IssueCardGrid({ issue, idx }: { issue: Issue; idx: number }) {
             </div>
           )}
 
-          {!issue.media?.[0]?.url && (
+          {!image && (
             <div className="mb-3"><StatusBadge status={issue.status} /></div>
           )}
 
           {/* Footer */}
-          <div className="flex items-center justify-between pt-3 border-t border-border-subtle">
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-border-subtle">
             <div className="flex items-center gap-3 text-content-muted text-xs">
               <span className="flex items-center gap-1 hover:text-accent-primary transition-colors"><ThumbsUp size={11} />{issue.upvote_count}</span>
               <span className="flex items-center gap-1"><MessageSquare size={11} />{issue.comment_count}</span>
@@ -118,6 +121,7 @@ function IssueCardGrid({ issue, idx }: { issue: Issue; idx: number }) {
 }
 
 function IssueRow({ issue, idx }: { issue: Issue; idx: number }) {
+  const image = coverImage(issue);
   return (
     <Link href={`/issues/${issue.id}`}>
       <article
@@ -136,9 +140,9 @@ function IssueRow({ issue, idx }: { issue: Issue; idx: number }) {
           e.currentTarget.style.boxShadow = '0 2px 16px -4px rgba(0,0,0,0.4)';
         }}
       >
-        {issue.media?.[0]?.url && (
+        {image && (
           <div className="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 bg-base-850">
-            <img src={issue.media[0].url} alt="" className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
+            <img src={image} alt="" className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
           </div>
         )}
         <div className="flex-1 min-w-0">
@@ -175,18 +179,28 @@ export default function ExplorePage() {
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState('newest');
   const [activeStatus, setActiveStatus] = useState<string>('all');
-  const [activeCategory, setActiveCategory] = useState('All');
+  const [activeCategory, setActiveCategory] = useState('all');
+  const [categories, setCategories] = useState<Category[]>([]);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showFilters, setShowFilters] = useState(false);
   const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loadingMore, setLoadingMore] = useState(false);
 
-  const fetchIssues = useCallback(async () => {
+  useEffect(() => {
+    issuesApi.categories().then((res) => setCategories(res.data.categories || [])).catch(() => {});
+  }, []);
+
+  const fetchIssues = useCallback(async (nextPage = 1) => {
+    const isFirstPage = nextPage === 1;
     try {
-      setLoading(true); setError(null);
-      const params: Record<string, string> = { sort };
+      if (isFirstPage) setLoading(true); else setLoadingMore(true);
+      setError(null);
+      const params: Record<string, string> = { sort, page: String(nextPage) };
       if (search) params.search = search;
       if (activeStatus !== 'all') params.status = activeStatus;
-      if (activeCategory !== 'All') params.category = activeCategory.toLowerCase();
+      if (activeCategory !== 'all') params.category = activeCategory;
 
       const res = await issuesApi.list(params);
       const raw: Issue[] = (res.data.issues || []).map((i: Record<string, unknown>) => ({
@@ -195,29 +209,34 @@ export default function ExplorePage() {
         reporter_name: (i.reporter_name as string) || (i.is_anonymous ? undefined : 'Anonymous'),
         media: (i.media as Issue['media']) || [],
       } as Issue));
-      setIssues(raw);
-      setTotal(res.data.total || raw.length);
+      setIssues((prev) => (isFirstPage ? raw : [...prev, ...raw]));
+      setTotal(res.data.total ?? raw.length);
+      setPage(nextPage);
+      setTotalPages(res.data.totalPages || 1);
     } catch {
       setError('Failed to load issues. Please try again.');
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   }, [search, sort, activeStatus, activeCategory]);
 
   useEffect(() => {
-    const timer = setTimeout(fetchIssues, 300);
+    const timer = setTimeout(() => fetchIssues(), 300);
     return () => clearTimeout(timer);
   }, [fetchIssues]);
 
-  const hasFilters = activeStatus !== 'all' || activeCategory !== 'All' || !!search;
+  const hasFilters = activeStatus !== 'all' || activeCategory !== 'all' || !!search;
 
   const clearFilters = () => {
-    setActiveStatus('all'); setActiveCategory('All'); setSearch('');
+    setActiveStatus('all'); setActiveCategory('all'); setSearch('');
   };
+
+  const categoryFilters = [{ slug: 'all', name: 'All' }, ...categories];
 
   return (
     <AppLayout
-      title="Explore Map"
+      title="Explore"
       sub="Browse and track civic issues reported by your community"
       headerActions={
         <Link href="/report"
@@ -232,9 +251,9 @@ export default function ExplorePage() {
       `}</style>
 
       {/* Search + Controls */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-4">
+      <div className="flex flex-wrap gap-3 mb-4 [&>button]:whitespace-nowrap">
         {/* Search */}
-        <div className="relative flex-1">
+        <div className="relative basis-full lg:basis-0 lg:flex-1 lg:min-w-[200px]">
           <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-content-muted" />
           <input type="text" placeholder="Search issues by title, description…" value={search}
             onChange={e => setSearch(e.target.value)}
@@ -322,15 +341,15 @@ export default function ExplorePage() {
           <div>
             <p className="text-[10px] font-medium uppercase tracking-[1.5px] text-content-muted mb-2">Category</p>
             <div className="flex flex-wrap gap-2">
-              {CATEGORY_FILTERS.map(c => (
-                <button key={c} onClick={() => setActiveCategory(c)}
+              {categoryFilters.map(c => (
+                <button key={c.slug} onClick={() => setActiveCategory(c.slug)}
                   className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
                   style={{
-                    background: activeCategory === c ? 'rgb(var(--accent-secondary) / 0.1)' : 'rgb(var(--base-850))',
-                    border: activeCategory === c ? '1px solid rgb(var(--accent-secondary) / 0.35)' : '1px solid rgb(var(--border-subtle))',
-                    color: activeCategory === c ? 'rgb(var(--accent-secondary))' : 'rgb(var(--content-secondary))',
+                    background: activeCategory === c.slug ? 'rgb(var(--accent-secondary) / 0.1)' : 'rgb(var(--base-850))',
+                    border: activeCategory === c.slug ? '1px solid rgb(var(--accent-secondary) / 0.35)' : '1px solid rgb(var(--border-subtle))',
+                    color: activeCategory === c.slug ? 'rgb(var(--accent-secondary))' : 'rgb(var(--content-secondary))',
                   }}>
-                  {c}
+                  {c.name}
                 </button>
               ))}
             </div>
@@ -346,7 +365,7 @@ export default function ExplorePage() {
       {/* Results bar */}
       <div className="flex items-center justify-between mb-5">
         <p className="text-content-muted text-sm">
-          {loading ? 'Loading…' : <><span className="text-content-primary font-semibold">{issues.length}</span> of {total} issues</>}
+          {loading ? 'Loading…' : error ? null : <><span className="text-content-primary font-semibold">{issues.length}</span> of {total} issues</>}
         </p>
         {hasFilters && !loading && (
           <button onClick={clearFilters} className="text-xs text-accent-primary flex items-center gap-1 hover:underline">
@@ -369,7 +388,7 @@ export default function ExplorePage() {
             <p className="text-content-primary font-semibold">Failed to load</p>
             <p className="text-content-muted text-sm mt-1">{error}</p>
           </div>
-          <button onClick={fetchIssues}
+          <button onClick={() => fetchIssues()}
             className="px-4 py-2 rounded-xl text-sm text-accent-primary"
             style={{ background: 'rgb(99 102 241 / 0.08)', border: '1px solid rgb(99 102 241 / 0.2)' }}>
             Try Again
@@ -395,6 +414,15 @@ export default function ExplorePage() {
       ) : (
         <div className="space-y-2">
           {issues.map((issue, i) => <IssueRow key={issue.id} issue={issue} idx={i} />)}
+        </div>
+      )}
+
+      {!loading && !error && page < totalPages && (
+        <div className="flex justify-center mt-6">
+          <button onClick={() => fetchIssues(page + 1)} disabled={loadingMore} className="btn-secondary text-sm gap-2 disabled:opacity-60">
+            {loadingMore && <Loader2 size={14} className="animate-spin" />}
+            {loadingMore ? 'Loading…' : 'Load more'}
+          </button>
         </div>
       )}
     </AppLayout>

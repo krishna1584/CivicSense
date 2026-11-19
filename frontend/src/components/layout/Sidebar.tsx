@@ -2,10 +2,11 @@
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { clsx } from 'clsx';
-import { useAuthStore, useNotificationStore } from '@/lib/store';
+import { useEffect } from 'react';
+import { useAuthStore, useNotificationStore, useUiStore } from '@/lib/store';
 import {
   LayoutDashboard, PlusCircle, Map, FileText, Bell,
-  User, Shield, BarChart2, LogOut, Hexagon, ClipboardList, Settings
+  User, Shield, BarChart2, LogOut, Hexagon, ClipboardList, Settings, X
 } from 'lucide-react';
 import { authApi } from '@/lib/api';
 
@@ -30,8 +31,16 @@ const citizenNav = [
 export function Sidebar() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { user, setUser } = useAuthStore();
+  const { user, setUser, isLoading } = useAuthStore();
   const { unreadCount } = useNotificationStore();
+  const { sidebarOpen, setSidebarOpen } = useUiStore();
+
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => { if (e.key === 'Escape') setSidebarOpen(false); };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [sidebarOpen, setSidebarOpen]);
 
   const avatarUrl = user?.avatar_url ? formatMediaUrl(user.avatar_url) : '';
   const initials = user?.name ? user.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) : 'AU';
@@ -48,7 +57,7 @@ export function Sidebar() {
       base.push({ href: '/admin?view=settings', label: 'Settings', icon: Settings });
     }
 
-    base.push({ href: '/explore', label: 'Explore Map', icon: Map });
+    base.push({ href: '/explore', label: 'Explore', icon: Map });
     base.push({ href: '/notifications', label: 'Notifications', icon: Bell });
     return base;
   };
@@ -62,8 +71,18 @@ export function Sidebar() {
   };
 
   return (
-    <aside className="fixed left-0 top-0 h-screen w-64 bg-base-900 border-r border-border-subtle flex flex-col z-50">
-      <div className="px-6 py-8 border-b border-border-subtle/50">
+    <>
+    {sidebarOpen && (
+      <div className="fixed inset-0 z-40 bg-black/50 lg:hidden" onClick={() => setSidebarOpen(false)} aria-hidden="true" />
+    )}
+    <aside
+      onClick={(e) => { if ((e.target as HTMLElement).closest('a')) setSidebarOpen(false); }}
+      className={clsx(
+        'fixed left-0 top-0 h-dvh w-64 max-w-[85vw] bg-base-900 border-r border-border-subtle flex flex-col z-50 transition-transform duration-200 lg:translate-x-0 lg:visible',
+        sidebarOpen ? 'translate-x-0' : '-translate-x-full invisible'
+      )}
+    >
+      <div className="px-6 py-6 lg:py-8 border-b border-border-subtle/50 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-accent-primary/10 flex items-center justify-center border border-accent-primary/20">
             <Hexagon size={18} className="text-accent-primary" strokeWidth={2.5} />
@@ -72,6 +91,9 @@ export function Sidebar() {
             Civic<span className="text-content-secondary font-medium">Sense</span>
           </span>
         </Link>
+        <button onClick={() => setSidebarOpen(false)} aria-label="Close menu" className="lg:hidden p-1.5 -mr-1.5 text-content-muted hover:text-content-primary">
+          <X size={20} />
+        </button>
       </div>
 
       <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
@@ -106,6 +128,12 @@ export function Sidebar() {
         })}
       </nav>
 
+      {!user && !isLoading && (
+        <div className="p-4 border-t border-border-subtle/50">
+          <Link href="/login" className="btn-primary w-full text-sm">Sign In</Link>
+        </div>
+      )}
+
       {user && (
         <div className="p-4 border-t border-border-subtle/50">
           <Link href="/profile" className="flex items-center gap-3 px-3 py-2 mb-3 bg-base-850 rounded-xl border border-border-subtle/50 hover:border-accent-secondary/30 hover:bg-base-800/50 transition-all duration-200 cursor-pointer group">
@@ -131,5 +159,6 @@ export function Sidebar() {
         </div>
       )}
     </aside>
+    </>
   );
 }

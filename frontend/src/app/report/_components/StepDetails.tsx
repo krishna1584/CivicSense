@@ -6,10 +6,11 @@ interface Props {
   form: ReportForm;
   categories: Category[];
   catLoading: boolean;
+  allowAnonymous: boolean;
   onChange: (field: keyof ReportForm, value: string | boolean) => void;
 }
 
-export function StepDetails({ form, categories, catLoading, onChange }: Props) {
+export function StepDetails({ form, categories, catLoading, allowAnonymous, onChange }: Props) {
   return (
     <div className="space-y-5 animate-fade_in">
       {/* Title */}
@@ -95,18 +96,20 @@ export function StepDetails({ form, categories, catLoading, onChange }: Props) {
       </div>
 
       {/* Anonymous */}
-      <div className="card p-4 flex items-center gap-3">
-        <input
-          type="checkbox"
-          id="anon"
-          checked={form.is_anonymous}
-          onChange={e => onChange('is_anonymous', e.target.checked)}
-          className="w-4 h-4 accent-blue-500 rounded"
-        />
-        <label htmlFor="anon" className="text-sm text-content-secondary cursor-pointer">
-          Submit anonymously — your name won&apos;t appear publicly
-        </label>
-      </div>
+      {allowAnonymous && (
+        <div className="card p-4 flex items-center gap-3">
+          <input
+            type="checkbox"
+            id="anon"
+            checked={form.is_anonymous}
+            onChange={e => onChange('is_anonymous', e.target.checked)}
+            className="w-4 h-4 accent-blue-500 rounded"
+          />
+          <label htmlFor="anon" className="text-sm text-content-secondary cursor-pointer">
+            Hide my name publicly — authorities can still see who reported this
+          </label>
+        </div>
+      )}
     </div>
   );
 }

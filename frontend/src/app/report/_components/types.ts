@@ -6,6 +6,13 @@ export const SEVERITY_OPTIONS = [
   { value: 'critical', label: 'Critical', color: '#EF4444', bg: 'rgba(239,68,68,0.1)',   border: 'rgba(239,68,68,0.3)'   },
 ] as const;
 
+// Must match the types the backend accepts in middleware/upload.js
+export const ACCEPTED_MEDIA_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'video/quicktime'];
+export const MAX_MEDIA_SIZE_MB = 50;
+export const MAX_MEDIA_FILES = 5;
+export const ANONYMOUS_MEDIA_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+export const ANONYMOUS_MAX_SIZE_MB = 15;
+
 export type SeverityValue = typeof SEVERITY_OPTIONS[number]['value'];
 
 export const STEPS = ['Details', 'Location', 'Evidence', 'Review'] as const;

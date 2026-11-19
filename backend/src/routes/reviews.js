@@ -1,6 +1,6 @@
 const express = require('express');
 const pool = require('../db/pool');
-const { auth, optionalAuth } = require('../middleware/auth');
+const { auth, optionalAuth, requireVerified } = require('../middleware/auth');
 
 const router = express.Router({ mergeParams: true }); // inherit :issueId param
 
@@ -32,7 +32,7 @@ async function updateUserTrustScore(client, targetUserId) {
 // ─── POST /api/issues/:issueId/reviews ──────────────────────────────────────
 // Submit a satisfaction review (eligibility: resolved issue + reporter/upvoter/follower)
 // Admin reviews target the reporting citizen, while citizens review the resolution itself.
-router.post('/', auth, async (req, res) => {
+router.post('/', auth, requireVerified, async (req, res) => {
   const { issueId } = req.params;
   const { rating, comment } = req.body;
   const userId = req.user.id;
@@ -60,6 +60,10 @@ router.post('/', auth, async (req, res) => {
     }
 
     const isReviewerAdmin = ['admin', 'department_staff'].includes(req.user.role);
+    if (isReviewerAdmin && !issueRes.rows[0].user_id) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Anonymous reports have no reporter to review.' });
+    }
     const targetUserId = isReviewerAdmin ? issueRes.rows[0].user_id : null;
 
     // Insert review (UNIQUE constraint prevents duplicate per user per issue)
@@ -116,11 +120,14 @@ router.get('/', optionalAuth, async (req, res) => {
   try {
     const [reviewsRes, summaryRes] = await Promise.all([
       pool.query(`
-        SELECT r.id, r.rating, r.comment, r.created_at, r.is_hidden, r.target_user_id,
+        SELECT r.id, r.rating, r.comment, r.created_at, r.is_hidden,
+               (r.target_user_id IS NOT NULL) AS is_staff_review,
+               CASE WHEN i.is_anonymous THEN NULL ELSE r.target_user_id END AS target_user_id,
                u.id AS reviewer_id, u.name AS reviewer_name, u.avatar_url AS reviewer_avatar,
                u.trust_score AS reviewer_trust,
-               tu.name AS target_user_name
+               CASE WHEN i.is_anonymous THEN NULL ELSE tu.name END AS target_user_name
         FROM issue_reviews r
+        JOIN issues i ON r.issue_id = i.id
         JOIN users u ON r.user_id = u.id
         LEFT JOIN users tu ON r.target_user_id = tu.id
         WHERE r.issue_id = $1 AND r.is_hidden = FALSE

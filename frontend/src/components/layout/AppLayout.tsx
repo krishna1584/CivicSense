@@ -40,15 +40,15 @@ export function AppLayout({ children, title, sub, headerActions }: AppLayoutProp
   const AlertIcon = cfg?.icon;
 
   return (
-    <div className="flex h-screen overflow-hidden bg-base-950">
-      <Suspense fallback={<aside className="fixed left-0 top-0 h-screen w-64 bg-base-900 border-r border-border-subtle flex flex-col z-50 animate-pulse" />}>
+    <div className="flex h-dvh overflow-hidden bg-base-950">
+      <Suspense fallback={<aside className="hidden lg:flex fixed left-0 top-0 h-dvh w-64 bg-base-900 border-r border-border-subtle flex-col z-50 animate-pulse" />}>
         <Sidebar />
       </Suspense>
-      <main className="flex-1 ml-64 h-screen relative flex flex-col overflow-hidden">
+      <main className="flex-1 min-w-0 lg:ml-64 h-dvh relative flex flex-col overflow-hidden">
         <div className="absolute top-0 inset-x-0 h-[500px] bg-hero-gradient pointer-events-none opacity-40" />
 
         {cfg && AlertIcon && (
-          <div className={`relative z-40 w-full px-6 py-3 border-b ${cfg.bg} ${cfg.border} ${cfg.text} backdrop-blur-md flex items-center gap-3}`}>
+          <div className={`relative z-40 w-full px-4 sm:px-6 py-3 border-b ${cfg.bg} ${cfg.border} ${cfg.text} backdrop-blur-md flex items-center gap-3`}>
             <AlertIcon size={16} className="shrink-0" />
             <span className="text-xs font-semibold leading-relaxed tracking-wide">
               <span className="uppercase font-extrabold mr-1.5">[Notice]</span>

@@ -1,11 +1,13 @@
 const express = require('express');
 const pool = require('../db/pool');
-const { auth } = require('../middleware/auth');
+const { auth, requireVerified } = require('../middleware/auth');
+const issuesService = require('../services/issues.service');
+const { getSettings } = require('../services/settings.service');
 
 const router = express.Router({ mergeParams: true });
 
 // POST /api/issues/:issueId/votes
-router.post('/', auth, async (req, res) => {
+router.post('/votes', auth, requireVerified, async (req, res) => {
   const { vote_type } = req.body;
   if (!['upvote', 'downvote'].includes(vote_type)) return res.status(400).json({ error: 'Invalid vote type' });
 
@@ -42,11 +44,39 @@ router.post('/', auth, async (req, res) => {
       await client.query(`UPDATE issues SET ${col} = ${col} + 1 WHERE id = $1`, [req.params.issueId]);
     }
 
+    // Auto-acknowledge a reported issue once it has enough community support
+    let autoNotifications = null;
+    if (vote_type === 'upvote' && action !== 'removed') {
+      const { minUpvotesForAutoAcknowledge } = await getSettings();
+      const promoted = await client.query(
+        `UPDATE issues SET status = 'acknowledged', updated_at = NOW()
+         WHERE id = $1 AND status = 'reported' AND upvote_count >= $2 RETURNING title`,
+        [req.params.issueId, minUpvotesForAutoAcknowledge]
+      );
+      if (promoted.rows[0]) {
+        await client.query(
+          'INSERT INTO issue_status_history (issue_id, old_status, new_status, updated_by, comment) VALUES ($1, $2, $3, NULL, $4)',
+          [req.params.issueId, 'reported', 'acknowledged', `Automatically acknowledged after reaching ${minUpvotesForAutoAcknowledge} upvotes`]
+        );
+        autoNotifications = await issuesService.notifyFollowers(client, {
+          issueId: req.params.issueId,
+          issueTitle: promoted.rows[0].title,
+          newStatus: 'acknowledged',
+        });
+      }
+    }
+
     const issueRes = await client.query('SELECT upvote_count, downvote_count FROM issues WHERE id = $1', [req.params.issueId]);
     await client.query('COMMIT');
 
     const io = req.app.get('io');
-    if (io) io.to(`issue_${req.params.issueId}`).emit('new_upvote', { issueId: req.params.issueId, ...issueRes.rows[0] });
+    if (io) {
+      io.to(`issue_${req.params.issueId}`).emit('new_upvote', { issueId: req.params.issueId, ...issueRes.rows[0] });
+      if (autoNotifications) {
+        io.to(`issue_${req.params.issueId}`).emit('issue_status_updated', { issueId: req.params.issueId, status: 'acknowledged', updatedBy: 'System' });
+        for (const n of autoNotifications) io.to(`user_${n.user_id}`).emit('new_notification', n);
+      }
+    }
 
     res.json({ action, ...issueRes.rows[0] });
   } catch (err) {
@@ -59,7 +89,7 @@ router.post('/', auth, async (req, res) => {
 });
 
 // POST /api/issues/:issueId/follow
-router.post('/follow', auth, async (req, res) => {
+router.post('/follow', auth, requireVerified, async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');

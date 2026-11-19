@@ -52,20 +52,21 @@ export default function DashboardPage() {
       headerActions={
         <Link
           href="/report"
-          className="group relative inline-flex items-center gap-2.5 px-4 py-2 bg-accent-primary hover:bg-accent-primary_hover text-white font-semibold rounded-xl text-xs transition-all duration-200 shadow-md shadow-accent-primary/20 hover:shadow-accent-primary/30 hover:-translate-y-0.5"
+          aria-label="New Report"
+          className="group relative inline-flex items-center gap-2.5 px-3 sm:px-4 py-2 bg-accent-primary hover:bg-accent-primary_hover text-white font-semibold rounded-xl text-xs transition-all duration-200 shadow-md shadow-accent-primary/20 hover:shadow-accent-primary/30 hover:-translate-y-0.5"
         >
           <Plus size={14} strokeWidth={2.5} className="transition-transform duration-200 group-hover:rotate-90" />
-          New Report
+          <span className="hidden sm:inline">New Report</span>
         </Link>
       }
     >
-      <div className="relative pt-6">
+      <div className="relative pt-6 overflow-x-clip">
         <div className="absolute -top-24 -right-24 w-64 h-64 bg-accent-primary/5 rounded-full blur-3xl pointer-events-none"></div>
         <div className="absolute -bottom-32 -left-20 w-72 h-72 bg-accent-secondary/5 rounded-full blur-3xl pointer-events-none"></div>
 
         <div className="relative">
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-14">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5 mb-8 sm:mb-14">
             <div className="transform transition-all duration-200 hover:-translate-y-0.5">
               <StatCard
                 label="Total Reported"
@@ -117,7 +118,7 @@ export default function DashboardPage() {
               </div>
 
               {data?.recentIssues?.length === 0 ? (
-                <div className="relative overflow-hidden rounded-2xl border border-dashed border-border-subtle bg-gradient-to-br from-base-900/50 to-base-850/50 p-14 text-center flex flex-col items-center justify-center">
+                <div className="relative overflow-hidden rounded-2xl border border-dashed border-border-subtle bg-gradient-to-br from-base-900/50 to-base-850/50 p-8 sm:p-14 text-center flex flex-col items-center justify-center">
                   <div className="absolute -top-6 -right-6 w-32 h-32 bg-accent-primary/5 rounded-full blur-2xl"></div>
                   <div className="w-20 h-20 rounded-2xl bg-base-800 flex items-center justify-center mb-5 ring-1 ring-border-subtle shadow-inner">
                     <AlertTriangle size={28} className="text-content-muted" />

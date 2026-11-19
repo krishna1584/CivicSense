@@ -15,6 +15,16 @@ export const useAuthStore = create<AuthStore>((set) => ({
   setLoading: (isLoading) => set({ isLoading }),
 }));
 
+interface UiStore {
+  sidebarOpen: boolean;
+  setSidebarOpen: (open: boolean) => void;
+}
+
+export const useUiStore = create<UiStore>((set) => ({
+  sidebarOpen: false,
+  setSidebarOpen: (sidebarOpen) => set({ sidebarOpen }),
+}));
+
 interface NotificationStore {
   unreadCount: number;
   setUnreadCount: (n: number) => void;

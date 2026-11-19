@@ -146,7 +146,7 @@ export default function ProfilePage() {
   return (
     <AppLayout title="Profile" sub="Manage your profile and track your activity">
       {/* Profile Header */}
-      <div className="card p-8 mb-6 flex flex-col md:flex-row items-center md:items-start gap-6 relative overflow-hidden">
+      <div className="card p-5 sm:p-8 mb-6 flex flex-col md:flex-row items-center md:items-start gap-6 relative overflow-hidden">
         {/* Ambient background glow */}
         <div className="absolute -top-10 -right-10 w-48 h-48 bg-accent-primary/10 rounded-full blur-3xl -z-10" />
         
@@ -268,7 +268,7 @@ export default function ProfilePage() {
                     </div>
                   )}
                   {/* Photo Hover Overlay */}
-                  <div className="absolute inset-0 bg-base-950/70 flex flex-col items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                  <div className="hover-reveal absolute inset-0 bg-base-950/70 flex flex-col items-center justify-center text-white">
                     <Upload size={20} className="mb-1 text-accent-primary" />
                     <span className="text-[10px] font-bold tracking-wider uppercase">Change Photo</span>
                   </div>
@@ -437,8 +437,8 @@ export default function ProfilePage() {
             <Link href="/report" className="text-accent-secondary hover:underline">Report one now</Link>.
           </div>
         ) : (
-          <div className="card overflow-hidden">
-            <table className="w-full text-sm">
+          <div className="card overflow-x-auto">
+            <table className="w-full text-sm min-w-[560px]">
               <thead>
                 <tr className="border-b border-border-subtle bg-base-900">
                   <th className="py-3 px-4 text-left label-micro">Issue</th>

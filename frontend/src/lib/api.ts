@@ -2,7 +2,25 @@ import axios from 'axios';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
-const PUBLIC_PATHS = ['/', '/login', '/register'];
+const PUBLIC_PATHS = ['/', '/login', '/register', '/verify-email', '/forgot-password', '/explore', '/report/anonymous', '/track'];
+const isPublicPath = (path: string) =>
+  PUBLIC_PATHS.includes(path) || path.startsWith('/issues/') || /^\/profile\/[^/]+$/.test(path);
+
+// These endpoints answer 401 for reasons a token refresh cannot fix.
+const NO_REFRESH_URLS = ['/auth/refresh', '/auth/login', '/auth/register'];
+
+// Refresh tokens are single-use, so concurrent 401s must share one refresh.
+// The Web Lock extends that guarantee across browser tabs where available.
+let refreshInFlight: Promise<unknown> | null = null;
+const postRefresh = () => axios.post(`${API_BASE}/api/auth/refresh`, {}, { withCredentials: true });
+const refreshSession = () => {
+  if (!refreshInFlight) {
+    const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined;
+    const attempt: Promise<unknown> = locks ? locks.request('civicsense-auth-refresh', postRefresh) : postRefresh();
+    refreshInFlight = attempt.finally(() => { refreshInFlight = null; });
+  }
+  return refreshInFlight;
+};
 
 const api = axios.create({
   baseURL: API_BASE,
@@ -15,15 +33,15 @@ api.interceptors.response.use(
   (res) => res,
   async (error) => {
     const original = error.config;
-    if (error.response?.status === 401 && !original._retry && !original.url?.includes('/auth/refresh')) {
+    if (error.response?.status === 401 && !original._retry && !NO_REFRESH_URLS.some((url) => original.url?.includes(url))) {
       original._retry = true;
       try {
-        await axios.post(`${API_BASE}/api/auth/refresh`, {}, { withCredentials: true });
+        await refreshSession();
         return api(original);
       } catch (refreshError) {
-        if (typeof window !== 'undefined') {
-          const isPublic = PUBLIC_PATHS.includes(window.location.pathname);
-          if (!isPublic) window.location.href = '/login';
+        if (typeof window !== 'undefined' && !isPublicPath(window.location.pathname)) {
+          const { pathname, search } = window.location;
+          window.location.href = `/login?redirect=${encodeURIComponent(pathname + search)}`;
         }
         return Promise.reject(refreshError);
       }
@@ -40,13 +58,18 @@ export const authApi = {
   me: () => api.get('/api/auth/me'),
   sendOtp: (data: { email: string }) => api.post('/api/auth/send-otp', data),
   verifyOtp: (data: { email: string; code: string }) => api.post('/api/auth/verify-otp', data),
+  forgotPassword: (data: { email: string }) => api.post('/api/auth/forgot-password', data),
+  resetPassword: (data: { email: string; code: string; password: string }) => api.post('/api/auth/reset-password', data),
 };
 
 // Issues
 export const issuesApi = {
   list: (params?: Record<string, unknown>) => api.get('/api/issues', { params }),
   get: (id: string) => api.get(`/api/issues/${id}`),
-  create: (data: FormData) => api.post('/api/issues', data, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  create: (data: FormData, onProgress?: (percent: number) => void) => api.post('/api/issues', data, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    onUploadProgress: (e) => { if (e.total) onProgress?.(Math.round((e.loaded * 100) / e.total)); },
+  }),
   updateStatus: (id: string, data: FormData | { status: string; comment?: string; rejection_reason?: string }) => {
     const isFd = data instanceof FormData;
     return api.patch(`/api/issues/${id}/status`, data, {
@@ -58,6 +81,18 @@ export const issuesApi = {
   history: (id: string) => api.get(`/api/issues/${id}/history`),
   categories: () => api.get('/api/issues/categories/all'),
   trending: (lat: number, lng: number) => api.get('/api/issues/trending/nearby', { params: { lat, lng } }),
+};
+
+// Anonymous reporting: a separate client so login cookies are never sent
+const anonymousClient = axios.create({ baseURL: `${API_BASE}/api/anonymous`, withCredentials: false });
+
+export const anonymousApi = {
+  challenge: () => anonymousClient.get('/challenge'),
+  submit: (data: FormData, onProgress?: (percent: number) => void) => anonymousClient.post('/reports', data, {
+    onUploadProgress: (e) => { if (e.total) onProgress?.(Math.round((e.loaded * 100) / e.total)); },
+  }),
+  track: (token: string) => anonymousClient.post('/track', { token }),
+  decide: (data: { token: string; approved: boolean; comment?: string }) => anonymousClient.post('/decision', data),
 };
 
 // Comments
@@ -93,6 +128,8 @@ export const adminApi = {
   issues: (params?: Record<string, unknown>) => api.get('/api/admin/issues', { params }),
   bulkStatus: (issueIds: string[], status: string, comment?: string) =>
     api.patch('/api/admin/issues/bulk-status', { issueIds, status, comment }),
+  moderate: (id: string, data: { decision: 'approve' | 'reject'; reason?: string }) =>
+    api.patch(`/api/admin/issues/${id}/moderation`, data),
   assign: (id: string, data: { assigned_to?: string; department?: string }) =>
     api.patch(`/api/admin/issues/${id}/assign`, data),
   analytics: (period?: number) => api.get('/api/admin/analytics', { params: { period } }),
