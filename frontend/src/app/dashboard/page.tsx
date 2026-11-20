@@ -9,6 +9,7 @@ import { useAuthStore } from '@/lib/store';
 import { Issue, IssueStatus } from '@/types';
 import { LayoutDashboard, AlertTriangle, CheckCircle, Clock, ThumbsUp, MessageSquare, Plus } from 'lucide-react';
 import Link from 'next/link';
+import { toast, apiErrorMessage } from '@/lib/toast';
 
 interface DashboardData {
   recentIssues: Issue[];
@@ -26,7 +27,7 @@ export default function DashboardPage() {
   useEffect(() => {
     usersApi.dashboard()
       .then((res) => setData(res.data))
-      .catch(console.error)
+      .catch(err => toast.error(apiErrorMessage(err, 'Could not load your dashboard.')))
       .finally(() => setLoading(false));
   }, []);
 
@@ -61,8 +62,6 @@ export default function DashboardPage() {
       }
     >
       <div className="relative pt-6 overflow-x-clip">
-        <div className="absolute -top-24 -right-24 w-64 h-64 bg-accent-primary/5 rounded-full blur-3xl pointer-events-none"></div>
-        <div className="absolute -bottom-32 -left-20 w-72 h-72 bg-accent-secondary/5 rounded-full blur-3xl pointer-events-none"></div>
 
         <div className="relative">
 
@@ -85,7 +84,7 @@ export default function DashboardPage() {
             </div>
             <div className="transform transition-all duration-200 hover:-translate-y-0.5">
               <StatCard
-                label="Community Votes"
+                label="Votes Cast"
                 value={data?.stats.totalVotes || 0}
                 icon={<ThumbsUp size={18} />}
                 accent="amber"
@@ -119,7 +118,6 @@ export default function DashboardPage() {
 
               {data?.recentIssues?.length === 0 ? (
                 <div className="relative overflow-hidden rounded-2xl border border-dashed border-border-subtle bg-gradient-to-br from-base-900/50 to-base-850/50 p-8 sm:p-14 text-center flex flex-col items-center justify-center">
-                  <div className="absolute -top-6 -right-6 w-32 h-32 bg-accent-primary/5 rounded-full blur-2xl"></div>
                   <div className="w-20 h-20 rounded-2xl bg-base-800 flex items-center justify-center mb-5 ring-1 ring-border-subtle shadow-inner">
                     <AlertTriangle size={28} className="text-content-muted" />
                   </div>
@@ -129,7 +127,7 @@ export default function DashboardPage() {
                   </p>
                   <Link
                     href="/report"
-                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-base-800 hover:bg-base-700 text-content-primary font-medium rounded-xl border border-border-subtle transition-all duration-200 hover:border-accent-primary/30"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-base-800 hover:bg-base-850 text-content-primary font-medium rounded-xl border border-border-subtle transition-all duration-200 hover:border-accent-primary/30"
                   >
                     <Plus size={16} strokeWidth={2} />
                     Create a Report

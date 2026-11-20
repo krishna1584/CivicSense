@@ -1,35 +1,54 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { usersApi } from '@/lib/api';
 import { Notification } from '@/types';
 import { useNotificationStore } from '@/lib/store';
-import { Bell, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import Link from 'next/link';
 import { clsx } from 'clsx';
 
+const PAGE_SIZE = 20; // matches the API default
+
 const TYPE_COLORS: Record<string, string> = {
   status_update: 'border-l-accent-secondary bg-accent-secondary/5',
   new_comment: 'border-l-accent-primary bg-accent-primary/5',
-  resolved: 'border-l-[#22C55E] bg-[#22C55E]/5',
-  rejected: 'border-l-[#EF4444] bg-[#EF4444]/5',
+  resolved: 'border-l-state-success bg-state-success/5',
+  rejected: 'border-l-state-error bg-state-error/5',
 };
 
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const { setUnreadCount } = useNotificationStore();
 
-  useEffect(() => {
-    usersApi.notifications()
-      .then((res) => {
-        setNotifications(res.data.notifications);
-        setUnreadCount(0);
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
+  // Only the notifications actually shown are marked as read.
+  const loadPage = useCallback(async (nextPage: number) => {
+    const res = await usersApi.notifications({ page: nextPage });
+    const list: Notification[] = res.data.notifications;
+    setNotifications(prev => (nextPage === 1 ? list : [...prev, ...list]));
+    setPage(nextPage);
+    setHasMore(list.length === PAGE_SIZE);
+
+    const unreadIds = list.filter(n => !n.is_read).map(n => n.id);
+    if (unreadIds.length) {
+      const marked = await usersApi.markNotificationsRead(unreadIds);
+      setUnreadCount(marked.data.unreadCount);
+    }
   }, [setUnreadCount]);
+
+  useEffect(() => {
+    loadPage(1).catch(console.error).finally(() => setLoading(false));
+  }, [loadPage]);
+
+  const loadMore = () => {
+    setLoadingMore(true);
+    loadPage(page + 1).catch(console.error).finally(() => setLoadingMore(false));
+  };
 
   return (
     <AppLayout title="Notifications" sub="Stay updated on community reports and activity">
@@ -52,7 +71,10 @@ export default function NotificationsPage() {
                 TYPE_COLORS[notif.type] || 'border-l-accent-secondary bg-base-850'
               )}>
               <div className="flex items-start justify-between gap-3">
-                <p className="text-content-primary text-sm leading-relaxed">{notif.message}</p>
+                <p className={clsx('text-content-primary text-sm leading-relaxed', !notif.is_read && 'font-semibold')}>
+                  {!notif.is_read && <span className="inline-block w-2 h-2 rounded-full bg-accent-primary mr-2 align-middle" aria-label="New" />}
+                  {notif.message}
+                </p>
                 <span className="text-content-muted text-xs whitespace-nowrap shrink-0 mt-0.5">
                   {formatDistanceToNow(new Date(notif.created_at), { addSuffix: true })}
                 </span>
@@ -64,6 +86,15 @@ export default function NotificationsPage() {
               )}
             </div>
           ))}
+
+          {hasMore && (
+            <div className="flex justify-center pt-2">
+              <button onClick={loadMore} disabled={loadingMore} className="btn-secondary text-sm gap-2 disabled:opacity-60">
+                {loadingMore && <Loader2 size={14} className="animate-spin" />}
+                {loadingMore ? 'Loading…' : 'Load older notifications'}
+              </button>
+            </div>
+          )}
         </div>
       )}
       </div>

@@ -13,6 +13,10 @@ import { formatDistanceToNow, format } from 'date-fns';
 import { issuesApi, commentsApi, adminApi, engagementApi } from '@/lib/api';
 import { useAuthStore } from '@/lib/store';
 import { getSocket } from '@/lib/socket';
+import { toast } from '@/lib/toast';
+import { IssueStatus } from '@/types';
+import { StatusBadge as SharedStatusBadge } from '@/components/ui/StatusBadge';
+import { SeverityBadge as SharedSeverityBadge } from '@/components/ui/SeverityBadge';
 import { ReviewSection } from './ReviewSection';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -33,7 +37,6 @@ interface Comment {
   id: string;
   author: string;
   initials: string;
-  avatarColor: string;
   content: string;
   created_at: string;
   isOwn?: boolean;
@@ -52,7 +55,6 @@ const toComment = (c: any, viewer: { id: string; role: string } | null): Comment
   id: c.id,
   author: c.author_name || 'Anonymous',
   initials: (c.author_name || 'A').substring(0, 2).toUpperCase(),
-  avatarColor: '#6366F1', // using primary accent
   content: c.content,
   created_at: c.created_at,
   isOwn: viewer?.id === c.user_id,
@@ -92,41 +94,29 @@ const STATUS_CONFIG: Record<Status, { color: string; bg: string; dot: string; ic
   'Pending Verification': { color: 'text-accent-secondary', bg: 'bg-accent-secondary/10', dot: 'bg-accent-secondary', icon: Eye },
 };
 
-const SEVERITY_CONFIG: Record<Severity, { color: string; bg: string; border: string }> = {
-  Critical: { color: 'text-state-error', bg: 'bg-state-error/10', border: 'border-state-error/20' },
-  High: { color: 'text-state-warning', bg: 'bg-state-warning/10', border: 'border-state-warning/20' },
-  Medium: { color: 'text-accent-secondary', bg: 'bg-accent-secondary/10', border: 'border-accent-secondary/20' },
-  Low: { color: 'text-content-secondary', bg: 'bg-base-850', border: 'border-border-subtle' },
+// ─── Sub-components ───────────────────────────────────────────────────────────
+// This page works with display labels, so these map them onto the shared badges.
+const STATUS_KEY: Record<Status, IssueStatus> = {
+  Reported: 'reported',
+  Acknowledged: 'acknowledged',
+  'In Progress': 'in_progress',
+  'Pending Verification': 'pending_verification',
+  Resolved: 'resolved',
+  Rejected: 'rejected',
 };
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
 function StatusBadge({ status }: { status: Status }) {
-  const cfg = STATUS_CONFIG[status];
-  return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider ${cfg.color} ${cfg.bg} border border-border-subtle`}>
-      <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
-      {status}
-    </span>
-  );
+  return <SharedStatusBadge status={STATUS_KEY[status]} />;
 }
 
 function SeverityBadge({ severity }: { severity: Severity }) {
-  const cfg = SEVERITY_CONFIG[severity];
-  return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider border ${cfg.color} ${cfg.bg} ${cfg.border}`}>
-      <AlertTriangle size={12} strokeWidth={2.5} />
-      {severity}
-    </span>
-  );
+  return <SharedSeverityBadge severity={severity.toLowerCase()} />;
 }
 
 function CommentBubble({ comment, onEdit, onDelete }: { comment: Comment; onEdit: (id: string, content: string) => void; onDelete: (id: string) => void }) {
   return (
     <div className="flex gap-4 group animate-fade_in">
-      <div
-        className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold shrink-0 mt-1 shadow-sm"
-        style={{ background: comment.avatarColor + '15', color: comment.avatarColor, border: `1px solid ${comment.avatarColor}25` }}
-      >
+      <div className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold shrink-0 mt-1 bg-accent-primary/10 text-accent-primary border border-accent-primary/20">
         {comment.initials}
       </div>
       <div className="flex-1 min-w-0">
@@ -142,12 +132,12 @@ function CommentBubble({ comment, onEdit, onDelete }: { comment: Comment; onEdit
           {(comment.isOwn || comment.canDelete) && (
             <div className="hover-reveal flex gap-1.5 bg-base-800 border border-border-subtle px-1.5 py-0.5 rounded-md">
               {comment.isOwn && (
-                <button onClick={() => onEdit(comment.id, comment.content)} className="text-content-muted hover:text-accent-secondary transition-colors p-1" title="Edit">
+                <button onClick={() => onEdit(comment.id, comment.content)} className="text-content-muted hover:text-accent-secondary transition-colors p-1" title="Edit" aria-label="Edit comment">
                   <Edit2 size={12} />
                 </button>
               )}
               {comment.canDelete && (
-                <button onClick={() => onDelete(comment.id)} className="text-content-muted hover:text-state-error transition-colors p-1" title="Delete">
+                <button onClick={() => onDelete(comment.id)} className="text-content-muted hover:text-state-error transition-colors p-1" title="Delete" aria-label="Delete comment">
                   <Trash2 size={12} />
                 </button>
               )}
@@ -380,7 +370,7 @@ export default function IssueDetailPage() {
       setUpvoted(res.data.action !== 'removed');
       setUpvoteCount(res.data.upvote_count);
     } catch (err: any) {
-      alert(err?.response?.data?.error || 'Could not save your vote. Please try again.');
+      toast.error(err?.response?.data?.error || 'Could not save your vote. Please try again.');
     } finally {
       setVoting(false);
     }
@@ -395,7 +385,7 @@ export default function IssueDetailPage() {
       setFollowing(res.data.following);
       setIssue((prev: any) => ({ ...prev, follow_count: res.data.follow_count }));
     } catch (err: any) {
-      alert(err?.response?.data?.error || 'Could not update follow status. Please try again.');
+      toast.error(err?.response?.data?.error || 'Could not update follow status. Please try again.');
     } finally {
       setFollowPending(false);
     }
@@ -418,7 +408,7 @@ export default function IssueDetailPage() {
       }
       setCommentText('');
     } catch (err: any) {
-      alert(err?.response?.data?.error || 'Could not save your comment. Please try again.');
+      toast.error(err?.response?.data?.error || 'Could not save your comment. Please try again.');
     } finally {
       setSubmitting(false);
       setActiveTab('comments');
@@ -437,14 +427,14 @@ export default function IssueDetailPage() {
       await commentsApi.delete(issueId, id);
       setComments(prev => prev.filter(c => c.id !== id));
     } catch (err: any) {
-      alert(err?.response?.data?.error || 'Could not delete the comment. Please try again.');
+      toast.error(err?.response?.data?.error || 'Could not delete the comment. Please try again.');
     }
   };
 
   const handleVerifyAction = async (approved: boolean) => {
     if (!issueId) return;
     if (!approved && !rejectComment.trim()) {
-      alert('Please enter a reason for rejection.');
+      toast.error('Please enter a reason for rejection.');
       return;
     }
     setVerifying(true);
@@ -453,12 +443,13 @@ export default function IssueDetailPage() {
         approved, 
         comment: !approved ? rejectComment.trim() : undefined 
       });
+      toast.success(approved ? 'Thanks, the issue is now closed.' : 'Thanks, the issue has been reopened.');
       setShowRejectInput(false);
       setRejectComment('');
       setRefreshCount(c => c + 1); // Reload triggers!
     } catch (err) {
       console.error('Verification action failed:', err);
-      alert('Failed to process action. Please try again.');
+      toast.error('Failed to process action. Please try again.');
     } finally {
       setVerifying(false);
     }
@@ -466,16 +457,17 @@ export default function IssueDetailPage() {
 
   const handleModeration = async (decision: 'approve' | 'reject') => {
     if (decision === 'reject' && !moderationReason.trim()) {
-      alert('A reason is required to reject a report.');
+      toast.error('A reason is required to reject a report.');
       return;
     }
     setModerating(true);
     try {
       await adminApi.moderate(issueId, { decision, reason: moderationReason.trim() || undefined });
+      toast.success(decision === 'approve' ? 'Report approved' : 'Report rejected');
       setModerationReason('');
       setRefreshCount(c => c + 1);
     } catch (err: any) {
-      alert(err?.response?.data?.error || 'Could not save the review decision.');
+      toast.error(err?.response?.data?.error || 'Could not save the review decision.');
     } finally {
       setModerating(false);
     }
@@ -483,12 +475,12 @@ export default function IssueDetailPage() {
 
   const handleSaveAdminChanges = async () => {
     if (editStatus === 'resolved' && originalStatus !== 'resolved' && originalStatus !== 'pending_verification' && resolutionFiles.length === 0) {
-      alert('A resolution proof image is mandatory to mark an issue as resolved.');
+      toast.error('A resolution proof image is mandatory to mark an issue as resolved.');
       return;
     }
 
     if (editStatus === 'rejected' && !rejectionReason.trim()) {
-      alert('A rejection reason is mandatory to reject an issue.');
+      toast.error('A rejection reason is mandatory to reject an issue.');
       return;
     }
 
@@ -513,12 +505,14 @@ export default function IssueDetailPage() {
         await adminApi.assign(issueId, { department: editDept });
       }
       
+      toast.success('Changes saved');
+      
       setResolutionFiles([]);
       setRejectionReason('');
       setRefreshCount(c => c + 1);
     } catch (err: any) {
       console.error('Failed to save administrative changes:', err);
-      alert(err?.response?.data?.error || 'Failed to save changes. Please try again.');
+      toast.error(err?.response?.data?.error || 'Failed to save changes. Please try again.');
     } finally {
       setAdminSubmitting(false);
     }
@@ -572,6 +566,7 @@ export default function IssueDetailPage() {
             <div className="flex-1" />
             <button
               onClick={handleFollow}
+              aria-label={following ? 'Unfollow issue' : 'Follow issue'}
               className={`flex items-center gap-2 text-[13px] font-semibold px-3 py-1.5 rounded-lg border transition-all duration-200 ${following
                   ? 'border-accent-secondary/30 bg-accent-secondary/10 text-accent-secondary'
                   : 'border-border-subtle text-content-secondary hover:text-content-primary hover:bg-base-850'
@@ -615,7 +610,6 @@ export default function IssueDetailPage() {
                 {/* 🔍 CITIZEN RESOLUTION VERIFICATION PANEL */}
                 {showPurplePanel && (
                   <div className="mb-8 relative overflow-hidden p-6 rounded-2xl bg-accent-secondary/5 border border-accent-secondary/20 shadow-xl animate-fade_in">
-                    <div className="absolute -top-20 -right-20 w-40 h-40 rounded-full bg-accent-secondary/10 blur-[50px] pointer-events-none" />
                     
                     <div className="flex items-start gap-4 mb-5 relative z-10">
                       <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-accent-secondary/20 text-accent-secondary border border-accent-secondary/30 shrink-0">
@@ -768,7 +762,6 @@ export default function IssueDetailPage() {
                 {/* 📸 PUBLIC RESOLUTION EVIDENCE SHOWCASE */}
                 {resolutionMedia.length > 0 && !showPurplePanel && (
                   <div className="mb-8 relative overflow-hidden rounded-2xl p-6 bg-state-success/5 border border-state-success/20 shadow-card animate-fade_in">
-                    <div className="absolute -top-24 -right-24 w-48 h-48 rounded-full bg-state-success/10 blur-[60px] pointer-events-none" />
                     
                     <div className="flex items-center justify-between mb-5 relative z-10">
                       <div className="flex items-center gap-3">
@@ -1002,7 +995,6 @@ export default function IssueDetailPage() {
                 {/* Administrative command panel */}
                 {(user?.role === 'admin' || user?.role === 'department_staff') && (
                   <div className="card p-6 bg-base-800 border border-accent-secondary/20 relative overflow-hidden shadow-glow-secondary animate-fade_in">
-                    <div className="absolute -top-16 -right-16 w-32 h-32 rounded-full bg-accent-secondary/5 blur-[40px] pointer-events-none" />
                     
                     <div className="flex items-center gap-2 mb-4 text-accent-secondary">
                       <div className="w-8 h-8 rounded-lg bg-accent-secondary/10 flex items-center justify-center border border-accent-secondary/20">
@@ -1052,7 +1044,7 @@ export default function IssueDetailPage() {
                                   if (e.target.files) {
                                     const filesArray = Array.from(e.target.files);
                                     if (filesArray.length > 5) {
-                                      alert('You can only upload up to 5 resolution proof files.');
+                                      toast.error('You can only upload up to 5 resolution proof files.');
                                       setResolutionFiles(filesArray.slice(0, 5));
                                     } else {
                                       setResolutionFiles(filesArray);

@@ -59,8 +59,10 @@ export function AppLayout({ children, title, sub, headerActions }: AppLayoutProp
 
         <TopBar title={title} sub={sub} actions={headerActions} />
 
-        <div className="flex-1 overflow-y-auto page-container relative z-10 animate-fade_in">
-          {children}
+        <div className="flex-1 overflow-y-auto relative z-10">
+          <div className="page-container animate-fade_in">
+            {children}
+          </div>
         </div>
       </main>
     </div>

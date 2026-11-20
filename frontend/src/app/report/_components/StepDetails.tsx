@@ -1,6 +1,7 @@
 import { Loader2 } from 'lucide-react';
 import { Category } from '@/types';
-import { ReportForm, SEVERITY_OPTIONS, SeverityValue } from './types';
+import { ReportForm, SEVERITY_OPTIONS } from './types';
+import { SEVERITY_META } from '@/components/ui/SeverityBadge';
 
 interface Props {
   form: ReportForm;
@@ -56,12 +57,8 @@ export function StepDetails({ form, categories, catLoading, allowAnonymous, onCh
                   key={c.id}
                   type="button"
                   onClick={() => onChange('category_id', c.id)}
-                  className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium transition-all text-left"
-                    style={{
-                      background: form.category_id === c.id ? 'rgb(var(--accent-primary) / 0.12)' : 'rgb(var(--base-850))',
-                      border:     form.category_id === c.id ? '1px solid rgba(59,130,246,0.4)' : '1px solid rgb(var(--border-subtle))',
-                      color:      form.category_id === c.id ? 'rgb(var(--accent-primary))' : 'rgb(var(--content-muted))',
-                    }}
+                  className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium border transition-colors text-left ${form.category_id === c.id ? 'bg-accent-primary/10 border-accent-primary/40 text-accent-primary' : 'bg-base-850 border-border-subtle text-content-secondary hover:text-content-primary'}`}
+                  aria-pressed={form.category_id === c.id}
                 >
                   <span>{c.icon}</span>
                   <span className="truncate text-xs">{c.name}</span>
@@ -80,14 +77,10 @@ export function StepDetails({ form, categories, catLoading, allowAnonymous, onCh
                 key={s.value}
                 type="button"
                 onClick={() => onChange('severity', s.value)}
-                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all"
-                  style={{
-                    background: form.severity === s.value ? s.bg     : 'rgb(var(--base-850))',
-                    border:     form.severity === s.value ? `1px solid ${s.border}` : '1px solid rgb(var(--border-subtle))',
-                    color:      form.severity === s.value ? s.color  : 'rgb(var(--content-muted))',
-                  }}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium border transition-colors ${form.severity === s.value ? SEVERITY_META[s.value].badge : 'bg-base-850 border-border-subtle text-content-secondary hover:text-content-primary'}`}
+                aria-pressed={form.severity === s.value}
               >
-                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: s.color }} />
+                <span className={`w-2 h-2 rounded-full flex-shrink-0 ${SEVERITY_META[s.value].dot}`} />
                 {s.label}
               </button>
             ))}

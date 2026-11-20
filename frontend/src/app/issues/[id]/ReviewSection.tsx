@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Star, Send, Loader2, ShieldAlert, CheckCircle2, Eye, EyeOff, Shield } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { StarRating as StarRow } from '@/components/ui/StarRating';
 import { reviewsApi } from '@/lib/api';
 import { useAuthStore } from '@/lib/store';
 import { clsx } from 'clsx';
@@ -42,44 +43,6 @@ interface Summary {
 }
 
 // ─── Star Display ─────────────────────────────────────────────────────────────
-function StarRow({ rating, size = 16, interactive = false, onChange }: {
-  rating: number;
-  size?: number;
-  interactive?: boolean;
-  onChange?: (r: number) => void;
-}) {
-  const [hovered, setHovered] = useState(0);
-  return (
-    <div className="flex items-center gap-0.5">
-      {[1, 2, 3, 4, 5].map(n => {
-        const filled = n <= (interactive ? (hovered || rating) : rating);
-        return (
-          <button
-            key={n}
-            type="button"
-            disabled={!interactive}
-            onClick={() => onChange?.(n)}
-            onMouseEnter={() => interactive && setHovered(n)}
-            onMouseLeave={() => interactive && setHovered(0)}
-            className={clsx(
-              'transition-transform duration-100',
-              interactive && 'hover:scale-125 cursor-pointer',
-              !interactive && 'cursor-default'
-            )}
-          >
-            <Star
-              size={size}
-              className={clsx(
-                'transition-colors duration-150',
-                filled ? 'text-state-warning fill-state-warning' : 'text-base-700 fill-base-900'
-              )}
-            />
-          </button>
-        );
-      })}
-    </div>
-  );
-}
 
 // ─── Rating Bar ───────────────────────────────────────────────────────────────
 function RatingBar({ label, count, total }: { label: string; count: number; total: number }) {
@@ -187,7 +150,7 @@ export function ReviewSection({ issueId, isResolved }: { issueId: string; isReso
           <div className="flex flex-col items-center py-6 gap-2">
             <div className="flex gap-1">
               {[1,2,3,4,5].map(n => (
-                <Star key={n} size={24} className="text-base-700" />
+                <Star key={n} size={24} className="text-border-subtle" />
               ))}
             </div>
             <p className="text-content-muted text-sm font-medium">No community reviews yet</p>
@@ -243,6 +206,12 @@ export function ReviewSection({ issueId, isResolved }: { issueId: string; isReso
         </div>
       )}
 
+      {user && !loading && !userEligible && !userReview && (
+        <p className="text-[13px] text-content-muted">
+          Only the reporter and people who upvoted or followed this issue can rate its resolution.
+        </p>
+      )}
+
       {/* ── Review Form ── */}
       {showForm && (
         <div className="card p-6 bg-base-800">
@@ -268,7 +237,7 @@ export function ReviewSection({ issueId, isResolved }: { issueId: string; isReso
                 <label className="text-[11px] font-bold uppercase tracking-wider text-content-muted block mb-2">
                   {isAdmin ? 'Reporter Credibility Rating' : 'Your Rating'}
                 </label>
-                <StarRow rating={rating} size={28} interactive onChange={setRating} />
+                <StarRow rating={rating} size={28} onChange={setRating} />
                 {rating > 0 && (
                   <p className="text-[12px] text-content-muted mt-1.5">
                     {isAdmin 
@@ -341,7 +310,6 @@ export function ReviewSection({ issueId, isResolved }: { issueId: string; isReso
               : 'U';
             const avatarUrl = review.reviewer_avatar ? formatMediaUrl(review.reviewer_avatar) : '';
             const isTargetReporter = !!review.is_staff_review;
-            const isReviewerAdmin = !isTargetReporter && (review.reviewer_trust === 0); // fallback or target check
 
             return (
               <div key={review.id} className={clsx(
@@ -351,9 +319,6 @@ export function ReviewSection({ issueId, isResolved }: { issueId: string; isReso
                   ? 'bg-gradient-to-r from-accent-primary/5 to-accent-secondary/5 border border-accent-secondary/20 shadow-sm'
                   : 'bg-base-800'
               )}>
-                {isTargetReporter && (
-                  <div className="absolute top-0 right-0 w-24 h-24 bg-accent-secondary/5 rounded-full blur-xl pointer-events-none" />
-                )}
                 <div className="flex items-start gap-3 relative z-10">
                   {/* Avatar */}
                   <div className={clsx(

@@ -11,7 +11,9 @@ import {
   MapPin, Edit, X, Upload, AlertCircle, CheckCircle2 
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { StarRating as StarRow } from '@/components/ui/StarRating';
 import Link from 'next/link';
+import { toast, apiErrorMessage } from '@/lib/toast';
 
 const formatMediaUrl = (url: string) => {
   if (!url) return '';
@@ -22,21 +24,6 @@ const formatMediaUrl = (url: string) => {
   return `${cleanBase}${cleanPath}`;
 };
 
-function StarRow({ rating, size = 12 }: { rating: number; size?: number }) {
-  return (
-    <div className="flex items-center gap-0.5">
-      {[1, 2, 3, 4, 5].map(n => (
-        <Star
-          key={n}
-          size={size}
-          className={
-            n <= rating ? 'text-state-warning fill-state-warning' : 'text-base-700 fill-base-900'
-          }
-        />
-      ))}
-    </div>
-  );
-}
 
 export default function ProfilePage() {
   const { user, setUser } = useAuthStore();
@@ -68,7 +55,7 @@ export default function ProfilePage() {
         totalComments: dashRes.data.stats.totalComments,
       });
       setAdminReviews(profileRes.data.adminReviews || []);
-    }).catch(console.error)
+    }).catch(err => toast.error(apiErrorMessage(err, 'Could not load your profile.')))
     .finally(() => setLoading(false));
   }, [user]);
 
@@ -148,7 +135,6 @@ export default function ProfilePage() {
       {/* Profile Header */}
       <div className="card p-5 sm:p-8 mb-6 flex flex-col md:flex-row items-center md:items-start gap-6 relative overflow-hidden">
         {/* Ambient background glow */}
-        <div className="absolute -top-10 -right-10 w-48 h-48 bg-accent-primary/10 rounded-full blur-3xl -z-10" />
         
         {/* Profile photo container */}
         <div className="relative w-24 h-24 rounded-2xl overflow-hidden bg-base-950 flex items-center justify-center border border-border-subtle shadow-lg flex-shrink-0">
@@ -233,6 +219,7 @@ export default function ProfilePage() {
               </h3>
               <button 
                 onClick={() => setIsEditOpen(false)}
+                aria-label="Close"
                 className="text-content-muted hover:text-content-primary transition-colors duration-200 p-1.5 hover:bg-base-800 rounded-lg"
               >
                 <X size={18} />
@@ -371,7 +358,6 @@ export default function ProfilePage() {
               
               return (
                 <div key={review.id} className="card p-5 bg-gradient-to-r from-accent-primary/5 to-accent-secondary/5 border border-accent-secondary/20 relative overflow-hidden group hover:border-accent-secondary/40 transition-all duration-300">
-                  <div className="absolute top-0 right-0 w-20 h-20 bg-accent-secondary/5 rounded-full blur-xl pointer-events-none" />
                   <div className="flex items-start gap-3 relative z-10">
                     {/* Admin Avatar */}
                     <div className="w-9 h-9 rounded-xl bg-accent-secondary/15 border border-accent-secondary/25 flex items-center justify-center text-[12px] font-bold text-accent-secondary overflow-hidden shrink-0 shadow-sm">

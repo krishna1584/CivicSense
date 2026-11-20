@@ -1,10 +1,12 @@
 const express = require('express');
 const pool = require('../db/pool');
 const { auth, optionalAuth } = require('../middleware/auth');
-const { validate, createCommentSchema, updateCommentSchema } = require('../middleware/validate');
+const { validate, uuidParam, requireUuidParams, createCommentSchema, updateCommentSchema } = require('../middleware/validate');
 const { getSettings } = require('../services/settings.service');
 
 const router = express.Router({ mergeParams: true });
+router.use(requireUuidParams('issueId'));
+router.param('commentId', uuidParam);
 
 // GET /api/issues/:issueId/comments
 router.get('/', optionalAuth, async (req, res) => {
@@ -45,6 +47,11 @@ router.post('/', auth, validate(createCommentSchema), async (req, res) => {
 
     const issueResult = await pool.query('SELECT id, title FROM issues WHERE id = $1', [req.params.issueId]);
     if (!issueResult.rows[0]) return res.status(404).json({ error: 'Issue not found' });
+
+    if (parent_id) {
+      const parent = await pool.query('SELECT 1 FROM comments WHERE id = $1 AND issue_id = $2', [parent_id, req.params.issueId]);
+      if (!parent.rows[0]) return res.status(400).json({ error: 'The comment you are replying to does not exist.' });
+    }
 
     const result = await pool.query(`
       INSERT INTO comments (issue_id, user_id, content, is_admin_comment, is_internal, parent_id)

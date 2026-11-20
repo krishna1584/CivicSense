@@ -250,7 +250,7 @@ export function ReportWizard({ mode }: { mode: 'account' | 'anonymous' }) {
 
         <div className="max-w-5xl mx-auto grid lg:grid-cols-5 gap-8">
           <div className="lg:col-span-3 space-y-6 animate-fade_in">
-            <div className="bg-base-800 rounded-2xl border border-border-subtle p-3 sm:p-6 shadow-card">
+            <div>
               {step === 0 && (
                 <StepDetails
                   form={form}

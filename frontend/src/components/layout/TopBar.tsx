@@ -55,6 +55,7 @@ export function TopBar({ title, sub, actions }: TopBarProps) {
         onClick={toggleTheme}
         className="w-8 h-8 rounded-lg bg-base-850 flex items-center justify-center hover:bg-base-800 transition-colors shrink-0 border border-border-subtle"
         title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+        aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
       >
         {theme === 'light' ? (
           <Moon size={14} className="text-content-muted" />
@@ -68,11 +69,12 @@ export function TopBar({ title, sub, actions }: TopBarProps) {
           href="/notifications"
           className="relative w-8 h-8 rounded-lg bg-base-850 flex items-center justify-center hover:bg-base-800 transition-colors shrink-0 border border-border-subtle"
           title="View Notifications"
+          aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'}
         >
           <Bell size={14} className="text-content-muted" />
           {unreadCount > 0 && (
             <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-state-error text-white text-[9px] font-bold flex items-center justify-center">
-              {unreadCount}
+              {unreadCount > 9 ? '9+' : unreadCount}
             </span>
           )}
         </Link>

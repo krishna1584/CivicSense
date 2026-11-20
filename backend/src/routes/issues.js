@@ -1,13 +1,14 @@
 const express = require('express');
 const pool = require('../db/pool');
 const { auth, requireRole, requireVerified, optionalAuth } = require('../middleware/auth');
-const { validate, createIssueSchema, updateIssueStatusSchema } = require('../middleware/validate');
+const { validate, uuidParam, createIssueSchema, updateIssueStatusSchema } = require('../middleware/validate');
 const { upload, storeUploads } = require('../middleware/upload');
 const { apiLimiter, uploadLimiter } = require('../middleware/rateLimiter');
 const issuesService = require('../services/issues.service');
 const { getSettings } = require('../services/settings.service');
 
 const router = express.Router();
+router.param('id', uuidParam);
 
 // GET /api/issues - list with filter, sort, search, pagination
 router.get('/', optionalAuth, async (req, res) => {
@@ -95,6 +96,34 @@ router.get('/', optionalAuth, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to fetch issues' });
+  }
+});
+
+// GET /api/issues/stats/public  ← real numbers for the landing page
+router.get('/stats/public', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT COUNT(*) AS total,
+             COUNT(*) FILTER (WHERE status = 'resolved') AS resolved,
+             ROUND(AVG(EXTRACT(EPOCH FROM (resolved_at - created_at)) / 3600)
+                   FILTER (WHERE status = 'resolved' AND resolved_at IS NOT NULL), 1) AS avg_resolution_hours,
+             COUNT(*) FILTER (WHERE created_at > NOW() - INTERVAL '30 days') AS last_30_days
+      FROM issues i
+      WHERE ${issuesService.PUBLIC_ISSUE_SQL}
+    `);
+    const row = result.rows[0];
+    const total = parseInt(row.total, 10);
+    const resolved = parseInt(row.resolved, 10);
+    res.json({
+      total,
+      resolved,
+      resolutionRate: total ? Math.round((resolved / total) * 100) : null,
+      avgResolutionHours: row.avg_resolution_hours === null ? null : parseFloat(row.avg_resolution_hours),
+      last30Days: parseInt(row.last_30_days, 10),
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to load statistics' });
   }
 });
 
@@ -317,6 +346,9 @@ router.post('/:id/verify-resolution', auth, async (req, res) => {
 
   if (typeof approved !== 'boolean') {
     return res.status(400).json({ error: 'approved boolean field is required.' });
+  }
+  if (comment !== undefined && (typeof comment !== 'string' || comment.length > 1000)) {
+    return res.status(400).json({ error: 'comment must be text of up to 1000 characters.' });
   }
 
   const client = await pool.connect();

@@ -18,11 +18,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<Theme>('light');
 
   useEffect(() => {
-    const stored = localStorage.getItem('civicsense-theme') as Theme | null;
-    if (stored === 'dark' || (!stored && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-      setTheme('dark');
-      document.documentElement.classList.add('dark');
-    }
+    // The inline script in the root layout already applied the theme; just read it back.
+    if (document.documentElement.classList.contains('dark')) setTheme('dark');
   }, []);
 
   const toggleTheme = useCallback(() => {

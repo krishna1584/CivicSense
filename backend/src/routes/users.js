@@ -2,8 +2,10 @@ const express = require('express');
 const pool = require('../db/pool');
 const { auth, requireRole, optionalAuth } = require('../middleware/auth');
 const { uploadAvatar, storeUpload } = require('../middleware/upload');
+const { validate, uuidParam, UUID_RE, updateProfileSchema } = require('../middleware/validate');
 
 const router = express.Router();
+router.param('id', uuidParam);
 
 // GET /api/users/me/issues
 router.get('/me/issues', auth, async (req, res) => {
@@ -47,7 +49,8 @@ router.get('/me/dashboard', auth, async (req, res) => {
   try {
     const [issuesRes, votesRes, commentsRes, notifRes] = await Promise.all([
       pool.query(`
-        SELECT i.id, i.title, i.status, i.severity, i.upvote_count, i.created_at,
+        SELECT i.id, i.title, i.description, i.status, i.severity, i.address, i.department, i.is_anonymous,
+               i.upvote_count, i.comment_count, i.follow_count, i.avg_rating, i.review_count, i.created_at,
                c.name AS category_name, c.icon AS category_icon
         FROM issues i LEFT JOIN categories c ON i.category_id = c.id
         WHERE i.user_id = $1 ORDER BY i.created_at DESC LIMIT 10
@@ -62,6 +65,7 @@ router.get('/me/dashboard', auth, async (req, res) => {
         COUNT(*) FILTER (WHERE status = 'reported') AS reported,
         COUNT(*) FILTER (WHERE status = 'acknowledged') AS acknowledged,
         COUNT(*) FILTER (WHERE status = 'in_progress') AS in_progress,
+        COUNT(*) FILTER (WHERE status = 'pending_verification') AS pending_verification,
         COUNT(*) FILTER (WHERE status = 'resolved') AS resolved,
         COUNT(*) FILTER (WHERE status = 'rejected') AS rejected
       FROM issues WHERE user_id = $1
@@ -88,6 +92,7 @@ router.get('/me/notifications', auth, async (req, res) => {
   const { page = 1, limit = 20 } = req.query;
   const offset = (parseInt(page) - 1) * parseInt(limit);
   try {
+    // Reading the list doesn't change it; the page marks what it actually showed.
     const [notifRes, countRes] = await Promise.all([
       pool.query(
         'SELECT * FROM notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3',
@@ -95,10 +100,25 @@ router.get('/me/notifications', auth, async (req, res) => {
       ),
       pool.query('SELECT COUNT(*) FROM notifications WHERE user_id = $1 AND is_read = FALSE', [req.user.id]),
     ]);
-    await pool.query('UPDATE notifications SET is_read = TRUE WHERE user_id = $1 AND is_read = FALSE', [req.user.id]);
     res.json({ notifications: notifRes.rows, unreadCount: parseInt(countRes.rows[0].count) });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch notifications' });
+  }
+});
+
+// PATCH /api/users/me/notifications/read  { ids: [...] }
+router.patch('/me/notifications/read', auth, async (req, res) => {
+  const { ids } = req.body;
+  if (!Array.isArray(ids) || !ids.length || ids.length > 100 || !ids.every((id) => typeof id === 'string' && UUID_RE.test(id))) {
+    return res.status(400).json({ error: 'ids must be a list of up to 100 notification ids' });
+  }
+  try {
+    await pool.query('UPDATE notifications SET is_read = TRUE WHERE user_id = $1 AND id = ANY($2::uuid[])', [req.user.id, ids]);
+    const count = await pool.query('SELECT COUNT(*) FROM notifications WHERE user_id = $1 AND is_read = FALSE', [req.user.id]);
+    res.json({ unreadCount: parseInt(count.rows[0].count) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to update notifications' });
   }
 });
 
@@ -130,7 +150,7 @@ router.get('/:id/profile', optionalAuth, async (req, res) => {
         SELECT
           COUNT(*) AS total_issues,
           COUNT(*) FILTER (WHERE status = 'resolved') AS resolved_issues,
-          SUM(upvote_count) AS total_upvotes_received
+          COALESCE(SUM(upvote_count), 0) AS total_upvotes_received
         FROM issues WHERE user_id = $1 AND is_anonymous = FALSE
       `, [req.params.id]),
       pool.query(`
@@ -154,11 +174,13 @@ router.get('/:id/profile', optionalAuth, async (req, res) => {
       `, [req.params.id, req.user?.id || null]),
     ]);
 
+    // Staff assessments of a citizen are shown to that citizen and to staff, never publicly.
+    const canSeeAssessments = req.user?.id === req.params.id || ['admin', 'department_staff'].includes(req.user?.role);
     res.json({
       user: user.rows[0],
       stats: stats.rows[0],
       satisfaction: satisfaction.rows[0],
-      adminReviews: adminReviews.rows,
+      adminReviews: canSeeAssessments ? adminReviews.rows : null,
     });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch profile' });
@@ -201,7 +223,7 @@ router.get('/:id/issues', async (req, res) => {
 
 
 // PATCH /api/users/me
-router.patch('/me', auth, uploadAvatar.single('avatar'), async (req, res) => {
+router.patch('/me', auth, uploadAvatar.single('avatar'), validate(updateProfileSchema), async (req, res) => {
   const { name, address } = req.body;
   const userId = req.user.id;
 

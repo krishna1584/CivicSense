@@ -80,6 +80,7 @@ export const issuesApi = {
     api.post(`/api/issues/${id}/verify-resolution`, data),
   history: (id: string) => api.get(`/api/issues/${id}/history`),
   categories: () => api.get('/api/issues/categories/all'),
+  publicStats: () => api.get('/api/issues/stats/public'),
   trending: (lat: number, lng: number) => api.get('/api/issues/trending/nearby', { params: { lat, lng } }),
 };
 
@@ -115,7 +116,8 @@ export const engagementApi = {
 export const usersApi = {
   dashboard: () => api.get('/api/users/me/dashboard'),
   myIssues: (params?: Record<string, unknown>) => api.get('/api/users/me/issues', { params }),
-  notifications: () => api.get('/api/users/me/notifications'),
+  notifications: (params?: { page?: number }) => api.get('/api/users/me/notifications', { params }),
+  markNotificationsRead: (ids: string[]) => api.patch('/api/users/me/notifications/read', { ids }),
   unreadCount: () => api.get('/api/users/me/notifications/unread-count'),
   profile: (id: string) => api.get(`/api/users/${id}/profile`),
   userIssues: (id: string, params?: Record<string, unknown>) => api.get(`/api/users/${id}/issues`, { params }),

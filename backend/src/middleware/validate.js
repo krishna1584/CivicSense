@@ -1,5 +1,44 @@
 const Joi = require('joi');
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const ISSUE_STATUSES = ['reported', 'acknowledged', 'in_progress', 'pending_verification', 'resolved', 'rejected'];
+const SEVERITIES = ['low', 'medium', 'high', 'critical'];
+const notFound = (res) => res.status(404).json({ error: 'Not found' });
+
+/** For router.param: a malformed id can't match any record, so answer 404 before touching the database. */
+const uuidParam = (req, res, next, value) => (UUID_RE.test(value) ? next() : notFound(res));
+
+/** For routers mounted under a parent path such as /issues/:issueId (router.param doesn't see those). */
+const requireUuidParams = (...names) => (req, res, next) =>
+  names.every((name) => UUID_RE.test(req.params[name] || '')) ? next() : notFound(res);
+
+const clampInt = (value, fallback, min, max) => {
+  const n = parseInt(value, 10);
+  return Number.isFinite(n) ? Math.min(Math.max(n, min), max) : fallback;
+};
+
+/** Normalise the query parameters every list endpoint shares, rejecting unknown filter values. */
+const normalizeQuery = (req, res, next) => {
+  const q = req.query;
+  if (q.page !== undefined) q.page = clampInt(q.page, 1, 1, 100000);
+  if (q.limit !== undefined) q.limit = clampInt(q.limit, 20, 1, 100);
+  if (q.status !== undefined && ![...ISSUE_STATUSES, 'unresolved'].includes(q.status)) {
+    return res.status(400).json({ error: 'Invalid status filter' });
+  }
+  if (q.severity !== undefined && !SEVERITIES.includes(q.severity)) {
+    return res.status(400).json({ error: 'Invalid severity filter' });
+  }
+  for (const key of ['date_from', 'date_to']) {
+    if (q[key] !== undefined && (typeof q[key] !== 'string' || Number.isNaN(Date.parse(q[key])))) {
+      return res.status(400).json({ error: `Invalid ${key}` });
+    }
+  }
+  next();
+};
+
+// Emails are compared case-insensitively everywhere
+const email = () => Joi.string().trim().lowercase().email();
+
 const validate = (schema, property = 'body') => (req, res, next) => {
   const { error, value } = schema.validate(req[property], { abortEarly: false, stripUnknown: true });
   if (error) {
@@ -12,28 +51,28 @@ const validate = (schema, property = 'body') => (req, res, next) => {
 
 // Auth schemas
 const registerSchema = Joi.object({
-  name: Joi.string().min(2).max(100).required(),
-  email: Joi.string().email().required(),
+  name: Joi.string().trim().min(2).max(100).required(),
+  email: email().required(),
   password: Joi.string().min(8).max(128).required(),
 });
 
 const loginSchema = Joi.object({
-  email: Joi.string().email().required(),
-  password: Joi.string().required(),
+  email: email().required(),
+  password: Joi.string().max(128).required(),
 });
 
 const sendOtpSchema = Joi.object({
-  email: Joi.string().email().required(),
+  email: email().required(),
 });
 
 const verifyOtpSchema = Joi.object({
-  email: Joi.string().email().required(),
-  code: Joi.string().length(6).required(),
+  email: email().required(),
+  code: Joi.string().pattern(/^\d{6}$/).required(),
 });
 
 const resetPasswordSchema = Joi.object({
-  email: Joi.string().email().required(),
-  code: Joi.string().length(6).required(),
+  email: email().required(),
+  code: Joi.string().pattern(/^\d{6}$/).required(),
   password: Joi.string().min(8).max(128).required(),
 });
 
@@ -85,12 +124,28 @@ const createCommentSchema = Joi.object({
   is_internal: Joi.boolean().default(false),
 });
 
+const updateProfileSchema = Joi.object({
+  name: Joi.string().trim().min(2).max(100),
+  address: Joi.string().trim().max(500).allow(''),
+});
+
+const reviewSchema = Joi.object({
+  rating: Joi.number().integer().min(1).max(5).required(),
+  comment: Joi.string().trim().max(500).allow(''),
+});
+
 const updateCommentSchema = Joi.object({
   content: Joi.string().trim().min(1).max(2000).required(),
 });
 
 module.exports = {
   validate,
+  UUID_RE,
+  uuidParam,
+  requireUuidParams,
+  normalizeQuery,
+  updateProfileSchema,
+  reviewSchema,
   anonymousReportSchema,
   anonymousTrackSchema,
   anonymousDecisionSchema,

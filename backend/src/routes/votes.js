@@ -4,7 +4,17 @@ const { auth, requireVerified } = require('../middleware/auth');
 const issuesService = require('../services/issues.service');
 const { getSettings } = require('../services/settings.service');
 
+const { requireUuidParams } = require('../middleware/validate');
+
 const router = express.Router({ mergeParams: true });
+router.use(requireUuidParams('issueId'));
+
+// Locking the issue row makes concurrent clicks from one user run one after another,
+// so a double-click can't race into a duplicate-vote error. It also confirms the issue exists.
+const lockPublicIssue = async (client, issueId) => {
+  const found = await client.query(`SELECT i.id FROM issues i WHERE i.id = $1 AND ${issuesService.PUBLIC_ISSUE_SQL} FOR UPDATE`, [issueId]);
+  return !!found.rows[0];
+};
 
 // POST /api/issues/:issueId/votes
 router.post('/votes', auth, requireVerified, async (req, res) => {
@@ -14,6 +24,10 @@ router.post('/votes', auth, requireVerified, async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    if (!(await lockPublicIssue(client, req.params.issueId))) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Issue not found' });
+    }
 
     const existing = await client.query(
       'SELECT * FROM votes WHERE issue_id = $1 AND user_id = $2',
@@ -93,6 +107,10 @@ router.post('/follow', auth, requireVerified, async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    if (!(await lockPublicIssue(client, req.params.issueId))) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Issue not found' });
+    }
     const existing = await client.query('SELECT id FROM follows WHERE issue_id = $1 AND user_id = $2', [req.params.issueId, req.user.id]);
 
     let following;

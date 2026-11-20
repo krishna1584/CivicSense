@@ -8,29 +8,12 @@ const pool = new Pool({
 });
 
 async function main() {
-  console.log('🌱 Seeding database...');
-
-  // Create categories
-  const categories = [
-    { name: 'Traffic', slug: 'traffic', icon: '🚦', description: 'Traffic and road safety issues' },
-    { name: 'Pothole', slug: 'pothole', icon: '🕳️', description: 'Road damage and potholes' },
-    { name: 'Lighting', slug: 'lighting', icon: '💡', description: 'Street lighting problems' },
-    { name: 'Pollution', slug: 'pollution', icon: '💨', description: 'Air/noise pollution' },
-    { name: 'Flooding', slug: 'flooding', icon: '🌊', description: 'Water/drainage issues' },
-    { name: 'Garbage', slug: 'garbage', icon: '🗑️', description: 'Waste and sanitation' },
-    { name: 'Parks', slug: 'parks', icon: '🌳', description: 'Park maintenance' },
-    { name: 'Other', slug: 'other', icon: '📌', description: 'Other civic issues' },
-  ];
-
-  for (const cat of categories) {
-    await pool.query(`
-      INSERT INTO categories (id, name, slug, icon, description)
-      VALUES (gen_random_uuid(), $1, $2, $3, $4)
-      ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name, icon = EXCLUDED.icon, description = EXCLUDED.description
-    `, [cat.name, cat.slug, cat.icon, cat.description]);
+  // These demo accounts use a well-known password, so they must never reach a live database.
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('Refusing to seed demo accounts in production');
   }
-
-  console.log(`✅ Created ${categories.length} categories`);
+  console.log('🌱 Seeding demo accounts...');
+  // Categories come from src/db/migrate.js, the single source for them.
 
   const hashedPassword = await bcrypt.hash('password', 10);
 

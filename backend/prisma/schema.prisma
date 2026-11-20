@@ -42,38 +42,41 @@ enum MediaType {
 }
 
 model User {
-  id          String   @id @default(uuid()) @db.Uuid
-  name        String   @db.VarChar(255)
-  email       String   @unique @db.VarChar(255)
-  password_hash String  @db.VarChar(255)
-  role        UserRole @default(citizen)
-  trust_score  Int      @default(0)
-  avatar_url   String?  @db.Text
-  address      String?  @db.Text
-  is_verified  Boolean  @default(false)
-  is_active    Boolean  @default(true)
-  otp_code     String?  @db.VarChar(6)
+  id             String    @id @default(uuid()) @db.Uuid
+  name           String    @db.VarChar(255)
+  email          String    @unique @db.VarChar(255)
+  password_hash  String    @db.VarChar(255)
+  role           UserRole  @default(citizen)
+  trust_score    Int       @default(0)
+  avatar_url     String?   @db.Text
+  address        String?   @db.Text
+  is_verified    Boolean   @default(false)
+  is_active      Boolean   @default(true)
+  otp_code       String?   @db.VarChar(64)
   otp_expires_at DateTime? @db.Timestamptz
-  created_at   DateTime @default(now()) @db.Timestamptz
-  updated_at   DateTime @default(now()) @updatedAt @db.Timestamptz
+  otp_attempts   Int       @default(0) @db.SmallInt
+  created_at     DateTime  @default(now()) @db.Timestamptz
+  updated_at     DateTime  @default(now()) @updatedAt @db.Timestamptz
 
-  refreshTokens RefreshToken[]
-  issues        Issue[]
-  assignedIssues Issue[]        @relation("AssignedIssues")
-  comments      Comment[]
-  votes         Vote[]
-  follows       Follow[]
-  notifications Notification[]
-  statusHistory IssueStatusHistory[]
-  adminLogs     AdminLog[]
+  refreshTokens   RefreshToken[]
+  issues          Issue[]
+  assignedIssues  Issue[]              @relation("AssignedIssues")
+  comments        Comment[]
+  votes           Vote[]
+  follows         Follow[]
+  notifications   Notification[]
+  statusHistory   IssueStatusHistory[]
+  adminLogs       AdminLog[]
+  reviewsWritten  IssueReview[]        @relation("ReviewAuthor")
+  reviewsReceived IssueReview[]        @relation("ReviewTarget")
 
   @@map("users")
 }
 
 model RefreshToken {
-  id        String   @id @default(uuid()) @db.Uuid
+  id         String   @id @default(uuid()) @db.Uuid
   user_id    String   @db.Uuid
-  token     String   @unique @db.Text
+  token      String   @unique @db.Text
   expires_at DateTime @db.Timestamptz
   created_at DateTime @default(now()) @db.Timestamptz
 
@@ -88,7 +91,7 @@ model Category {
   slug        String   @unique @db.VarChar(100)
   icon        String?  @db.VarChar(50)
   description String?  @db.Text
-  created_at   DateTime @default(now()) @db.Timestamptz
+  created_at  DateTime @default(now()) @db.Timestamptz
 
   subcategories Subcategory[]
   issues        Issue[]
@@ -97,10 +100,10 @@ model Category {
 }
 
 model Subcategory {
-  id         String   @id @default(uuid()) @db.Uuid
+  id          String   @id @default(uuid()) @db.Uuid
   category_id String   @db.Uuid
-  name       String   @db.VarChar(100)
-  slug       String   @db.VarChar(100)
+  name        String   @db.VarChar(100)
+  slug        String   @db.VarChar(100)
   created_at  DateTime @default(now()) @db.Timestamptz
 
   category Category @relation(fields: [category_id], references: [id], onDelete: Cascade)
@@ -110,57 +113,61 @@ model Subcategory {
 }
 
 model Issue {
-  id             String        @id @default(uuid()) @db.Uuid
-  user_id         String?       @db.Uuid
-  moderation_status String      @default("approved") @db.VarChar(20)
-  publish_after   DateTime?     @db.Timestamptz
-  title          String        @db.VarChar(255)
-  description    String        @db.Text
-  category_id     String?       @db.Uuid
-  subcategory_id  String?       @db.Uuid
-  severity       SeverityLevel @default(medium)
-  status         IssueStatus   @default(reported)
-  location       String?       @db.Text
-  address        String?       @db.Text
-  latitude       Float?
-  longitude      Float?
-  search_vector  Unsupported("tsvector")?
-  is_anonymous    Boolean       @default(false)
-  upvote_count    Int           @default(0)
-  downvote_count  Int           @default(0)
-  follow_count    Int           @default(0)
-  comment_count   Int           @default(0)
-  assigned_to     String?       @db.Uuid
-  department     String?       @db.VarChar(255)
-  sla_hours       Int?
-  sla_deadline    DateTime?     @db.Timestamptz
-  rejection_reason String?      @db.Text
-  created_at      DateTime      @default(now()) @db.Timestamptz
-  updated_at      DateTime      @default(now()) @updatedAt @db.Timestamptz
-  resolved_at     DateTime?     @db.Timestamptz
+  id                String                   @id @default(uuid()) @db.Uuid
+  user_id           String?                  @db.Uuid
+  moderation_status String                   @default("approved") @db.VarChar(20)
+  publish_after     DateTime?                @db.Timestamptz
+  title             String                   @db.VarChar(255)
+  description       String                   @db.Text
+  category_id       String?                  @db.Uuid
+  subcategory_id    String?                  @db.Uuid
+  severity          SeverityLevel            @default(medium)
+  status            IssueStatus              @default(reported)
+  location          String?                  @db.Text
+  address           String?                  @db.Text
+  latitude          Float?
+  longitude         Float?
+  search_vector     Unsupported("tsvector")?
+  is_anonymous      Boolean                  @default(false)
+  upvote_count      Int                      @default(0)
+  downvote_count    Int                      @default(0)
+  follow_count      Int                      @default(0)
+  comment_count     Int                      @default(0)
+  assigned_to       String?                  @db.Uuid
+  department        String?                  @db.VarChar(255)
+  sla_hours         Int?
+  sla_deadline      DateTime?                @db.Timestamptz
+  rejection_reason  String?                  @db.Text
+  avg_rating        Decimal?                 @db.Decimal(3, 2)
+  review_count      Int                      @default(0)
+  created_at        DateTime                 @default(now()) @db.Timestamptz
+  updated_at        DateTime                 @default(now()) @updatedAt @db.Timestamptz
+  resolved_at       DateTime?                @db.Timestamptz
 
-  user         User?        @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  category     Category?    @relation(fields: [category_id], references: [id])
-  subcategory  Subcategory? @relation(fields: [subcategory_id], references: [id])
-  assignedUser User?        @relation("AssignedIssues", fields: [assigned_to], references: [id])
-  media        IssueMedia[]
-  statusHistory IssueStatusHistory[]
-  comments     Comment[]
-  votes        Vote[]
-  follows      Follow[]
-  notifications Notification[]
+  user           User?                 @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  category       Category?             @relation(fields: [category_id], references: [id])
+  subcategory    Subcategory?          @relation(fields: [subcategory_id], references: [id])
+  assignedUser   User?                 @relation("AssignedIssues", fields: [assigned_to], references: [id])
+  media          IssueMedia[]
+  statusHistory  IssueStatusHistory[]
+  comments       Comment[]
+  votes          Vote[]
+  follows        Follow[]
+  notifications  Notification[]
+  reviews        IssueReview[]
+  anonymousToken AnonymousReportToken?
 
   @@map("issues")
 }
 
 model IssueMedia {
-  id         String    @id @default(uuid()) @db.Uuid
-  issue_id    String    @db.Uuid
-  media_url   String    @db.Text
-  public_id   String?   @db.Text
-  mediaType  MediaType @default(image)
-  is_resolution Boolean  @default(false)
-  uploaded_at DateTime  @default(now()) @db.Timestamptz
+  id            String    @id @default(uuid()) @db.Uuid
+  issue_id      String    @db.Uuid
+  media_url     String    @db.Text
+  public_id     String?   @db.Text
+  media_type    MediaType @default(image)
+  is_resolution Boolean   @default(false)
+  uploaded_at   DateTime  @default(now()) @db.Timestamptz
 
   issue Issue @relation(fields: [issue_id], references: [id], onDelete: Cascade)
 
@@ -168,14 +175,14 @@ model IssueMedia {
 }
 
 model IssueStatusHistory {
-  id        String      @id @default(uuid()) @db.Uuid
-  issue_id   String      @db.Uuid
+  id         String       @id @default(uuid()) @db.Uuid
+  issue_id   String       @db.Uuid
   old_status IssueStatus?
   new_status IssueStatus
-  updated_by String?     @db.Uuid
-  comment   String?     @db.Text
-  is_public  Boolean     @default(true)
-  updated_at DateTime    @default(now()) @db.Timestamptz
+  updated_by String?      @db.Uuid
+  comment    String?      @db.Text
+  is_public  Boolean      @default(true)
+  updated_at DateTime     @default(now()) @db.Timestamptz
 
   issue   Issue @relation(fields: [issue_id], references: [id], onDelete: Cascade)
   updater User? @relation(fields: [updated_by], references: [id])
@@ -184,15 +191,15 @@ model IssueStatusHistory {
 }
 
 model Comment {
-  id             String   @id @default(uuid()) @db.Uuid
-  issue_id        String   @db.Uuid
-  user_id         String   @db.Uuid
-  content        String   @db.Text
+  id               String   @id @default(uuid()) @db.Uuid
+  issue_id         String   @db.Uuid
+  user_id          String   @db.Uuid
+  content          String   @db.Text
   is_admin_comment Boolean  @default(false)
-  is_internal     Boolean  @default(false)
-  parent_id       String?  @db.Uuid
-  created_at      DateTime @default(now()) @db.Timestamptz
-  updated_at      DateTime @default(now()) @updatedAt @db.Timestamptz
+  is_internal      Boolean  @default(false)
+  parent_id        String?  @db.Uuid
+  created_at       DateTime @default(now()) @db.Timestamptz
+  updated_at       DateTime @default(now()) @updatedAt @db.Timestamptz
 
   issue   Issue     @relation(fields: [issue_id], references: [id], onDelete: Cascade)
   user    User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
@@ -203,10 +210,10 @@ model Comment {
 }
 
 model Vote {
-  id       String   @id @default(uuid()) @db.Uuid
-  issue_id  String   @db.Uuid
-  user_id   String   @db.Uuid
-  vote_type VoteType
+  id         String   @id @default(uuid()) @db.Uuid
+  issue_id   String   @db.Uuid
+  user_id    String   @db.Uuid
+  vote_type  VoteType
   created_at DateTime @default(now()) @db.Timestamptz
 
   issue Issue @relation(fields: [issue_id], references: [id], onDelete: Cascade)
@@ -217,9 +224,9 @@ model Vote {
 }
 
 model Follow {
-  id       String   @id @default(uuid()) @db.Uuid
-  issue_id  String   @db.Uuid
-  user_id   String   @db.Uuid
+  id         String   @id @default(uuid()) @db.Uuid
+  issue_id   String   @db.Uuid
+  user_id    String   @db.Uuid
   created_at DateTime @default(now()) @db.Timestamptz
 
   issue Issue @relation(fields: [issue_id], references: [id], onDelete: Cascade)
@@ -230,12 +237,12 @@ model Follow {
 }
 
 model Notification {
-  id       String   @id @default(uuid()) @db.Uuid
-  user_id   String   @db.Uuid
-  issue_id  String?  @db.Uuid
-  type     String   @db.VarChar(50)
-  message  String   @db.Text
-  is_read   Boolean  @default(false)
+  id         String   @id @default(uuid()) @db.Uuid
+  user_id    String   @db.Uuid
+  issue_id   String?  @db.Uuid
+  type       String   @db.VarChar(50)
+  message    String   @db.Text
+  is_read    Boolean  @default(false)
   created_at DateTime @default(now()) @db.Timestamptz
 
   user  User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
@@ -253,7 +260,45 @@ model AdminLog {
   details     String?  @db.Text
   created_at  DateTime @default(now()) @db.Timestamptz
 
-  admin       User     @relation(fields: [admin_id], references: [id])
+  admin User @relation(fields: [admin_id], references: [id])
 
   @@map("admin_logs")
+}
+
+// Tables below are created by src/db/migrate_reviews.js and src/db/migrate_updates.js.
+// They are listed here so this schema matches the real database.
+
+model IssueReview {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  issue_id       String   @db.Uuid
+  user_id        String   @db.Uuid
+  target_user_id String?  @db.Uuid
+  rating         Int      @db.SmallInt
+  comment        String?  @db.Text
+  is_hidden      Boolean  @default(false)
+  created_at     DateTime @default(now()) @db.Timestamptz
+
+  issue      Issue @relation(fields: [issue_id], references: [id], onDelete: Cascade)
+  author     User  @relation("ReviewAuthor", fields: [user_id], references: [id], onDelete: Cascade)
+  targetUser User? @relation("ReviewTarget", fields: [target_user_id], references: [id], onDelete: Cascade)
+
+  @@unique([issue_id, user_id])
+  @@map("issue_reviews")
+}
+
+model AnonymousReportToken {
+  issue_id   String @id @db.Uuid
+  token_hash String @unique @db.Char(64)
+
+  issue Issue @relation(fields: [issue_id], references: [id], onDelete: Cascade)
+
+  @@map("anonymous_report_tokens")
+}
+
+model AppSetting {
+  key        String   @id
+  value      Json
+  updated_at DateTime @default(now()) @db.Timestamptz
+
+  @@map("app_settings")
 }

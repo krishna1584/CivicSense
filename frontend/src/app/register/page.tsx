@@ -24,12 +24,12 @@ function getStrength(pw: string): { level: StrengthLevel; score: number; checks:
   return { level: 'strong', score, checks };
 }
 
-const STRENGTH_CONFIG: Record<StrengthLevel, { label: string; color: string; bars: number }> = {
-  empty:  { label: '', color: 'rgb(var(--border-subtle))', bars: 0 },
-  weak:   { label: 'Weak', color: '#FB7185', bars: 1 },
-  fair:   { label: 'Fair', color: '#FBBF24', bars: 2 },
-  good:   { label: 'Good', color: '#3B82F6', bars: 3 },
-  strong: { label: 'Strong', color: '#4ADE80', bars: 4 },
+const STRENGTH_CONFIG: Record<StrengthLevel, { label: string; text: string; bar: string; bars: number }> = {
+  empty:  { label: '', text: '', bar: '', bars: 0 },
+  weak:   { label: 'Weak', text: 'text-state-error', bar: 'bg-state-error', bars: 1 },
+  fair:   { label: 'Fair', text: 'text-state-warning', bar: 'bg-state-warning', bars: 2 },
+  good:   { label: 'Good', text: 'text-accent-primary', bar: 'bg-accent-primary', bars: 3 },
+  strong: { label: 'Strong', text: 'text-state-success', bar: 'bg-state-success', bars: 4 },
 };
 
 const REQUIREMENT_LABELS: Record<string, string> = {
@@ -116,12 +116,6 @@ export default function RegisterPage() {
           </div>
         </div>
       </nav>
-
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute w-[600px] h-[600px] rounded-full opacity-[0.04]" style={{ background: 'radial-gradient(circle, rgb(var(--accent-secondary)) 0%, transparent 70%)', top: '-200px', left: '-100px' }} />
-        <div className="absolute inset-0" style={{ backgroundImage: 'linear-gradient(rgba(122,90,245,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(122,90,245,0.02) 1px, transparent 1px)', backgroundSize: '48px 48px' }} />
-      </div>
-
       <div className="w-full max-w-[440px] relative z-10 animate-slide_up">
         {success && (
           <div className="flex flex-col items-center justify-center gap-4 rounded-2xl py-16 px-8 text-center bg-base-900/90 backdrop-blur-xl border border-state-success/30 shadow-card">
@@ -167,7 +161,7 @@ export default function RegisterPage() {
                 <div className="relative">
                   <input id="reg-password" type={showPassword ? 'text' : 'password'} autoComplete="new-password"
                     placeholder="Min. 8 characters" value={form.password} onChange={handleChange('password')} required minLength={8} className="input-dark pr-12" />
-                  <button type="button" onClick={() => setShowPassword(v => !v)}
+                  <button type="button" onClick={() => setShowPassword(v => !v)} aria-label={showPassword ? 'Hide password' : 'Show password'}
                     className="absolute right-3.5 top-1/2 -translate-y-1/2 text-content-muted hover:text-content-secondary transition-colors p-1">
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
@@ -177,19 +171,18 @@ export default function RegisterPage() {
                   <div className="mt-3">
                     <div className="flex gap-1.5 mb-2">
                       {[0, 1, 2, 3].map(i => (
-                        <div key={i} className="h-1 flex-1 rounded-full transition-all duration-300"
-                          style={{ background: i < cfg.bars ? cfg.color : 'rgb(var(--border-subtle))' }} />
+                        <div key={i} className={`h-1 flex-1 rounded-full transition-all duration-300 ${i < cfg.bars ? cfg.bar : 'bg-border-subtle'}`} />
                       ))}
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-xs" style={{ color: cfg.color }}>{cfg.label}</span>
+                      <span className={`text-xs ${cfg.text}`}>{cfg.label}</span>
                       <span className="text-xs text-content-muted">{strength.score}/5 checks</span>
                     </div>
                     <div className="mt-3 grid grid-cols-1 gap-1.5">
                       {Object.entries(strength.checks).map(([key, met]) => (
                         <div key={key} className="flex items-center gap-2">
                           {met ? <Check size={12} className="text-state-success flex-shrink-0" /> : <X size={12} className="text-content-muted flex-shrink-0" />}
-                          <span className="text-xs" style={{ color: met ? '#22C55E' : '#94A3B8' }}>{REQUIREMENT_LABELS[key]}</span>
+                          <span className={`text-xs ${met ? 'text-state-success' : 'text-content-muted'}`}>{REQUIREMENT_LABELS[key]}</span>
                         </div>
                       ))}
                     </div>
@@ -202,7 +195,7 @@ export default function RegisterPage() {
                 <div className="relative">
                   <input id="reg-confirm" type={showConfirm ? 'text' : 'password'} autoComplete="new-password"
                     placeholder="Repeat your password" value={form.confirm} onChange={handleChange('confirm')} required className="input-dark pr-12" />
-                  <button type="button" onClick={() => setShowConfirm(v => !v)}
+                  <button type="button" onClick={() => setShowConfirm(v => !v)} aria-label={showConfirm ? 'Hide password' : 'Show password'}
                     className="absolute right-3.5 top-1/2 -translate-y-1/2 text-content-muted hover:text-content-secondary transition-colors p-1">
                     {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>

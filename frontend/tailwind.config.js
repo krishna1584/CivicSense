@@ -28,6 +28,7 @@ module.exports = {
         state: {
           success: 'rgb(var(--state-success) / <alpha-value>)',
           warning: 'rgb(var(--state-warning) / <alpha-value>)',
+          high: 'rgb(var(--state-high) / <alpha-value>)',
           error: 'rgb(var(--state-error) / <alpha-value>)',
         },
       },

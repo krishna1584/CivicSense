@@ -1,8 +1,26 @@
 const express = require('express');
 const pool = require('../db/pool');
 const { auth, optionalAuth, requireVerified } = require('../middleware/auth');
+const { validate, uuidParam, requireUuidParams, reviewSchema } = require('../middleware/validate');
 
 const router = express.Router({ mergeParams: true }); // inherit :issueId param
+router.use(requireUuidParams('issueId'));
+router.param('reviewId', uuidParam);
+
+/**
+ * Staff review the reporter (only possible when the report has an account).
+ * Citizens review the fix, and only if they had a stake in it: they reported,
+ * upvoted or followed the issue.
+ */
+async function canReview(db, issue, user) {
+  if (['admin', 'department_staff'].includes(user.role)) return !!issue.user_id;
+  if (issue.user_id === user.id) return true;
+  const result = await db.query(`
+    SELECT EXISTS (SELECT 1 FROM votes WHERE issue_id = $1 AND user_id = $2 AND vote_type = 'upvote')
+        OR EXISTS (SELECT 1 FROM follows WHERE issue_id = $1 AND user_id = $2) AS eligible
+  `, [issue.id, user.id]);
+  return result.rows[0].eligible;
+}
 
 // Helper function to dynamically recalculate and update a user's trust score based on admin ratings
 async function updateUserTrustScore(client, targetUserId) {
@@ -32,14 +50,10 @@ async function updateUserTrustScore(client, targetUserId) {
 // ─── POST /api/issues/:issueId/reviews ──────────────────────────────────────
 // Submit a satisfaction review (eligibility: resolved issue + reporter/upvoter/follower)
 // Admin reviews target the reporting citizen, while citizens review the resolution itself.
-router.post('/', auth, requireVerified, async (req, res) => {
+router.post('/', auth, requireVerified, validate(reviewSchema), async (req, res) => {
   const { issueId } = req.params;
   const { rating, comment } = req.body;
   const userId = req.user.id;
-
-  if (!rating || typeof rating !== 'number' || rating < 1 || rating > 5) {
-    return res.status(400).json({ error: 'Rating must be a number between 1 and 5.' });
-  }
 
   const client = await pool.connect();
   try {
@@ -64,6 +78,10 @@ router.post('/', auth, requireVerified, async (req, res) => {
       await client.query('ROLLBACK');
       return res.status(400).json({ error: 'Anonymous reports have no reporter to review.' });
     }
+    if (!(await canReview(client, issueRes.rows[0], req.user))) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'Only the reporter and people who upvoted or followed this issue can review it.' });
+    }
     const targetUserId = isReviewerAdmin ? issueRes.rows[0].user_id : null;
 
     // Insert review (UNIQUE constraint prevents duplicate per user per issue)
@@ -73,7 +91,7 @@ router.post('/', auth, requireVerified, async (req, res) => {
        ON CONFLICT (issue_id, user_id) DO UPDATE
          SET rating = EXCLUDED.rating, comment = EXCLUDED.comment, target_user_id = EXCLUDED.target_user_id, created_at = NOW()
        RETURNING *`,
-      [issueId, userId, Math.round(rating), comment?.trim() || null, targetUserId]
+      [issueId, userId, rating, comment || null, targetUserId]
     );
 
     // Recompute avg_rating and review_count on the issue (filtering for citizen satisfaction reviews only)
@@ -131,8 +149,10 @@ router.get('/', optionalAuth, async (req, res) => {
         JOIN users u ON r.user_id = u.id
         LEFT JOIN users tu ON r.target_user_id = tu.id
         WHERE r.issue_id = $1 AND r.is_hidden = FALSE
+          -- staff assessments of the reporter: only that reporter and staff see them
+          AND (r.target_user_id IS NULL OR r.target_user_id = $2 OR $3::boolean)
         ORDER BY r.created_at DESC
-      `, [issueId]),
+      `, [issueId, req.user?.id || null, ['admin', 'department_staff'].includes(req.user?.role)]),
       pool.query(`
         SELECT
           ROUND(AVG(rating)::NUMERIC, 2) AS avg_rating,
@@ -151,9 +171,12 @@ router.get('/', optionalAuth, async (req, res) => {
     let userEligible = false;
 
     if (req.user) {
-      const myReview = await pool.query('SELECT * FROM issue_reviews WHERE issue_id = $1 AND user_id = $2', [issueId, req.user.id]);
+      const [myReview, issueRes] = await Promise.all([
+        pool.query('SELECT * FROM issue_reviews WHERE issue_id = $1 AND user_id = $2', [issueId, req.user.id]),
+        pool.query('SELECT id, user_id FROM issues WHERE id = $1', [issueId]),
+      ]);
       userReview = myReview.rows[0] || null;
-      userEligible = true;
+      userEligible = !!issueRes.rows[0] && await canReview(pool, issueRes.rows[0], req.user);
     }
 
     res.json({

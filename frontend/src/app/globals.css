@@ -11,14 +11,16 @@
     --border-subtle: 226 232 240;
     --content-primary: 15 23 42;
     --content-secondary: 71 85 105;
-    --content-muted: 148 163 184;
-    --accent-primary: 59 130 246;
-    --accent-secondary: 99 102 241;
-    --accent-primary-hover: 37 99 235;
-    --accent-secondary-hover: 79 70 229;
-    --state-success: 34 197 94;
-    --state-warning: 245 158 11;
-    --state-error: 239 68 68;
+    /* Light-mode text colours meet WCAG AA (4.5:1) on the page background */
+    --content-muted: 100 116 139;
+    --accent-primary: 37 99 235;
+    --accent-secondary: 79 70 229;
+    --accent-primary-hover: 29 78 216;
+    --accent-secondary-hover: 67 56 202;
+    --state-success: 21 128 61;
+    --state-warning: 180 83 9;
+    --state-high: 194 65 12;
+    --state-error: 220 38 38;
   }
 
   .dark {
@@ -29,13 +31,14 @@
     --border-subtle: 63 63 70;
     --content-primary: 250 250 250;
     --content-secondary: 161 161 170;
-    --content-muted: 113 113 122;
+    --content-muted: 138 138 148;
     --accent-primary: 96 165 250;
     --accent-secondary: 129 140 248;
     --accent-primary-hover: 59 130 246;
     --accent-secondary-hover: 99 102 241;
     --state-success: 74 222 128;
     --state-warning: 251 191 36;
+    --state-high: 251 146 60;
     --state-error: 251 113 133;
   }
 
@@ -97,6 +100,11 @@
   .btn-accent {
     @apply inline-flex items-center justify-center bg-accent-primary text-white font-semibold px-5 py-2.5 rounded-xl transition-all duration-200;
     @apply hover:opacity-90 hover:shadow-glow-primary active:scale-[0.98];
+  }
+
+  .btn-outline {
+    @apply inline-flex items-center justify-center gap-2 border border-border-subtle bg-transparent text-content-secondary font-medium rounded-lg transition-all duration-200;
+    @apply hover:bg-base-850 hover:text-content-primary active:scale-[0.98];
   }
 
   .input-dark {

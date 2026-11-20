@@ -320,7 +320,17 @@ async function updateIssueStatus(client, issueId, { status, rejection_reason }) 
  * @param {object} client
  * @param {{ issueId, issueTitle, newStatus }} params
  */
+const STATUS_LABELS = {
+  reported: 'Reported',
+  acknowledged: 'Acknowledged',
+  in_progress: 'In Progress',
+  pending_verification: 'Awaiting Verification',
+  resolved: 'Resolved',
+  rejected: 'Rejected',
+};
+
 async function notifyFollowers(client, { issueId, issueTitle, newStatus, actorId }) {
+  // Everyone with a stake in the issue, except the person who made the change
   const sql = `
     SELECT DISTINCT user_id FROM (
       SELECT user_id FROM follows WHERE issue_id = $1
@@ -329,13 +339,14 @@ async function notifyFollowers(client, { issueId, issueTitle, newStatus, actorId
       UNION
       SELECT user_id AS user_id FROM issues WHERE id = $1 AND user_id IS NOT NULL
     ) AS recipients
+    WHERE user_id IS DISTINCT FROM $2
   `;
-  const result = await client.query(sql, [issueId]);
+  const result = await client.query(sql, [issueId, actorId || null]);
 
   const notifications = [];
   for (const { user_id } of result.rows) {
     const notifId = require('crypto').randomUUID();
-    const msg = `Issue "${issueTitle}" is now ${newStatus}`;
+    const msg = `Issue "${issueTitle}" is now ${STATUS_LABELS[newStatus] || newStatus}`;
     await client.query(
       `INSERT INTO notifications (id, user_id, issue_id, type, message)
        VALUES ($1, $2, $3, $4, $5)`,
@@ -408,6 +419,7 @@ async function getUserInteraction(issueId, userId) {
 }
 
 module.exports = {
+  STATUS_LABELS,
   PUBLIC_ISSUE_SQL,
   insertReport,
   recordResolutionDecision,

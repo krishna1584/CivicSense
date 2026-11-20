@@ -4,19 +4,19 @@
   "description": "CivicSense Civic Issue Reporting Platform - Backend API",
   "main": "src/index.js",
   "scripts": {
-    "prestart": "node src/db/migrate_anonymous.js",
     "start": "node src/index.js",
+    "prestart": "node src/db/migrate_updates.js",
     "dev": "nodemon src/index.js",
+    "test": "node --test",
+    "db:setup": "prisma migrate deploy && node src/db/migrate.js && node src/db/migrate_reviews.js && node src/db/migrate_updates.js",
     "migrate": "node src/db/migrate.js",
-    "migrate:anonymous": "node src/db/migrate_anonymous.js",
+    "migrate:updates": "node src/db/migrate_updates.js",
     "seed": "node prisma/seed.js"
   },
   "prisma": {
     "seed": "node prisma/seed.js"
   },
   "dependencies": {
-    "@prisma/adapter-pg": "^7.5.0",
-    "@prisma/client": "^7.5.0",
     "bcryptjs": "^2.4.3",
     "cloudinary": "^2.5.1",
     "cookie-parser": "^1.4.7",

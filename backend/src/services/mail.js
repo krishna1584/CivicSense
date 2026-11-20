@@ -3,6 +3,11 @@ const { Resend } = require('resend');
 
 const isProduction = process.env.NODE_ENV === 'production';
 
+// Names and titles are typed by users, so they must not be able to inject HTML into emails.
+const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (ch) => (
+  { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]
+));
+
 // ==========================================
 // RESEND CONFIGURATION (For Production)
 // ==========================================
@@ -140,7 +145,7 @@ const sendOtpEmail = async (email, name, otp, copy = VERIFY_EMAIL_COPY) => {
       </div>
       
       <h1>${copy.heading}</h1>
-      <p>Hello <span class="accent">${name}</span>,</p>
+      <p>Hello <span class="accent">${escapeHtml(name)}</span>,</p>
       <p>${copy.intro} This code is valid for <span class="accent">10 minutes</span>.</p>
       
       <div class="otp-box">
@@ -161,6 +166,11 @@ const sendOtpEmail = async (email, name, otp, copy = VERIFY_EMAIL_COPY) => {
 };
 
 const logOtpFallback = (email, name, otp) => {
+  // Printing a live code into production logs would let anyone with log access take over the account.
+  if (isProduction) {
+    console.error('A verification code email could not be delivered. Check the email provider settings.');
+    return;
+  }
   console.log(`
 ┌────────────────────────────────────────────────────────┐
 │              🚨 DEVELOPER DEBUG MODE OTP 🚨             │
@@ -207,10 +217,10 @@ const sendResolutionPendingEmail = async (email, name, issueTitle, issueId) => {
   <div><span class="logo-icon">⚡</span><span class="logo-text">Civic<span class="logo-highlight">Sense</span></span></div>
   <span class="badge badge-yellow">⏳ Awaiting Your Review</span>
   <h1>Your issue may have been resolved</h1>
-  <p>Hello <span class="accent">${name}</span>,</p>
+  <p>Hello <span class="accent">${escapeHtml(name)}</span>,</p>
   <p>An administrator has reviewed your civic issue and submitted resolution evidence. Please log in to <strong>verify</strong> whether the problem has been fixed to your satisfaction.</p>
   <div class="issue-card">
-    <div class="issue-title">${issueTitle}</div>
+    <div class="issue-title">${escapeHtml(issueTitle)}</div>
     <p style="margin:0;font-size:13px;color:#6b7280;">Awaiting your confirmation</p>
   </div>
   <p>Visit the issue page to approve or reject the proposed resolution. If you approve, the issue will be marked as <span class="accent">Resolved</span>. If you reject it, it will be sent back for further action.</p>
@@ -229,10 +239,10 @@ const sendResolvedEmail = async (email, name, issueTitle, issueId) => {
   <div><span class="logo-icon">⚡</span><span class="logo-text">Civic<span class="logo-highlight">Sense</span></span></div>
   <span class="badge badge-green">✅ Resolved</span>
   <h1>Your issue has been resolved!</h1>
-  <p>Hello <span class="accent">${name}</span>,</p>
+  <p>Hello <span class="accent">${escapeHtml(name)}</span>,</p>
   <p>Great news! The civic issue you reported has been <strong>fully resolved</strong> and acknowledged. Thank you for making your community a better place by reporting it.</p>
   <div class="issue-card">
-    <div class="issue-title">${issueTitle}</div>
+    <div class="issue-title">${escapeHtml(issueTitle)}</div>
     <p style="margin:0;font-size:13px;color:#34d399;font-weight:600;">✓ Resolved</p>
   </div>
   <p>You can view the full resolution history and any evidence uploaded by the authorities on the issue page.</p>
@@ -246,6 +256,7 @@ const sendResolvedEmail = async (email, name, issueTitle, issueId) => {
 const sendPasswordResetEmail = (email, name, otp) => sendOtpEmail(email, name, otp, RESET_PASSWORD_COPY);
 
 module.exports = {
+  escapeHtml,
   sendOtpEmail,
   sendPasswordResetEmail,
   sendResolutionPendingEmail,

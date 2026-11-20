@@ -1,6 +1,8 @@
 import { MapPin } from 'lucide-react';
 import { Category } from '@/types';
-import { ReportForm, SEVERITY_OPTIONS } from './types';
+import { ReportForm } from './types';
+import { SeverityBadge } from '@/components/ui/SeverityBadge';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 
 interface Props {
   form: ReportForm;
@@ -12,7 +14,6 @@ interface Props {
 
 export function LivePreview({ form, categories, files, previewUrl, userName }: Props) {
   const category = categories.find(c => c.id === form.category_id);
-  const severity = SEVERITY_OPTIONS.find(s => s.value === form.severity) ?? SEVERITY_OPTIONS[1];
 
   return (
     <div className="sticky top-6 space-y-5">
@@ -32,12 +33,7 @@ export function LivePreview({ form, categories, files, previewUrl, userName }: P
             {category?.icon || '📋'}
           </div>
           <span className="text-[12px] font-semibold text-content-secondary tracking-wide uppercase">{category?.name || 'Select category'}</span>
-          <span
-            className="ml-auto px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider"
-            style={{ background: severity.bg, color: severity.color, border: `1px solid ${severity.border}` }}
-          >
-            {form.severity}
-          </span>
+          <span className="ml-auto"><SeverityBadge severity={form.severity} /></span>
         </div>
 
         {/* Title */}
@@ -60,10 +56,7 @@ export function LivePreview({ form, categories, files, previewUrl, userName }: P
 
         {/* Footer */}
         <div className="flex items-center justify-between pt-4 border-t border-border-subtle text-xs">
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-base-850 border border-border-subtle text-content-secondary font-semibold uppercase tracking-widest text-[10px]">
-            <span className="w-1.5 h-1.5 rounded-full bg-content-muted" />
-            Reported
-          </span>
+          <StatusBadge status="reported" size="sm" />
           <span className="text-content-muted font-medium">
             {form.is_anonymous ? 'Anonymous' : userName}
           </span>

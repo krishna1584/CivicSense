@@ -11,23 +11,9 @@ import {
   ArrowLeft, Calendar, Award, AlertTriangle, Shield
 } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
+import { StarRating as StarRow } from '@/components/ui/StarRating';
 import Link from 'next/link';
 
-function StarRow({ rating, size = 12 }: { rating: number; size?: number }) {
-  return (
-    <div className="flex items-center gap-0.5">
-      {[1, 2, 3, 4, 5].map(n => (
-        <Star
-          key={n}
-          size={size}
-          className={
-            n <= rating ? 'text-state-warning fill-state-warning' : 'text-base-700 fill-base-900'
-          }
-        />
-      ))}
-    </div>
-  );
-}
 
 const formatMediaUrl = (url: string) => {
   if (!url) return '';
@@ -91,7 +77,7 @@ export default function PublicProfilePage() {
   const [profileUser, setProfileUser] = useState<PublicUser | null>(null);
   const [stats, setStats] = useState<PublicStats | null>(null);
   const [satisfaction, setSatisfaction] = useState<PublicSatisfaction | null>(null);
-  const [adminReviews, setAdminReviews] = useState<any[]>([]);
+  const [adminReviews, setAdminReviews] = useState<any[] | null>(null);
   const [issues, setIssues] = useState<PublicIssue[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -121,7 +107,7 @@ export default function PublicProfilePage() {
         setProfileUser(profileRes.data.user);
         setStats(profileRes.data.stats);
         setSatisfaction(profileRes.data.satisfaction || null);
-        setAdminReviews(profileRes.data.adminReviews || []);
+        setAdminReviews(profileRes.data.adminReviews ?? null);
         setIssues(userIssuesRes.data.issues || []);
       } catch (err: any) {
         if (err?.response?.status === 404) {
@@ -192,8 +178,6 @@ export default function PublicProfilePage() {
       {/* Profile Header Card */}
       <div className="card p-5 sm:p-8 mb-6 relative overflow-hidden">
         {/* Ambient glow */}
-        <div className="absolute -top-12 -right-12 w-56 h-56 bg-accent-primary/8 rounded-full blur-3xl -z-10" />
-        <div className="absolute -bottom-8 -left-8 w-40 h-40 bg-accent-secondary/8 rounded-full blur-3xl -z-10" />
 
         <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
           {/* Avatar */}
@@ -311,7 +295,9 @@ export default function PublicProfilePage() {
         </p>
       </div>
 
-      {/* 🛡️ Administrative Feedback Section */}
+      {/* Staff assessments: shown here only to staff viewers */}
+
+      {adminReviews && (
       <div className="mb-8">
         <h2 className="font-semibold text-content-primary flex items-center gap-2 mb-4">
           <Shield size={16} className="text-accent-secondary" />
@@ -339,7 +325,6 @@ export default function PublicProfilePage() {
               
               return (
                 <div key={review.id} className="card p-5 bg-gradient-to-r from-accent-primary/5 to-accent-secondary/5 border border-accent-secondary/20 relative overflow-hidden group hover:border-accent-secondary/40 transition-all duration-300">
-                  <div className="absolute top-0 right-0 w-20 h-20 bg-accent-secondary/5 rounded-full blur-xl pointer-events-none" />
                   <div className="flex items-start gap-3 relative z-10">
                     {/* Admin Avatar */}
                     <div className="w-9 h-9 rounded-xl bg-accent-secondary/15 border border-accent-secondary/25 flex items-center justify-center text-[12px] font-bold text-accent-secondary overflow-hidden shrink-0 shadow-sm">
@@ -385,6 +370,8 @@ export default function PublicProfilePage() {
           </div>
         )}
       </div>
+      )}
+
 
       {/* Public Issues */}
       <div>

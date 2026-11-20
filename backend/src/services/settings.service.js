@@ -28,12 +28,30 @@ async function getSettings() {
   return { ...DEFAULT_SETTINGS, ...(result.rows[0]?.value || {}) };
 }
 
+/** Keep only known settings and check each has the right type and range. Throws a 400 error otherwise. */
+function sanitizeSettingsChanges(changes = {}) {
+  const clean = {};
+  const fail = (message) => Object.assign(new Error(message), { status: 400 });
+  for (const [key, defaultValue] of Object.entries(DEFAULT_SETTINGS)) {
+    const value = changes[key];
+    if (value === undefined) continue;
+    if (typeof value !== typeof defaultValue) throw fail(`${key} must be a ${typeof defaultValue}`);
+    if (typeof value === 'string' && value.length > 500) throw fail(`${key} is too long`);
+    clean[key] = value;
+  }
+  if (clean.minUpvotesForAutoAcknowledge !== undefined &&
+      (!Number.isInteger(clean.minUpvotesForAutoAcknowledge) || clean.minUpvotesForAutoAcknowledge < 1 || clean.minUpvotesForAutoAcknowledge > 1000)) {
+    throw fail('minUpvotesForAutoAcknowledge must be a whole number from 1 to 1000');
+  }
+  if (clean.alertBannerType !== undefined && !['info', 'warning', 'critical'].includes(clean.alertBannerType)) {
+    throw fail('alertBannerType must be info, warning or critical');
+  }
+  return clean;
+}
+
 async function updateSettings(changes) {
   const current = await getSettings();
-  const updated = { ...current };
-  for (const key of Object.keys(DEFAULT_SETTINGS)) {
-    if (changes[key] !== undefined) updated[key] = changes[key];
-  }
+  const updated = { ...current, ...sanitizeSettingsChanges(changes) };
   await pool.query(
     `INSERT INTO app_settings (key, value) VALUES ('global', $1)
      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
@@ -42,4 +60,4 @@ async function updateSettings(changes) {
   return updated;
 }
 
-module.exports = { getSettings, updateSettings };
+module.exports = { getSettings, updateSettings, sanitizeSettingsChanges };

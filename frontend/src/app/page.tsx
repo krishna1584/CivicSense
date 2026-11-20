@@ -3,26 +3,40 @@
 import Link from 'next/link';
 import { ArrowRight, MapPin, TrendingUp, Shield, Zap, BarChart3, Globe, Hexagon } from 'lucide-react';
 import { useAuthStore } from '@/lib/store';
-import { authApi } from '@/lib/api';
+import { useEffect, useState } from 'react';
+import { authApi, issuesApi } from '@/lib/api';
 
 const features = [
   { icon: MapPin, title: 'Location-Based Reporting', desc: 'Report issues with your GPS coordinates and a clear location description.' },
   { icon: TrendingUp, title: 'Real-Time Tracking', desc: 'Live status updates via WebSocket. Watch your issue move from Reported to Resolved.' },
-  { icon: Shield, title: 'Transparent Audit Trail', desc: 'Every status change, admin action, and resolution is publicly logged forever.' },
+  { icon: Shield, title: 'Transparent Audit Trail', desc: 'Every status change is recorded on the issue\'s public timeline, from report to verified fix.' },
   { icon: BarChart3, title: 'Analytics Dashboard', desc: 'City-level KPIs: resolution rates, workload, and citizen satisfaction by department.' },
   { icon: Globe, title: 'Community Engagement', desc: 'Upvote, follow, and comment. Civic impact measured by real community data.' },
   { icon: Zap, title: 'Admin Command Center', desc: 'Bulk actions, audit logs, and department assignment workflows.' },
 ];
 
-const stats = [
-  { label: 'Issues Tracked', value: '24,891' },
-  { label: 'Resolution Rate', value: '78%' },
-  { label: 'Avg Response Time', value: '36h' },
-  { label: 'Cities Active', value: '12' },
-];
+interface PublicStats { total: number; resolved: number; resolutionRate: number | null; avgResolutionHours: number | null }
+
+const formatHours = (hours: number | null | undefined) => {
+  if (hours === null || hours === undefined) return '—';
+  return hours < 1 ? '<1h' : hours < 48 ? `${Math.round(hours)}h` : `${(hours / 24).toFixed(1)}d`;
+};
 
 export default function LandingPage() {
   const { user, setUser, isLoading } = useAuthStore();
+  const [publicStats, setPublicStats] = useState<PublicStats | null>(null);
+
+  useEffect(() => {
+    issuesApi.publicStats().then(res => setPublicStats(res.data)).catch(() => {});
+  }, []);
+
+  // Live figures from the database; a dash means there's no data yet.
+  const stats = [
+    { label: 'Issues Reported', value: publicStats ? publicStats.total.toLocaleString() : '—' },
+    { label: 'Issues Resolved', value: publicStats ? publicStats.resolved.toLocaleString() : '—' },
+    { label: 'Resolution Rate', value: publicStats?.resolutionRate != null ? `${publicStats.resolutionRate}%` : '—' },
+    { label: 'Avg Time to Fix', value: formatHours(publicStats?.avgResolutionHours) },
+  ];
 
   const handleLogout = async () => {
     try { await authApi.logout(); } catch { }
@@ -69,8 +83,7 @@ export default function LandingPage() {
 
         <div className="relative max-w-5xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 bg-accent-primary/10 border border-accent-primary/20 rounded-full px-4 py-1.5 mb-8">
-            <span className="w-1.5 h-1.5 rounded-full bg-accent-primary animate-pulse_soft" />
-            <span className="text-accent-primary text-xs font-medium uppercase tracking-widest">System Operational</span>
+            <span className="text-accent-primary text-xs font-medium uppercase tracking-widest">Open civic issue tracker</span>
           </div>
 
           <h1 className="text-4xl sm:text-6xl md:text-7xl font-black mb-6 leading-[1.05] tracking-tight">
@@ -166,7 +179,7 @@ export default function LandingPage() {
             ) : (
               <>
                 <h2 className="text-3xl sm:text-4xl font-bold mb-4 text-gradient">Ready to Make Your Voice Count?</h2>
-                <p className="text-content-secondary mb-8">Join thousands of citizens driving civic change through data and transparency.</p>
+                <p className="text-content-secondary mb-8">Report what you see, follow it to the fix, and confirm when it's done.</p>
                 <Link href="/register" className="btn-primary inline-flex items-center gap-2 text-base py-3 px-10">
                   Start Reporting Free
                   <ArrowRight size={18} />

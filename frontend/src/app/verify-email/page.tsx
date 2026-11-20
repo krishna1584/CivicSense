@@ -105,12 +105,6 @@ function VerifyEmailContent() {
           )}
         </div>
       </nav>
-
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute w-[600px] h-[600px] rounded-full opacity-[0.04]" style={{ background: 'radial-gradient(circle, rgb(var(--accent-secondary)) 0%, transparent 70%)', top: '-200px', left: '-100px' }} />
-        <div className="absolute inset-0" style={{ backgroundImage: 'linear-gradient(rgba(122,90,245,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(122,90,245,0.02) 1px, transparent 1px)', backgroundSize: '48px 48px' }} />
-      </div>
-
       <div className="w-full max-w-[460px] relative z-10 animate-slide_up">
         <div className="rounded-2xl p-5 sm:p-8 text-center bg-base-900/90 backdrop-blur-xl border border-border-subtle shadow-card">
           {success ? (

@@ -17,6 +17,11 @@ import { TopBar } from '@/components/layout/TopBar';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/store';
+import { StatusBadge, STATUS_META } from '@/components/ui/StatusBadge';
+import { SeverityBadge } from '@/components/ui/SeverityBadge';
+import { StatCard } from '@/components/ui/StatCard';
+import { StarRating } from '@/components/ui/StarRating';
+import { toast, apiErrorMessage } from '@/lib/toast';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const formatMediaUrl = (url: string) => {
@@ -48,179 +53,68 @@ interface Issue {
 
 // Mock data removed in favor of dynamic API endpoints
 
-// ─── Badge configs ─────────────────────────────────────────────────────────────
-const STATUS_CFG: Record<Status, { color: string; bg: string; dot: string }> = {
-  Reported:      { color: 'text-content-secondary', bg: 'bg-base-850',       dot: 'bg-content-muted' },
-  Acknowledged:  { color: 'text-accent-secondary', bg: 'bg-accent-secondary/10',  dot: 'bg-accent-secondary' },
-  'In Progress': { color: 'text-state-warning', bg: 'bg-state-warning/10',  dot: 'bg-state-warning' },
-  Resolved:      { color: 'text-state-success', bg: 'bg-state-success/10',  dot: 'bg-state-success' },
-  Rejected:      { color: 'text-state-error', bg: 'bg-state-error/10',  dot: 'bg-state-error' },
-  'Pending Verification': { color: 'text-accent-primary', bg: 'bg-accent-primary/10', dot: 'bg-accent-primary' },
+// ─── Chart colours come from the theme so they follow light/dark mode ─────────
+const STATUS_CHART_COLOR: Record<string, string> = {
+  reported: 'rgb(var(--content-muted))',
+  acknowledged: 'rgb(var(--accent-secondary))',
+  in_progress: 'rgb(var(--state-warning))',
+  pending_verification: 'rgb(var(--accent-primary))',
+  resolved: 'rgb(var(--state-success))',
+  rejected: 'rgb(var(--state-error))',
 };
-const SEV_CFG: Record<Severity, { color: string; bg: string }> = {
-  Critical: { color: 'text-state-error', bg: 'bg-state-error/15' },
-  High:     { color: 'text-state-warning', bg: 'bg-state-warning/15' },
-  Medium:   { color: 'text-accent-secondary', bg: 'bg-accent-secondary/15' },
-  Low:      { color: 'text-content-secondary', bg: 'bg-base-850' },
-};
-
-function StatusBadge({ status }: { status: Status }) {
-  const c = STATUS_CFG[status];
-  return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider ${c.color} ${c.bg}`}>
-      <span className={`w-1.5 h-1.5 rounded-full ${c.dot}`} />
-      {status}
-    </span>
-  );
-}
-function SevBadge({ severity }: { severity: Severity }) {
-  const c = SEV_CFG[severity];
-  return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${c.color} ${c.bg}`}>
-      {severity}
-    </span>
-  );
-}
 
 // ─── Tiny SVG Charts ───────────────────────────────────────────────────────────
-function BarChart({ data, labels = ['Roads', 'Garbage', 'Parks', 'Traffic', 'Water', 'Lights', 'Buildings'], color = '#3B82F6' }: { data: number[]; labels?: string[]; color?: string }) {
-  const max = Math.max(...data);
-  return (
-    <div className="w-full h-full flex flex-col">
-      <div className="flex-1 flex items-end gap-2 pb-2">
-        {data.map((v, i) => (
-          <div key={i} className="flex-1 flex flex-col items-center gap-1">
-            <div
-              className="w-full rounded-t-md transition-all duration-700"
-              style={{
-                height: `${(v / max) * 100}%`,
-                background: `linear-gradient(180deg, ${color} 0%, ${color}88 100%)`,
-                animationDelay: `${i * 80}ms`
-              }}
-            />
-          </div>
-        ))}
-      </div>
-      <div className="flex gap-2">
-        {labels.slice(0, data.length).map((l, i) => (
-          <div key={i} className="flex-1 text-center text-[9px] text-content-secondary truncate">{l}</div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function PieChart({ slices }: { slices: { value: number; color: string; label: string }[] }) {
   const total = slices.reduce((a, s) => a + s.value, 0);
-  
-  // Handlers for single-slice (100%) arc SVG rendering bug
-  const activeSlices = slices.filter(s => s.value > 0);
-  if (activeSlices.length === 1) {
-    const s = activeSlices[0];
-    return (
-      <div className="flex flex-col min-[400px]:flex-row items-center gap-4 min-[400px]:gap-6">
-        <svg viewBox="0 0 200 200" className="w-36 h-36 shrink-0">
-          <circle cx="100" cy="100" r="80" fill={s.color} opacity="0.9" stroke="rgb(var(--base-800))" strokeWidth="2" />
-        </svg>
-        <div className="space-y-2">
-          {slices.map((p, i) => (
-            <div key={i} className="flex items-center gap-2 text-xs">
-              <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: p.color }} />
-              <span className="text-content-secondary">{p.label}</span>
-              <span className="text-content-primary font-semibold ml-auto pl-3">{p.value}</span>
-            </div>
-          ))}
+  const legend = (
+    <div className="space-y-2">
+      {slices.map((p, i) => (
+        <div key={i} className="flex items-center gap-2 text-xs">
+          <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: p.color }} />
+          <span className="text-content-secondary">{p.label}</span>
+          <span className="text-content-primary font-semibold ml-auto pl-3">{p.value}</span>
         </div>
-      </div>
-    );
-  }
+      ))}
+    </div>
+  );
 
+  const active = slices.filter(s => s.value > 0);
   let cumulative = 0;
   const paths = slices.map(s => {
     const pct = s.value / (total || 1);
     const start = cumulative;
     cumulative += pct;
-    const startAngle = start * 2 * Math.PI - Math.PI / 2;
-    const endAngle = cumulative * 2 * Math.PI - Math.PI / 2;
-    const r = 80;
-    const cx = 100; const cy = 100;
-    const x1 = cx + r * Math.cos(startAngle);
-    const y1 = cy + r * Math.sin(startAngle);
-    const x2 = cx + r * Math.cos(endAngle);
-    const y2 = cy + r * Math.sin(endAngle);
+    const a0 = start * 2 * Math.PI - Math.PI / 2;
+    const a1 = cumulative * 2 * Math.PI - Math.PI / 2;
+    const r = 80, cx = 100, cy = 100;
     const large = pct > 0.5 ? 1 : 0;
-    return { d: `M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${large},1 ${x2},${y2} Z`, color: s.color, label: s.label, value: s.value };
+    return { d: `M${cx},${cy} L${cx + r * Math.cos(a0)},${cy + r * Math.sin(a0)} A${r},${r} 0 ${large},1 ${cx + r * Math.cos(a1)},${cy + r * Math.sin(a1)} Z`, color: s.color };
   });
+
   return (
-    <div className="flex items-center gap-6">
-      <svg viewBox="0 0 200 200" className="w-36 h-36 shrink-0">
-        {paths.map((p, i) => (
-          <path key={i} d={p.d} fill={p.color} opacity="0.9" stroke="rgb(var(--base-800))" strokeWidth="2" />
-        ))}
+    <div className="flex flex-col min-[400px]:flex-row items-center gap-4 min-[400px]:gap-6">
+      <svg viewBox="0 0 200 200" className="w-36 h-36 shrink-0" role="img" aria-label="Issues by status">
+        {active.length === 1
+          ? <circle cx="100" cy="100" r="80" style={{ fill: active[0].color }} />
+          : paths.map((p, i) => <path key={i} d={p.d} style={{ fill: p.color, stroke: 'rgb(var(--base-800))' }} strokeWidth="2" />)}
       </svg>
-      <div className="space-y-2">
-        {paths.map((p, i) => (
-          <div key={i} className="flex items-center gap-2 text-xs">
-            <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: p.color }} />
-            <span className="text-content-secondary">{p.label}</span>
-            <span className="text-content-primary font-semibold ml-auto pl-3">{p.value}</span>
-          </div>
-        ))}
-      </div>
+      {legend}
     </div>
   );
 }
 
-function LineChart({ data, color = '#3B82F6' }: { data: number[]; color?: string }) {
-  const max = Math.max(...data); const min = Math.min(...data);
-  const w = 260; const h = 80; const pad = 10;
-  const pts = data.map((v, i) => {
-    const divisor = data.length - 1 || 1;
-    const x = pad + (i / divisor) * (w - pad * 2);
-    const y = pad + ((max - v) / (max - min || 1)) * (h - pad * 2);
-    return [x, y];
-  });
-  const pathD = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p[0]},${p[1]}`).join(' ');
-  const areaD = pathD + ` L${pts[pts.length - 1][0]},${h} L${pts[0][0]},${h} Z`;
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
-  return (
-    <div className="w-full">
-      <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-20">
-        <defs>
-          <linearGradient id="lg" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={color} stopOpacity="0.3" />
-            <stop offset="100%" stopColor={color} stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        <path d={areaD} fill="url(#lg)" />
-        <path d={pathD} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        {pts.map(([x, y], i) => (
-          <circle key={i} cx={x} cy={y} r="3" fill={color} stroke="rgb(var(--base-800))" strokeWidth="1.5" />
-        ))}
-      </svg>
-      <div className="flex justify-between px-2 mt-1">
-        {months.map(m => <span key={m} className="text-[9px] text-content-secondary">{m}</span>)}
-      </div>
-    </div>
-  );
-}
-
-function DonutChart({ pct, color, label }: { pct: number; color: string; label: string }) {
-  const r = 54; const cx = 64; const cy = 64;
-  const circ = 2 * Math.PI * r;
-  const dash = (pct / 100) * circ;
+function DonutChart({ pct, label }: { pct: number; label: string }) {
+  const r = 54, circ = 2 * Math.PI * r;
   return (
     <div className="flex flex-col items-center">
       <div className="relative">
-        <svg viewBox="0 0 128 128" className="w-32 h-32 -rotate-90">
-          <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgb(var(--base-850))" strokeWidth="12" />
-          <circle cx={cx} cy={cy} r={r} fill="none" stroke={color} strokeWidth="12"
-            strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"
-            style={{ transition: 'stroke-dasharray 1s ease-out' }} />
+        <svg viewBox="0 0 128 128" className="w-32 h-32 -rotate-90" role="img" aria-label={`${label}: ${pct}%`}>
+          <circle cx="64" cy="64" r={r} fill="none" strokeWidth="12" style={{ stroke: 'rgb(var(--base-850))' }} />
+          <circle cx="64" cy="64" r={r} fill="none" strokeWidth="12" strokeLinecap="round"
+            strokeDasharray={`${(pct / 100) * circ} ${circ}`} style={{ stroke: 'rgb(var(--state-success))', transition: 'stroke-dasharray 1s ease-out' }} />
         </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <div className="absolute inset-0 flex items-center justify-center">
           <span className="text-xl font-black text-content-primary">{pct}%</span>
-          <span className="text-[10px] text-content-secondary">rate</span>
         </div>
       </div>
       <div className="mt-2 text-xs text-content-secondary text-center">{label}</div>
@@ -228,56 +122,47 @@ function DonutChart({ pct, color, label }: { pct: number; color: string; label: 
   );
 }
 
-// ─── Stat Card ─────────────────────────────────────────────────────────────────
-function StatCard({ label, value, sub, subUp, icon: Icon, color, onClick, delay = 0 }:
-  { label: string; value: string; sub: string; subUp?: boolean; icon: React.ElementType; color: string; onClick?: () => void; delay?: number }) {
+function EmptyPlaceholder({ icon: Icon, title, description }: { icon: React.ElementType; title: string; description: string }) {
   return (
-    <div 
-      onClick={onClick}
-      className={`stat-card p-5 border border-border-subtle bg-base-800 rounded-xl ${onClick ? 'cursor-pointer hover:border-accent-primary/30 transition-all hover:shadow-card-hover active:scale-[0.99] hover:-translate-y-0.5 duration-200' : ''}`} 
-      style={{ '--accent': color } as React.CSSProperties}
-    >
-      <div className="flex items-start justify-between mb-3">
-        <p className="label-micro text-content-secondary">{label}</p>
-        <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: color + '20' }}>
-          <Icon size={15} style={{ color }} />
-        </div>
-      </div>
-      <div className="text-3xl font-black text-content-primary mb-1">{value}</div>
-      <div className={`flex items-center gap-1 text-xs font-medium ${subUp === undefined ? 'text-content-secondary' : subUp ? 'text-state-success' : 'text-state-error'}`}>
-        {subUp !== undefined && (subUp ? <TrendingUp size={11} /> : <TrendingDown size={11} />)}
-        {sub}
-      </div>
-    </div>
-  );
-}
-
-// Shared TopBar component imported from '@/components/layout/TopBar'
-
-// ════════════════════════════════════════════════════════════════════════════════
-// VIEW: COMMAND CENTER (COMBINED OVERVIEW & ANALYTICS)
-// ════════════════════════════════════════════════════════════════════════════════
-interface EmptyPlaceholderProps {
-  icon: React.ElementType;
-  title: string;
-  description: string;
-  variant?: 'card' | 'chart' | 'list';
-}
-
-function EmptyPlaceholder({ icon: Icon, title, description, variant = 'card' }: EmptyPlaceholderProps) {
-  return (
-    <div className={`flex flex-col items-center justify-center text-center p-6 rounded-xl border border-dashed border-border-subtle bg-base-900/30 w-full h-full select-none ${variant === 'chart' ? 'min-h-[11rem]' : ''}`}>
-      <div className="w-10 h-10 rounded-xl bg-base-850 flex items-center justify-center border border-border-subtle/50 mb-3 text-content-secondary shadow-sm">
+    <div className="flex flex-col items-center justify-center text-center p-6 rounded-xl border border-dashed border-border-subtle w-full h-full min-h-[11rem]">
+      <div className="w-10 h-10 rounded-xl bg-base-850 flex items-center justify-center border border-border-subtle mb-3">
         <Icon size={18} className="text-content-muted" />
       </div>
-      <h4 className="text-xs font-bold text-content-primary tracking-wide mb-1 uppercase">{title}</h4>
-      <p className="text-[10px] text-content-muted max-w-[200px] leading-relaxed font-medium">{description}</p>
+      <h4 className="text-sm font-semibold text-content-primary mb-1">{title}</h4>
+      <p className="text-xs text-content-muted max-w-[220px] leading-relaxed">{description}</p>
     </div>
   );
 }
 
+function FeedPanel({ icon: Icon, iconClass, title, onViewAll, children }: {
+  icon: React.ElementType; iconClass: string; title: string; onViewAll?: () => void; children: React.ReactNode;
+}) {
+  return (
+    <div className="card p-5 flex flex-col h-80">
+      <div className="flex items-center justify-between mb-4 pb-2 border-b border-border-subtle shrink-0">
+        <h3 className="font-semibold text-content-primary text-sm flex items-center gap-1.5">
+          <Icon size={15} className={iconClass} /> {title}
+        </h3>
+        {onViewAll && (
+          <button onClick={onViewAll} className="text-accent-secondary text-xs hover:underline inline-flex items-center gap-0.5 font-semibold">
+            View All <ChevronRight size={11} />
+          </button>
+        )}
+      </div>
+      <div className="flex-1 overflow-y-auto space-y-3">{children}</div>
+    </div>
+  );
+}
+
+function IssueThumb({ issue }: { issue: any }) {
+  const image = issue.media?.find((m: any) => !m.is_resolution)?.url;
+  return image
+    ? <img src={formatMediaUrl(image)} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
+    : <div className="w-10 h-10 rounded-lg bg-base-850 border border-border-subtle flex items-center justify-center shrink-0">{issue.category_icon || '📋'}</div>;
+}
+
 // ════════════════════════════════════════════════════════════════════════════════
-// VIEW: COMMAND CENTER (COMBINED OVERVIEW & ANALYTICS)
+// VIEW: COMMAND CENTER
 // ════════════════════════════════════════════════════════════════════════════════
 function DashboardView({ setView }: { setView: (v: AdminView) => void }) {
   const router = useRouter();
@@ -288,18 +173,13 @@ function DashboardView({ setView }: { setView: (v: AdminView) => void }) {
 
   useEffect(() => {
     setLoading(true);
-    Promise.all([
-      adminApi.dashboard(),
-      adminApi.analytics()
-    ]).then(([dashRes, polyRes]) => {
-      setData(dashRes.data);
-      setAnalyticsData(polyRes.data);
-      setLoading(false);
-    }).catch(err => {
-      console.error(err);
-      setLoadFailed(true);
-      setLoading(false);
-    });
+    Promise.all([adminApi.dashboard(), adminApi.analytics()])
+      .then(([dashRes, analyticsRes]) => {
+        setData(dashRes.data);
+        setAnalyticsData(analyticsRes.data);
+      })
+      .catch(() => setLoadFailed(true))
+      .finally(() => setLoading(false));
   }, []);
 
   if (loadFailed) {
@@ -310,199 +190,126 @@ function DashboardView({ setView }: { setView: (v: AdminView) => void }) {
     return (
       <div className="p-20 flex flex-col items-center justify-center gap-4">
         <Loader2 className="animate-spin text-accent-secondary" size={32} />
-        <span className="text-sm text-content-secondary font-medium animate-pulse">Consolidating Command Center data...</span>
+        <span className="text-sm text-content-secondary">Loading the Command Center…</span>
       </div>
     );
   }
 
-  const { overview, byStatus, byCategory, slaViolations, recentIssues } = data;
-  const { resolutionTrend, categoryTrend, departmentPerf, deptSatisfaction = [] } = analyticsData;
+  const { overview, byStatus, slaViolations, recentIssues } = data;
+  const { categoryTrend, deptSatisfaction = [] } = analyticsData;
 
-  const barData = byCategory.map((c: any) => parseInt(c.count)).slice(0, 5);
-  const barLabels = byCategory.map((c: any) => c.name).slice(0, 5);
-
-  const pieColors: Record<string, string> = {
-    'reported': '#94A3B8', 'acknowledged': '#3B82F6', 'in_progress': '#F59E0B', 'resolved': '#4ADE80', 'rejected': '#EF4444'
-  };
   const pieSlices = byStatus.map((s: any) => ({
-    value: parseInt(s.count), color: pieColors[s.status] || '#94A3B8', label: s.status.replace('_', ' ')
+    value: parseInt(s.count),
+    color: STATUS_CHART_COLOR[s.status] || STATUS_CHART_COLOR.reported,
+    label: STATUS_META[s.status as keyof typeof STATUS_META]?.label || s.status,
   }));
 
-  const trendData = resolutionTrend.map((t: any) => parseInt(t.resolved) || 0);
+  // Analytics covers the last 30 days
   const totalIssues = categoryTrend.reduce((acc: number, c: any) => acc + parseInt(c.total), 0);
   const resolvedIssues = categoryTrend.reduce((acc: number, c: any) => acc + parseInt(c.resolved), 0);
   const resolutionRate = totalIssues ? Math.round((resolvedIssues / totalIssues) * 100) : 0;
-
-  const criticalIssues = recentIssues.filter((i: any) => i.severity === 'critical' || i.severity === 'high').slice(0, 3);
+  const avgHours = overview.avg_resolution_hours === null ? null : parseFloat(overview.avg_resolution_hours);
+  const overdue = parseInt(overview.overdue || '0');
+  const openUnresolved = () => router.push('/admin?view=issues&filterStatus=Unresolved');
 
   return (
-    <div className="p-4 sm:p-6 space-y-6" style={{ animation: 'fadeUp 0.3s ease-out' }}>
-      {/* Export row */}
+    <div className="p-4 sm:p-6 space-y-6">
       <div className="flex justify-end gap-2">
-        <button className="btn-secondary h-9 px-4 text-xs font-semibold flex items-center gap-2 border border-border-subtle bg-base-850 hover:bg-base-800 text-content-primary">
+        <button className="btn-secondary h-9 px-4 text-xs font-semibold gap-2">
           <Download size={13} /> Export CSV
         </button>
-        <button className="btn-secondary h-9 px-4 text-xs font-semibold flex items-center gap-2 border border-border-subtle bg-base-850 hover:bg-base-800 text-content-primary">
+        <button className="btn-secondary h-9 px-4 text-xs font-semibold gap-2">
           <Download size={13} /> Export PDF
         </button>
       </div>
 
-      {/* Unified KPI Stat Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <StatCard label="Total Reports"   value={overview.total || '0'} sub="All time"                  icon={Activity}    color="#3B82F6" onClick={() => router.push('/admin?view=issues')} />
-        <StatCard label="Open Workload"   value={overview.active || '0'} sub="Requires attention"        icon={AlertTriangle} color="#F59E0B" subUp={false} onClick={() => router.push('/admin?view=issues&filterStatus=Unresolved')} />
-        <StatCard label="Avg Resolution"  value={`${(parseFloat(overview.avg_resolution_hours || '0') / 24).toFixed(1)}d`}  sub="Operational speed" icon={Clock} color="#4ADE80" subUp={true} />
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+        <StatCard label="Total Reports" value={overview.total || '0'} sub="All time" icon={<Activity size={15} />} accent="blue" onClick={() => router.push('/admin?view=issues')} />
+        <StatCard label="Open Workload" value={overview.active || '0'} sub="Not yet resolved or rejected" icon={<AlertTriangle size={15} />} accent="amber" onClick={openUnresolved} />
+        <StatCard label="Overdue" value={overdue} sub="Open past their SLA deadline" icon={<Clock size={15} />} accent="red" onClick={openUnresolved} />
+        <StatCard label="Avg Resolution" value={avgHours === null ? '—' : avgHours < 1 ? '<1h' : avgHours < 48 ? `${Math.round(avgHours)}h` : `${(avgHours / 24).toFixed(1)}d`}
+          sub="From report to verified fix" icon={<CheckCircle2 size={15} />} accent="green" />
       </div>
 
-      {/* Row 1: Status Distribution & SLA Compliance */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Pie Chart */}
-        <div className="card p-5 border border-border-subtle">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-bold text-content-primary text-sm">Status Distribution</h3>
-          </div>
+        <div className="card p-5">
+          <h3 className="font-semibold text-content-primary text-sm mb-4">Status Distribution</h3>
           <div className="flex items-center justify-center min-h-44 w-full">
-            {pieSlices.length > 0 && pieSlices.some((s: any) => s.value > 0) ? (
-              <PieChart slices={pieSlices} />
-            ) : (
-              <EmptyPlaceholder icon={Activity} title="No Status Breakdown" description="No active reports logged in the system to calculate status distribution." variant="chart" />
-            )}
+            {pieSlices.some((s: any) => s.value > 0)
+              ? <PieChart slices={pieSlices} />
+              : <EmptyPlaceholder icon={Activity} title="No reports yet" description="The status breakdown appears once reports come in." />}
           </div>
         </div>
 
-        {/* Donut Chart: SLA Compliance */}
-        <div className="card p-5 border border-border-subtle">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-bold text-content-primary text-sm">SLA Compliance Rate</h3>
-          </div>
+        <div className="card p-5">
+          <h3 className="font-semibold text-content-primary text-sm mb-4">Resolution Rate <span className="font-normal text-content-muted">· last 30 days</span></h3>
           {totalIssues > 0 ? (
             <div className="flex flex-col sm:flex-row items-center gap-6 sm:h-44">
-              <DonutChart pct={resolutionRate} color="#4ADE80" label="Resolution rate" />
+              <DonutChart pct={resolutionRate} label="Resolved" />
               <div className="flex-1 w-full space-y-3">
                 {[
-                  { label: 'Resolved Reports', val: resolvedIssues, color: '#4ADE80' },
-                  { label: 'Pending Reports',  val: totalIssues - resolvedIssues, color: '#EF4444' },
+                  { label: 'Resolved', val: resolvedIssues, dot: 'bg-state-success' },
+                  { label: 'Still open', val: totalIssues - resolvedIssues, dot: 'bg-state-warning' },
                 ].map(r => (
                   <div key={r.label} className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: r.color }} />
-                    <span className="text-xs text-content-secondary font-medium">{r.label}</span>
+                    <span className={`w-2.5 h-2.5 rounded-sm shrink-0 ${r.dot}`} />
+                    <span className="text-xs text-content-secondary">{r.label}</span>
                     <span className="text-xs font-bold text-content-primary ml-auto">{r.val}</span>
                   </div>
                 ))}
-                <div className="pt-2 border-t border-border-subtle/50 text-[10px] text-content-secondary font-medium">
-                  Target SLA rate: <span className="text-content-primary font-bold">100%</span> (Current: <span className={resolutionRate >= 80 ? 'text-state-success font-bold' : 'text-state-warning font-bold'}>{resolutionRate}%</span>)
-                </div>
               </div>
             </div>
           ) : (
-            <div className="h-44 flex items-center justify-center">
-              <EmptyPlaceholder icon={CheckCircle2} title="No Compliance Metrics" description="No reports are currently recorded to calculate SLA performance statistics." variant="chart" />
-            </div>
+            <EmptyPlaceholder icon={CheckCircle2} title="No reports in 30 days" description="The resolution rate appears once reports come in." />
           )}
         </div>
       </div>
 
-      {/* Row 3: Actionable Feeds & Department Satisfaction */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Critical Issues / Actions Required */}
-        <div className="card p-5 border border-border-subtle lg:col-span-1 flex flex-col h-80">
-          <div className="flex items-center justify-between mb-4 pb-2 border-b border-border-subtle/50 shrink-0">
-            <h3 className="font-bold text-content-primary text-xs flex items-center gap-1.5">
-              <AlertTriangle size={15} className="text-state-error" />
-              Critical Action Items
-            </h3>
-            <button onClick={() => setView('issues')} className="text-accent-secondary text-xs hover:underline flex items-center gap-0.5 font-semibold">
-              View All <ChevronRight size={11} />
-            </button>
-          </div>
-          <div className="flex-1 overflow-y-auto pr-1 space-y-3 flex flex-col justify-center">
-            {criticalIssues.length > 0 ? (
-              <div className="space-y-3 h-full">
-                {criticalIssues.map((issue: any) => (
-                  <Link href={`/issues/${issue.id}`} key={issue.id} className="flex items-center gap-2.5 p-2 rounded-xl bg-base-900 border border-border-subtle hover:border-accent-secondary/30 transition-all cursor-pointer group">
-                    <img src={formatMediaUrl(issue.media?.[0]?.url) || 'https://images.unsplash.com/photo-1515162305285-0293e4b4e81e?w=80&q=70'} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-content-primary truncate group-hover:text-accent-secondary transition-colors">{issue.title}</p>
-                      <p className="text-[9px] text-content-muted mt-0.5 flex items-center gap-1"><Clock size={9} />{formatDistanceToNow(new Date(issue.created_at))} ago</p>
-                    </div>
-                    <StatusBadge status={issue.status === 'resolved' ? 'Resolved' : issue.status === 'in_progress' ? 'In Progress' : issue.status === 'acknowledged' ? 'Acknowledged' : issue.status === 'rejected' ? 'Rejected' : 'Reported'} />
-                  </Link>
-                ))}
+        <FeedPanel icon={AlertTriangle} iconClass="text-state-error" title="Overdue Issues" onViewAll={openUnresolved}>
+          {slaViolations.length > 0 ? slaViolations.slice(0, 5).map((issue: any) => (
+            <Link href={`/issues/${issue.id}`} key={issue.id} className="flex items-center gap-2.5 p-2.5 rounded-xl bg-base-900 border border-border-subtle hover:border-state-error/30 transition-colors group">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-content-primary truncate group-hover:text-accent-secondary">{issue.title}</p>
+                <p className="text-[11px] text-state-error mt-0.5">Overdue by {formatDistanceToNow(new Date(issue.sla_deadline))}</p>
               </div>
-            ) : (
-              <EmptyPlaceholder icon={CheckCircle2} title="All Clear!" description="No critical or high severity action items are currently pending." variant="list" />
-            )}
-          </div>
-        </div>
+              <SeverityBadge severity={issue.severity} />
+            </Link>
+          )) : <EmptyPlaceholder icon={CheckCircle2} title="Nothing overdue" description="Every open issue is within its SLA deadline." />}
+        </FeedPanel>
 
-        {/* Real-time incoming reports feed */}
-        <div className="card p-5 border border-border-subtle lg:col-span-1 flex flex-col h-80">
-          <div className="flex items-center justify-between mb-4 pb-2 border-b border-border-subtle/50 shrink-0">
-            <h3 className="font-bold text-content-primary text-xs flex items-center gap-1.5">
-              <Clock size={15} className="text-accent-secondary" />
-              Incoming Reports
-            </h3>
-            <button onClick={() => setView('issues')} className="text-accent-secondary text-xs hover:underline flex items-center gap-0.5 font-semibold">
-              View All <ChevronRight size={11} />
-            </button>
-          </div>
-          <div className="flex-1 overflow-y-auto pr-1 space-y-3 flex flex-col justify-center">
-            {recentIssues.length > 0 ? (
-              <div className="space-y-3 h-full">
-                {recentIssues.slice(0, 3).map((issue: any) => (
-                  <Link href={`/issues/${issue.id}`} key={issue.id} className="flex items-center gap-2.5 p-2 rounded-xl bg-base-900 border border-border-subtle hover:border-accent-secondary/30 transition-all cursor-pointer group">
-                    <img src={formatMediaUrl(issue.media?.[0]?.url) || 'https://images.unsplash.com/photo-1520052205864-92d242b3a76b?w=80&q=70'} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-content-primary truncate group-hover:text-accent-secondary transition-colors">{issue.title}</p>
-                      <p className="text-[9px] text-content-muted mt-0.5 flex items-center gap-1"><Clock size={9} />{formatDistanceToNow(new Date(issue.created_at))} ago</p>
-                    </div>
-                    <StatusBadge status={issue.status === 'resolved' ? 'Resolved' : issue.status === 'in_progress' ? 'In Progress' : issue.status === 'acknowledged' ? 'Acknowledged' : issue.status === 'rejected' ? 'Rejected' : 'Reported'} />
-                  </Link>
-                ))}
+        <FeedPanel icon={Inbox} iconClass="text-accent-secondary" title="Incoming Reports" onViewAll={() => setView('issues')}>
+          {recentIssues.length > 0 ? recentIssues.slice(0, 4).map((issue: any) => (
+            <Link href={`/issues/${issue.id}`} key={issue.id} className="flex items-center gap-2.5 p-2 rounded-xl bg-base-900 border border-border-subtle hover:border-accent-secondary/30 transition-colors group">
+              <IssueThumb issue={issue} />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-content-primary truncate group-hover:text-accent-secondary">{issue.title}</p>
+                <p className="text-[11px] text-content-muted mt-0.5">{formatDistanceToNow(new Date(issue.created_at), { addSuffix: true })}</p>
               </div>
-            ) : (
-              <EmptyPlaceholder icon={Inbox} title="Queue Empty" description="New incoming citizen reports will appear in this real-time feed." variant="list" />
-            )}
-          </div>
-        </div>
+              <StatusBadge status={issue.status} size="sm" showDot={false} />
+            </Link>
+          )) : <EmptyPlaceholder icon={Inbox} title="No reports yet" description="New citizen reports will appear here." />}
+        </FeedPanel>
 
-        {/* Citizen Satisfaction scores */}
-        <div className="card p-5 border border-border-subtle lg:col-span-1 flex flex-col h-80">
-          <div className="flex items-center gap-1.5 mb-4 pb-2 border-b border-border-subtle/50 shrink-0">
-            <ThumbsUp size={15} className="text-state-warning" />
-            <h3 className="font-bold text-content-primary text-xs">Citizen Satisfaction</h3>
-          </div>
-          <div className="flex-1 overflow-y-auto pr-1 space-y-3 flex flex-col justify-center">
-            {deptSatisfaction.length > 0 ? (
-              <div className="space-y-3 h-full">
-                {deptSatisfaction.map((d: any) => {
-                  const avg = parseFloat(d.avg_rating || '0');
-                  const isLow = avg < 3.0;
-                  const filled = Math.round(avg);
-                  return (
-                    <div key={d.department} className={`p-2.5 rounded-xl border transition-all ${isLow ? 'border-state-error/20 bg-state-error/5' : 'border-border-subtle bg-base-900'}`}>
-                      <div className="flex items-start justify-between mb-1.5">
-                        <span className="text-xs font-bold text-content-primary truncate flex-1">{d.department}</span>
-                        {isLow && <span className="text-[8px] px-1.5 py-0.5 rounded bg-state-error/10 text-state-error font-extrabold border border-state-error/20 ml-1 shrink-0">LOW</span>}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        {[1,2,3,4,5].map(n => (
-                          <svg key={n} width="11" height="11" viewBox="0 0 24 24" fill={n <= filled ? '#F59E0B' : 'none'} stroke={n <= filled ? '#F59E0B' : '#64748B'} strokeWidth="2.5">
-                            <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26" />
-                          </svg>
-                        ))}
-                        <span className={`text-xs font-bold ml-1 ${isLow ? 'text-state-error' : 'text-state-warning'}`}>{avg.toFixed(1)}</span>
-                        <span className="text-[9px] text-content-muted ml-auto font-medium">{d.review_count} review{parseInt(d.review_count) !== 1 ? 's' : ''}</span>
-                      </div>
-                    </div>
-                  );
-                })}
+        <FeedPanel icon={Star} iconClass="text-state-warning" title="Citizen Satisfaction">
+          {deptSatisfaction.length > 0 ? deptSatisfaction.map((d: any) => {
+            const avg = parseFloat(d.avg_rating || '0');
+            const isLow = avg < 3;
+            return (
+              <div key={d.department} className={`p-2.5 rounded-xl border ${isLow ? 'border-state-error/20 bg-state-error/5' : 'border-border-subtle bg-base-900'}`}>
+                <div className="flex items-start justify-between mb-1.5">
+                  <span className="text-xs font-bold text-content-primary truncate flex-1">{d.department}</span>
+                  {isLow && <span className="text-[10px] px-1.5 py-0.5 rounded bg-state-error/10 text-state-error font-bold ml-1 shrink-0">Low</span>}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <StarRating rating={Math.round(avg)} size={11} />
+                  <span className={`text-xs font-bold ${isLow ? 'text-state-error' : 'text-state-warning'}`}>{avg.toFixed(1)}</span>
+                  <span className="text-[11px] text-content-muted ml-auto">{d.review_count} review{parseInt(d.review_count) !== 1 ? 's' : ''}</span>
+                </div>
               </div>
-            ) : (
-              <EmptyPlaceholder icon={Star} title="No Ratings Yet" description="Department performance ratings and citizen reviews will compile here." variant="list" />
-            )}
-          </div>
-        </div>
+            );
+          }) : <EmptyPlaceholder icon={Star} title="No ratings yet" description="Department ratings from citizen reviews will appear here." />}
+        </FeedPanel>
       </div>
     </div>
   );
@@ -513,6 +320,7 @@ function DashboardView({ setView }: { setView: (v: AdminView) => void }) {
 // ════════════════════════════════════════════════════════════════════════════════
 function IssueManagementView() {
   const router = useRouter();
+  const { user } = useAuthStore();
   const searchParams = useSearchParams();
   const filterParam = searchParams.get('filterStatus') as Status | 'All' | 'Unresolved';
 
@@ -546,7 +354,7 @@ function IssueManagementView() {
       setTotal(res.data.total);
       setLoading(false);
     }).catch(err => {
-      console.error(err);
+      toast.error(apiErrorMessage(err, 'Could not load issues.'));
       setLoading(false);
     });
   };
@@ -565,20 +373,17 @@ function IssueManagementView() {
     if (!selected.length) return;
     try {
       await adminApi.bulkStatus(selected.map(String), status);
+      toast.success(`Updated ${selected.length} issue${selected.length > 1 ? 's' : ''}`);
       setSelected([]);
       fetchIssues();
     } catch (err) {
-      console.error(err);
+      toast.error(apiErrorMessage(err, 'Bulk update failed.'));
     }
   };
 
   const totalPages = Math.ceil(total / 25) || 1;
-
-  const mapStatus = (s: string): Status => {
-    if (s === 'pending_verification') return 'Pending Verification';
-    return s === 'resolved' ? 'Resolved' : s === 'in_progress' ? 'In Progress' : s === 'acknowledged' ? 'Acknowledged' : s === 'rejected' ? 'Rejected' : 'Reported';
-  };
-  const mapSev = (s: string): Severity => s === 'critical' ? 'Critical' : s === 'high' ? 'High' : s === 'medium' ? 'Medium' : 'Low';
+  // Bulk status changes are admin-only on the server, so staff don't see the controls.
+  const canBulkEdit = user?.role === 'admin';
 
   return (
     <div className="p-4 sm:p-6 space-y-5" style={{ animation: 'fadeUp 0.3s ease-out' }}>
@@ -592,27 +397,21 @@ function IssueManagementView() {
             className="input-dark pl-9 h-10 text-sm w-full"
           />
           {search && (
-            <button onClick={() => { setSearch(''); setPage(1); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-content-secondary hover:text-content-primary">
+            <button onClick={() => { setSearch(''); setPage(1); }} aria-label="Clear search" className="absolute right-3 top-1/2 -translate-y-1/2 text-content-secondary hover:text-content-primary">
               <X size={12} />
             </button>
           )}
         </div>
-        
+
         {/* Shortcut Filter: Unresolved Only */}
         <button
           onClick={() => {
             setFilterStatus(prev => prev === 'Unresolved' ? 'All' : 'Unresolved');
             setPage(1);
           }}
-          className="h-10 px-4 flex items-center gap-2 rounded-xl text-sm font-semibold transition-all duration-250 active:scale-[0.97]"
-          style={{
-            background: filterStatus === 'Unresolved' ? 'rgb(var(--accent-primary) / 0.12)' : 'rgb(var(--base-850))',
-            border: filterStatus === 'Unresolved' ? '1px solid rgb(var(--accent-primary) / 0.4)' : '1px solid rgb(var(--border-subtle))',
-            color: filterStatus === 'Unresolved' ? '#3B82F6' : '#94A3B8',
-            boxShadow: filterStatus === 'Unresolved' ? '0 0 15px rgb(59 130 246 / 0.15)' : 'none',
-          }}
+          aria-pressed={filterStatus === 'Unresolved'}
+          className={`h-10 px-4 inline-flex items-center gap-2 rounded-xl text-sm font-semibold border whitespace-nowrap transition-colors ${filterStatus === 'Unresolved' ? 'bg-accent-primary/10 border-accent-primary/40 text-accent-primary' : 'bg-base-850 border-border-subtle text-content-secondary'}`}
         >
-          <span className={`w-1.5 h-1.5 rounded-full ${filterStatus === 'Unresolved' ? 'bg-accent-secondary animate-pulse' : 'bg-content-secondary/40'}`} />
           Unresolved Only
         </button>
 
@@ -685,9 +484,11 @@ function IssueManagementView() {
             <thead>
               <tr className="border-b border-border-subtle">
                 <th className="px-4 py-3 text-left w-10">
-                  <input type="checkbox" checked={selected.length === issues.length && issues.length > 0}
-                    onChange={toggleAll}
-                    className="w-3.5 h-3.5 rounded border-border-subtle/40 bg-transparent accent-accent-secondary cursor-pointer" />
+                  {canBulkEdit && (
+                    <input type="checkbox" checked={selected.length === issues.length && issues.length > 0}
+                      onChange={toggleAll} aria-label="Select all issues"
+                      className="w-3.5 h-3.5 rounded border-border-subtle/40 bg-transparent accent-accent-secondary cursor-pointer" />
+                  )}
                 </th>
                 {['ID', 'Title', 'Category', 'Severity', 'Status', 'Department'].map(h => (
                   <th key={h} className="px-4 py-3 text-left label-micro text-content-secondary">{h}</th>
@@ -703,12 +504,14 @@ function IssueManagementView() {
                   style={{ animation: `fadeUp 0.3s ease-out ${idx * 40}ms both` }}
                 >
                   <td className="px-4 py-3.5" onClick={(e) => e.stopPropagation()}>
-                    <input type="checkbox" checked={selected.includes(issue.id)}
-                      onChange={() => toggle(issue.id)}
-                      className="w-3.5 h-3.5 rounded border-border-subtle/40 bg-transparent accent-accent-secondary cursor-pointer" />
+                    {canBulkEdit && (
+                      <input type="checkbox" checked={selected.includes(issue.id)}
+                        onChange={() => toggle(issue.id)} aria-label={`Select ${issue.title}`}
+                        className="w-3.5 h-3.5 rounded border-border-subtle/40 bg-transparent accent-accent-secondary cursor-pointer" />
+                    )}
                   </td>
                   <td className="px-4 py-3.5">
-                    <span className="text-xs text-content-secondary font-mono">#{issue.id}</span>
+                    <span className="text-xs text-content-secondary font-mono" title={String(issue.id)}>#{String(issue.id).slice(0, 8)}</span>
                   </td>
                   <td className="px-4 py-3.5 max-w-[220px]">
                     <span className="text-sm text-content-primary group-hover:text-accent-secondary transition-colors font-medium truncate block">
@@ -722,10 +525,10 @@ function IssueManagementView() {
                     <span className="text-sm text-content-secondary">{issue.category_name}</span>
                   </td>
                   <td className="px-4 py-3.5">
-                    <SevBadge severity={mapSev(issue.severity)} />
+                    <SeverityBadge severity={issue.severity} />
                   </td>
                   <td className="px-4 py-3.5">
-                    <StatusBadge status={mapStatus(issue.status)} />
+                    <StatusBadge status={issue.status} size="sm" />
                   </td>
                   <td className="px-4 py-3.5">
                     {issue.department ? (
@@ -794,7 +597,7 @@ function UsersManagementView() {
         setLoading(false);
       })
       .catch(err => {
-        console.error(err);
+        toast.error(apiErrorMessage(err, 'Could not load users.'));
         setLoading(false);
       });
   };
@@ -835,8 +638,8 @@ function UsersManagementView() {
       await adminApi.updateUser(selectedUser.id, fd);
       closeModal();
       fetchUsers();
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || 'Could not update this user.');
     } finally {
       setModalLoading(false);
     }
@@ -847,8 +650,8 @@ function UsersManagementView() {
     try {
       await adminApi.deleteUser(id);
       fetchUsers();
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || 'Could not delete this user.');
     }
   };
 
@@ -947,7 +750,7 @@ function UsersManagementView() {
           <div className="bg-base-900 border border-border-subtle rounded-2xl w-full max-w-sm shadow-2xl p-5" style={{ animation: 'fadeUp 0.2s ease-out' }}>
             <div className="flex justify-between items-center mb-5">
               <h3 className="text-lg font-semibold text-content-primary">Edit User</h3>
-              <button onClick={closeModal} className="text-content-secondary hover:text-content-primary"><X size={18} /></button>
+              <button onClick={closeModal} aria-label="Close" className="text-content-secondary hover:text-content-primary"><X size={18} /></button>
             </div>
             
             <div className="space-y-4">
@@ -1030,7 +833,7 @@ function LogsView() {
       setTotal(res.data.total);
       setLoading(false);
     }).catch(err => {
-      console.error(err);
+      toast.error(apiErrorMessage(err, 'Could not load audit logs.'));
       setLoading(false);
     });
   }, [page, activeTab]);
@@ -1284,8 +1087,7 @@ function SettingsView() {
         setSettings(res.data);
         setLoading(false);
       })
-      .catch(err => {
-        console.error(err);
+      .catch(() => {
         setError('Failed to load settings');
         setLoading(false);
       });
@@ -1302,8 +1104,7 @@ function SettingsView() {
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
     } catch (err) {
-      console.error(err);
-      setError('Failed to save settings');
+      setError(apiErrorMessage(err, 'Failed to save settings'));
     } finally {
       setSaving(false);
     }
@@ -1487,19 +1288,19 @@ function SettingsView() {
                 <label className="block text-[11px] font-semibold text-content-secondary uppercase tracking-wider mb-1.5">Severity Type</label>
                 <div className="flex flex-col gap-2">
                   {[
-                    { value: 'info', label: 'Info (Blue)', border: 'border-accent-secondary/25', color: '#3B82F6' },
-                    { value: 'warning', label: 'Warning (Amber)', border: 'border-state-warning/25', color: 'rgb(var(--state-warning))' },
-                    { value: 'critical', label: 'Critical (Crimson)', border: 'border-state-error/25', color: 'rgb(var(--state-error))' }
+                    { value: 'info', label: 'Info', active: 'border-accent-secondary/50 text-accent-secondary bg-accent-secondary/10', dot: 'bg-accent-secondary' },
+                    { value: 'warning', label: 'Warning', active: 'border-state-warning/50 text-state-warning bg-state-warning/10', dot: 'bg-state-warning' },
+                    { value: 'critical', label: 'Critical', active: 'border-state-error/50 text-state-error bg-state-error/10', dot: 'bg-state-error' }
                   ].map(t => (
                     <button
                       key={t.value}
                       type="button"
+                      aria-pressed={settings.alertBannerType === t.value}
                       onClick={() => setSettings(s => ({ ...s, alertBannerType: t.value }))}
-                      className={`h-9 px-3.5 rounded-xl border text-xs font-semibold flex items-center gap-2 transition-all ${settings.alertBannerType === t.value ? 'bg-base-850' : 'bg-transparent border-border-subtle opacity-55 hover:opacity-100'}`}
-                      style={{ borderColor: settings.alertBannerType === t.value ? t.color : '' }}
+                      className={`h-9 px-3.5 rounded-xl border text-xs font-semibold flex items-center gap-2 transition-colors ${settings.alertBannerType === t.value ? t.active : 'border-border-subtle text-content-secondary hover:text-content-primary'}`}
                     >
-                      <span className="w-1.5 h-1.5 rounded-full" style={{ background: t.color }} />
-                      <span style={{ color: settings.alertBannerType === t.value ? t.color : 'rgb(var(--content-secondary))' }}>{t.label}</span>
+                      <span className={`w-1.5 h-1.5 rounded-full ${t.dot}`} />
+                      {t.label}
                     </button>
                   ))}
                 </div>
@@ -1521,16 +1322,11 @@ function SettingsView() {
         <button
           type="submit"
           disabled={saving}
-          className="h-10 px-6 rounded-xl text-xs font-bold text-white transition-all flex items-center gap-2 select-none"
-          style={{ 
-            background: saving ? 'rgb(59 130 246 / 0.2)' : 'linear-gradient(135deg,#3B82F6,#3B82F6)',
-            boxShadow: saving ? 'none' : '0 4px 16px rgb(59 130 246 / 0.2)',
-            cursor: saving ? 'not-allowed' : 'pointer'
-          }}
+          className="btn-accent h-10 px-6 text-xs gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
         >
           {saving ? (
             <>
-              <Loader2 size={14} className="animate-spin text-base-950" />
+              <Loader2 size={14} className="animate-spin" />
               Saving Changes...
             </>
           ) : (

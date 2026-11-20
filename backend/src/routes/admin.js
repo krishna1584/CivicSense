@@ -4,8 +4,12 @@ const { auth, requireRole } = require('../middleware/auth');
 const issuesService = require('../services/issues.service');
 const { uploadAvatar, storeUpload } = require('../middleware/upload');
 const { getSettings, updateSettings } = require('../services/settings.service');
+const { uuidParam, UUID_RE } = require('../middleware/validate');
 
 const router = express.Router();
+router.param('id', uuidParam);
+
+const ROLES = ['citizen', 'admin', 'department_staff'];
 
 // GET /api/admin/settings/public (Unauthenticated)
 router.get('/settings/public', async (req, res) => {
@@ -37,6 +41,7 @@ router.get('/dashboard', async (req, res) => {
           COUNT(*) FILTER (WHERE status NOT IN ('resolved','rejected')) AS active,
           COUNT(*) FILTER (WHERE status = 'resolved') AS resolved,
           COUNT(*) FILTER (WHERE severity = 'critical' AND status NOT IN ('resolved','rejected')) AS critical_active,
+          COUNT(*) FILTER (WHERE sla_deadline < NOW() AND status NOT IN ('resolved','rejected')) AS overdue,
           ROUND(COUNT(*) FILTER (WHERE status = 'resolved')::NUMERIC / NULLIF(COUNT(*),0) * 100, 1) AS resolution_rate,
           ROUND(AVG(EXTRACT(EPOCH FROM (resolved_at - created_at))/3600) FILTER (WHERE status = 'resolved'), 1) AS avg_resolution_hours,
           ROUND(AVG(EXTRACT(EPOCH FROM (updated_at - created_at))/3600) FILTER (WHERE status != 'reported'), 1) AS avg_acknowledge_hours
@@ -130,7 +135,9 @@ router.get('/issues', async (req, res) => {
 // PATCH /api/admin/issues/bulk-status
 router.patch('/issues/bulk-status', requireRole('admin'), async (req, res) => {
   const { issueIds, status, comment } = req.body;
-  if (!Array.isArray(issueIds) || !issueIds.length) return res.status(400).json({ error: 'issueIds required' });
+  if (!Array.isArray(issueIds) || !issueIds.length || issueIds.length > 100 || !issueIds.every((id) => typeof id === 'string' && UUID_RE.test(id))) {
+    return res.status(400).json({ error: 'issueIds must be a list of up to 100 issue ids' });
+  }
   // Resolving needs proof and citizen verification, so it stays a per-issue action.
   if (!['reported', 'acknowledged', 'in_progress', 'rejected'].includes(status)) {
     return res.status(400).json({ error: 'This status cannot be applied in bulk.' });
@@ -220,6 +227,12 @@ router.patch('/issues/:id/moderation', async (req, res) => {
 // PATCH /api/admin/issues/:id/assign
 router.patch('/issues/:id/assign', async (req, res) => {
   const { assigned_to, department } = req.body;
+  if (assigned_to && (typeof assigned_to !== 'string' || !UUID_RE.test(assigned_to))) {
+    return res.status(400).json({ error: 'assigned_to must be a user id' });
+  }
+  if (department && (typeof department !== 'string' || department.length > 100)) {
+    return res.status(400).json({ error: 'department must be text of up to 100 characters' });
+  }
   try {
     const result = await pool.query(
       'UPDATE issues SET assigned_to = $1, department = $2, updated_at = NOW() WHERE id = $3 RETURNING *',
@@ -228,19 +241,20 @@ router.patch('/issues/:id/assign', async (req, res) => {
     if (!result.rows[0]) return res.status(404).json({ error: 'Issue not found' });
     res.json({ issue: result.rows[0] });
   } catch (err) {
+    if (err.code === '23503') return res.status(400).json({ error: 'Assigned user not found' });
     res.status(500).json({ error: 'Failed to assign issue' });
   }
 });
 
 // GET /api/admin/analytics
 router.get('/analytics', async (req, res) => {
-  const { period = '30' } = req.query;
+  const days = Math.min(Math.max(parseInt(req.query.period, 10) || 30, 1), 365);
   try {
     const [resolutionTrend, categoryTrend, departmentPerf, deptSatisfaction, catSatisfaction] = await Promise.all([
       pool.query(`
         SELECT DATE(created_at) AS date, COUNT(*) AS reported,
                COUNT(*) FILTER (WHERE status = 'resolved') AS resolved
-        FROM issues WHERE created_at > NOW() - INTERVAL '${parseInt(period)} days'
+        FROM issues WHERE created_at > NOW() - INTERVAL '${days} days'
         GROUP BY date ORDER BY date ASC
       `),
       pool.query(`
@@ -248,7 +262,7 @@ router.get('/analytics', async (req, res) => {
                COUNT(i.id) FILTER (WHERE i.status = 'resolved') AS resolved,
                ROUND(AVG(EXTRACT(EPOCH FROM (i.resolved_at - i.created_at))/3600) FILTER (WHERE i.status = 'resolved'), 1) AS avg_hours
         FROM categories c LEFT JOIN issues i ON i.category_id = c.id
-        WHERE i.created_at > NOW() - INTERVAL '${parseInt(period)} days'
+        WHERE i.created_at > NOW() - INTERVAL '${days} days'
         GROUP BY c.id ORDER BY total DESC
       `),
       pool.query(`
@@ -339,6 +353,17 @@ router.patch('/users/:id', requireRole('admin'), uploadAvatar.single('avatar'), 
     if (is_active === 'true') isActiveVal = true;
     if (is_active === 'false') isActiveVal = false;
 
+    if (role !== undefined && !ROLES.includes(role)) {
+      return res.status(400).json({ error: `role must be one of: ${ROLES.join(', ')}` });
+    }
+    if (isActiveVal !== undefined && typeof isActiveVal !== 'boolean') {
+      return res.status(400).json({ error: 'is_active must be true or false' });
+    }
+    // Stops an admin locking themselves (and possibly everyone) out of the admin panel.
+    if (targetUserId === req.user.id && ((role !== undefined && role !== 'admin') || isActiveVal === false)) {
+      return res.status(400).json({ error: "You can't remove your own admin access or deactivate your own account." });
+    }
+
     if (role !== undefined) {
       updates.push(`role = $${idx++}`);
       values.push(role);
@@ -382,7 +407,20 @@ router.patch('/users/:id', requireRole('admin'), uploadAvatar.single('avatar'), 
 
 // DELETE /api/admin/users/:id
 router.delete('/users/:id', requireRole('admin'), async (req, res) => {
+  if (req.params.id === req.user.id) {
+    return res.status(400).json({ error: "You can't delete your own account." });
+  }
   try {
+    // Audit history must survive, so anyone who has acted as staff is deactivated, not deleted.
+    const history = await pool.query(`
+      SELECT EXISTS (SELECT 1 FROM admin_logs WHERE admin_id = $1)
+          OR EXISTS (SELECT 1 FROM issue_status_history h JOIN issues i ON i.id = h.issue_id
+                     WHERE h.updated_by = $1 AND i.user_id IS DISTINCT FROM $1) AS has_history
+    `, [req.params.id]);
+    if (history.rows[0].has_history) {
+      return res.status(409).json({ error: 'This user has audit history and cannot be deleted. Deactivate the account instead.' });
+    }
+
     const result = await pool.query('DELETE FROM users WHERE id = $1 RETURNING id', [req.params.id]);
     if (!result.rows[0]) return res.status(404).json({ error: 'User not found' });
 
@@ -512,6 +550,7 @@ router.patch('/settings', requireRole('admin'), async (req, res) => {
 
     res.json(updated);
   } catch (err) {
+    if (err.status === 400) return res.status(400).json({ error: err.message });
     console.error('Settings update error:', err);
     res.status(500).json({ error: 'Failed to update settings' });
   }

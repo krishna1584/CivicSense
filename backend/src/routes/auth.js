@@ -3,12 +3,12 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
 const pool = require('../db/pool');
-const { authLimiter } = require('../middleware/rateLimiter');
-const crypto = require('crypto');
+const { loginIpLimiter, loginLimiter, registerLimiter, otpSendLimiter, otpVerifyLimiter } = require('../middleware/rateLimiter');
 const { validate, registerSchema, loginSchema, sendOtpSchema, verifyOtpSchema, resetPasswordSchema } = require('../middleware/validate');
 const { auth } = require('../middleware/auth');
 const { sendOtpEmail, sendPasswordResetEmail } = require('../services/mail');
 const { getSettings } = require('../services/settings.service');
+const { issueOtp, checkOtp } = require('../services/otp.service');
 
 const router = express.Router();
 
@@ -25,37 +25,41 @@ const cookieOptions = {
   path: '/',
 };
 
+// Emails arrive lowercased from validation; LOWER() also matches accounts saved before that.
+const FIND_BY_EMAIL = 'WHERE LOWER(email) = $1';
+
+const startSession = async (res, userId) => {
+  const { accessToken, refreshToken } = signTokens(userId);
+  await pool.query(
+    'INSERT INTO refresh_tokens (id, user_id, token, expires_at) VALUES ($1, $2, $3, NOW() + INTERVAL \'7 days\')',
+    [uuidv4(), userId, refreshToken]
+  );
+  res.cookie('accessToken', accessToken, { ...cookieOptions, maxAge: 15 * 60 * 1000 });
+  res.cookie('refreshToken', refreshToken, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 });
+  return accessToken;
+};
+
 // POST /api/auth/register
-router.post('/register', authLimiter, validate(registerSchema), async (req, res) => {
+router.post('/register', registerLimiter, validate(registerSchema), async (req, res) => {
   const { name, email, password } = req.body;
   try {
     const { enableRegistration } = await getSettings();
     if (!enableRegistration) return res.status(403).json({ error: 'New registrations are currently closed.' });
 
-    const exists = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+    const exists = await pool.query(`SELECT id FROM users ${FIND_BY_EMAIL}`, [email]);
     if (exists.rows[0]) return res.status(409).json({ error: 'Email already registered' });
 
-    const id = uuidv4();
     const password_hash = await bcrypt.hash(password, 12);
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const result = await pool.query(
-      'INSERT INTO users (id, name, email, password_hash, otp_code, otp_expires_at, is_verified) VALUES ($1, $2, $3, $4, $5, NOW() + INTERVAL \'10 minutes\', FALSE) RETURNING id, name, email, role, trust_score, is_verified, created_at',
-      [id, name, email, password_hash, otp]
+      'INSERT INTO users (id, name, email, password_hash, is_verified) VALUES ($1, $2, $3, $4, FALSE) RETURNING id, name, email, role, trust_score, is_verified, created_at',
+      [uuidv4(), name, email, password_hash]
     );
     const user = result.rows[0];
 
-    sendOtpEmail(user.email, user.name, otp).catch(err => console.error('Failed to send OTP email:', err));
+    const otp = await issueOtp(pool, user.id);
+    sendOtpEmail(user.email, user.name, otp).catch(err => console.error('Failed to send OTP email:', err.message));
 
-    const { accessToken, refreshToken } = signTokens(user.id);
-
-    const refreshId = uuidv4();
-    await pool.query(
-      'INSERT INTO refresh_tokens (id, user_id, token, expires_at) VALUES ($1, $2, $3, NOW() + INTERVAL \'7 days\')',
-      [refreshId, user.id, refreshToken]
-    );
-
-    res.cookie('accessToken', accessToken, { ...cookieOptions, maxAge: 15 * 60 * 1000 });
-    res.cookie('refreshToken', refreshToken, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 });
+    const accessToken = await startSession(res, user.id);
     res.status(201).json({ user, accessToken });
   } catch (err) {
     console.error(err);
@@ -64,10 +68,10 @@ router.post('/register', authLimiter, validate(registerSchema), async (req, res)
 });
 
 // POST /api/auth/login
-router.post('/login', authLimiter, validate(loginSchema), async (req, res) => {
+router.post('/login', loginIpLimiter, loginLimiter, validate(loginSchema), async (req, res) => {
   const { email, password } = req.body;
   try {
-    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    const result = await pool.query(`SELECT * FROM users ${FIND_BY_EMAIL}`, [email]);
     const user = result.rows[0];
     if (!user) return res.status(401).json({ error: 'Invalid email or password' });
 
@@ -76,15 +80,7 @@ router.post('/login', authLimiter, validate(loginSchema), async (req, res) => {
 
     if (!user.is_active) return res.status(403).json({ error: 'Account deactivated' });
 
-    const { accessToken, refreshToken } = signTokens(user.id);
-    const refreshId = uuidv4();
-    await pool.query(
-      'INSERT INTO refresh_tokens (id, user_id, token, expires_at) VALUES ($1, $2, $3, NOW() + INTERVAL \'7 days\')',
-      [refreshId, user.id, refreshToken]
-    );
-
-    res.cookie('accessToken', accessToken, { ...cookieOptions, maxAge: 15 * 60 * 1000 });
-    res.cookie('refreshToken', refreshToken, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 });
+    const accessToken = await startSession(res, user.id);
     res.json({ user: { id: user.id, name: user.name, email: user.email, role: user.role, trust_score: user.trust_score, avatar_url: user.avatar_url, address: user.address, is_verified: user.is_verified, created_at: user.created_at }, accessToken });
   } catch (err) {
     console.error('Login error:', err);
@@ -106,15 +102,7 @@ router.post('/refresh', async (req, res) => {
 
     // Rotate refresh token
     await pool.query('DELETE FROM refresh_tokens WHERE token = $1', [token]);
-    const { accessToken, refreshToken: newRefresh } = signTokens(decoded.userId);
-    const refreshId = uuidv4();
-    await pool.query(
-      'INSERT INTO refresh_tokens (id, user_id, token, expires_at) VALUES ($1, $2, $3, NOW() + INTERVAL \'7 days\')',
-      [refreshId, decoded.userId, newRefresh]
-    );
-
-    res.cookie('accessToken', accessToken, { ...cookieOptions, maxAge: 15 * 60 * 1000 });
-    res.cookie('refreshToken', newRefresh, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 });
+    const accessToken = await startSession(res, decoded.userId);
     res.json({ accessToken });
   } catch (err) {
     res.status(401).json({ error: 'Invalid refresh token' });
@@ -125,8 +113,9 @@ router.post('/refresh', async (req, res) => {
 router.post('/logout', async (req, res) => {
   const token = req.cookies?.refreshToken;
   if (token) await pool.query('DELETE FROM refresh_tokens WHERE token = $1', [token]).catch(() => {});
-  res.clearCookie('accessToken');
-  res.clearCookie('refreshToken');
+  // Browsers only remove a cookie when the clearing options match how it was set.
+  res.clearCookie('accessToken', cookieOptions);
+  res.clearCookie('refreshToken', cookieOptions);
   res.json({ message: 'Logged out successfully' });
 });
 
@@ -136,10 +125,10 @@ router.get('/me', auth, async (req, res) => {
 });
 
 // POST /api/auth/send-otp
-router.post('/send-otp', authLimiter, validate(sendOtpSchema), async (req, res) => {
+router.post('/send-otp', otpSendLimiter, validate(sendOtpSchema), async (req, res) => {
   const { email } = req.body;
   try {
-    const result = await pool.query('SELECT id, name, is_verified FROM users WHERE email = $1', [email]);
+    const result = await pool.query(`SELECT id, name, is_verified FROM users ${FIND_BY_EMAIL}`, [email]);
     const user = result.rows[0];
     if (!user) {
       return res.json({ message: 'If this email is registered, an OTP has been sent.' });
@@ -148,14 +137,9 @@ router.post('/send-otp', authLimiter, validate(sendOtpSchema), async (req, res) 
       return res.status(400).json({ error: 'Email is already verified' });
     }
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    await pool.query(
-      'UPDATE users SET otp_code = $1, otp_expires_at = NOW() + INTERVAL \'10 minutes\' WHERE id = $2',
-      [otp, user.id]
-    );
+    const otp = await issueOtp(pool, user.id);
+    sendOtpEmail(email, user.name, otp).catch(err => console.error('Failed to send OTP email:', err.message));
 
-    sendOtpEmail(email, user.name, otp).catch(err => console.error('Failed to send OTP email:', err));
-    
     res.json({ message: 'OTP sent successfully' });
   } catch (err) {
     console.error('Send OTP error:', err);
@@ -164,52 +148,38 @@ router.post('/send-otp', authLimiter, validate(sendOtpSchema), async (req, res) 
 });
 
 // POST /api/auth/verify-otp
-router.post('/verify-otp', authLimiter, validate(verifyOtpSchema), async (req, res) => {
+router.post('/verify-otp', otpVerifyLimiter, validate(verifyOtpSchema), async (req, res) => {
   const { email, code } = req.body;
   try {
-    const result = await pool.query('SELECT id, otp_code, otp_expires_at, is_verified FROM users WHERE email = $1', [email]);
+    const result = await pool.query(`SELECT id, otp_code, otp_expires_at, is_verified FROM users ${FIND_BY_EMAIL}`, [email]);
     const user = result.rows[0];
-    
+
     if (!user) return res.status(400).json({ error: 'Invalid or expired OTP' });
     if (user.is_verified) return res.status(400).json({ error: 'Email is already verified' });
-    
-    if (user.otp_code !== code || new Date() > user.otp_expires_at) {
-      return res.status(400).json({ error: 'Invalid or expired OTP' });
-    }
+    if (!(await checkOtp(pool, user, code))) return res.status(400).json({ error: 'Invalid or expired OTP' });
 
-    await pool.query(
-      'UPDATE users SET is_verified = TRUE, otp_code = NULL, otp_expires_at = NULL WHERE id = $1',
+    const updatedResult = await pool.query(
+      `UPDATE users SET is_verified = TRUE, otp_code = NULL, otp_expires_at = NULL, otp_attempts = 0 WHERE id = $1
+       RETURNING id, name, email, role, trust_score, avatar_url, address, is_verified, created_at`,
       [user.id]
     );
 
-    const updatedResult = await pool.query('SELECT id, name, email, role, trust_score, avatar_url, address, is_verified, created_at FROM users WHERE id = $1', [user.id]);
-    const updatedUser = updatedResult.rows[0];
-
-    res.json({ message: 'Email verified successfully', user: updatedUser });
+    res.json({ message: 'Email verified successfully', user: updatedResult.rows[0] });
   } catch (err) {
     console.error('Verify OTP error:', err);
     res.status(500).json({ error: 'Failed to verify OTP' });
   }
 });
 
-// A reset code unlocks the account, so wrong guesses are capped per address.
-const MAX_RESET_ATTEMPTS = 5;
-const resetAttempts = new Map();
-
 // POST /api/auth/forgot-password
-router.post('/forgot-password', authLimiter, validate(sendOtpSchema), async (req, res) => {
+router.post('/forgot-password', otpSendLimiter, validate(sendOtpSchema), async (req, res) => {
   const { email } = req.body;
   try {
-    const result = await pool.query('SELECT id, name, is_active FROM users WHERE email = $1', [email]);
+    const result = await pool.query(`SELECT id, name, is_active FROM users ${FIND_BY_EMAIL}`, [email]);
     const user = result.rows[0];
     if (user?.is_active) {
-      const otp = crypto.randomInt(100000, 1000000).toString();
-      await pool.query(
-        'UPDATE users SET otp_code = $1, otp_expires_at = NOW() + INTERVAL \'10 minutes\' WHERE id = $2',
-        [otp, user.id]
-      );
-      resetAttempts.delete(email);
-      sendPasswordResetEmail(email, user.name, otp).catch(err => console.error('Failed to send reset email:', err));
+      const otp = await issueOtp(pool, user.id);
+      sendPasswordResetEmail(email, user.name, otp).catch(err => console.error('Failed to send reset email:', err.message));
     }
     // Same answer either way, so this can't be used to discover registered emails.
     res.json({ message: 'If this email is registered, a reset code has been sent.' });
@@ -220,33 +190,20 @@ router.post('/forgot-password', authLimiter, validate(sendOtpSchema), async (req
 });
 
 // POST /api/auth/reset-password
-router.post('/reset-password', authLimiter, validate(resetPasswordSchema), async (req, res) => {
+router.post('/reset-password', otpVerifyLimiter, validate(resetPasswordSchema), async (req, res) => {
   const { email, code, password } = req.body;
-  const invalid = () => res.status(400).json({ error: 'Invalid or expired code' });
   try {
-    const result = await pool.query('SELECT id, otp_code, otp_expires_at FROM users WHERE email = $1', [email]);
+    const result = await pool.query(`SELECT id, otp_code, otp_expires_at FROM users ${FIND_BY_EMAIL}`, [email]);
     const user = result.rows[0];
-    if (!user?.otp_code || new Date() > user.otp_expires_at) return invalid();
-
-    if (user.otp_code !== code) {
-      const attempts = (resetAttempts.get(email) || 0) + 1;
-      if (attempts >= MAX_RESET_ATTEMPTS) {
-        resetAttempts.delete(email);
-        await pool.query('UPDATE users SET otp_code = NULL, otp_expires_at = NULL WHERE id = $1', [user.id]);
-      } else {
-        resetAttempts.set(email, attempts);
-      }
-      return invalid();
-    }
+    if (!(await checkOtp(pool, user, code))) return res.status(400).json({ error: 'Invalid or expired code' });
 
     const password_hash = await bcrypt.hash(password, 12);
     await pool.query(
-      'UPDATE users SET password_hash = $1, is_verified = TRUE, otp_code = NULL, otp_expires_at = NULL, updated_at = NOW() WHERE id = $2',
+      'UPDATE users SET password_hash = $1, is_verified = TRUE, otp_code = NULL, otp_expires_at = NULL, otp_attempts = 0, updated_at = NOW() WHERE id = $2',
       [password_hash, user.id]
     );
     // End every existing session on this account.
     await pool.query('DELETE FROM refresh_tokens WHERE user_id = $1', [user.id]);
-    resetAttempts.delete(email);
 
     res.json({ message: 'Password updated. You can now sign in.' });
   } catch (err) {

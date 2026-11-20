@@ -8,8 +8,8 @@ const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
 
 const pool = require('./db/pool');
-const prisma = require('./db/prisma');
 const { apiLimiter } = require('./middleware/rateLimiter');
+const { normalizeQuery } = require('./middleware/validate');
 const { cleanupTempUploads } = require('./middleware/upload');
 const setupSocket = require('./socket/index');
 
@@ -71,7 +71,7 @@ app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
 app.use(cleanupTempUploads);
 
 // Rate limiting
-app.use('/api/', apiLimiter);
+app.use('/api/', apiLimiter, normalizeQuery);
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -86,7 +86,7 @@ app.use('/api/anonymous', anonymousRoutes);
 // Health check
 app.get('/health', async (req, res) => {
   try {
-    await prisma.$queryRaw`SELECT 1`;
+    await pool.query('SELECT 1');
     res.json({ status: 'ok', timestamp: new Date().toISOString(), env: process.env.NODE_ENV });
   } catch (err) {
     res.status(503).json({ status: 'error', message: 'Database unavailable' });
@@ -102,6 +102,12 @@ app.use((req, res) => {
 app.use((err, req, res, next) => {
   if (err.message === 'Not allowed by CORS') {
     return res.status(403).json({ error: 'Origin not allowed' });
+  }
+  if (err.type === 'entity.parse.failed') {
+    return res.status(400).json({ error: 'Request body is not valid JSON' });
+  }
+  if (err.type === 'entity.too.large') {
+    return res.status(413).json({ error: 'Request body is too large' });
   }
   console.error(err);
   if (err.name === 'MulterError' || err.message?.includes('Invalid file type')) {
