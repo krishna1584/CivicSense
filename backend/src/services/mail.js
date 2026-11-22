@@ -33,6 +33,10 @@ const transporter = isSmtpConfigured
 let emailStatus = isSmtpConfigured ? 'checking' : 'not_configured';
 const getEmailStatus = () => emailStatus;
 
+// Email verification is only enforced when codes can actually be delivered. While the
+// startup check is still running we assume email works.
+const canDeliverEmail = () => emailStatus === 'available' || emailStatus === 'checking';
+
 /** Connect to the SMTP server once at startup (with a time limit) to learn the status. */
 async function checkEmailDelivery() {
   if (!transporter) {
@@ -231,6 +235,7 @@ const sendPasswordResetEmail = (email, name, otp) => sendOtpEmail(email, name, o
 
 module.exports = {
   getEmailStatus,
+  canDeliverEmail,
   checkEmailDelivery,
   escapeHtml,
   sendOtpEmail,

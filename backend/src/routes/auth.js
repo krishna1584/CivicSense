@@ -6,7 +6,7 @@ const pool = require('../db/pool');
 const { loginIpLimiter, loginLimiter, registerLimiter, otpSendLimiter, otpVerifyLimiter } = require('../middleware/rateLimiter');
 const { validate, registerSchema, loginSchema, sendOtpSchema, verifyOtpSchema, resetPasswordSchema } = require('../middleware/validate');
 const { auth } = require('../middleware/auth');
-const { sendOtpEmail, sendPasswordResetEmail } = require('../services/mail');
+const { sendOtpEmail, sendPasswordResetEmail, canDeliverEmail } = require('../services/mail');
 const { getSettings } = require('../services/settings.service');
 const { issueOtp, checkOtp } = require('../services/otp.service');
 
@@ -41,6 +41,12 @@ const startSession = async (res, userId) => {
   return accessToken;
 };
 
+const markVerified = (userId) => pool.query(
+  `UPDATE users SET is_verified = TRUE, otp_code = NULL, otp_expires_at = NULL, otp_attempts = 0 WHERE id = $1
+   RETURNING id, name, email, role, trust_score, avatar_url, address, is_verified, created_at`,
+  [userId]
+);
+
 // POST /api/auth/register
 router.post('/register', registerLimiter, validate(registerSchema), async (req, res) => {
   const { name, email, password } = req.body;
@@ -51,15 +57,20 @@ router.post('/register', registerLimiter, validate(registerSchema), async (req, 
     const exists = await pool.query(`SELECT id FROM users ${FIND_BY_EMAIL}`, [email]);
     if (exists.rows[0]) return res.status(409).json({ error: 'Email already registered' });
 
+    // If this deployment can't send email, a code could never arrive, so the account
+    // starts verified instead of being locked out.
+    const verifyByEmail = canDeliverEmail();
     const password_hash = await bcrypt.hash(password, 12);
     const result = await pool.query(
-      'INSERT INTO users (id, name, email, password_hash, is_verified) VALUES ($1, $2, $3, $4, FALSE) RETURNING id, name, email, role, trust_score, is_verified, created_at',
-      [uuidv4(), name, email, password_hash]
+      'INSERT INTO users (id, name, email, password_hash, is_verified) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, email, role, trust_score, is_verified, created_at',
+      [uuidv4(), name, email, password_hash, !verifyByEmail]
     );
     const user = result.rows[0];
 
-    const otp = await issueOtp(pool, user.id);
-    sendOtpEmail(user.email, user.name, otp).catch(err => console.error('Failed to send OTP email:', err.message));
+    if (verifyByEmail) {
+      const otp = await issueOtp(pool, user.id);
+      sendOtpEmail(user.email, user.name, otp).catch(err => console.error('Failed to send OTP email:', err.message));
+    }
 
     const accessToken = await startSession(res, user.id);
     res.status(201).json({ user, accessToken });
@@ -81,6 +92,12 @@ router.post('/login', loginIpLimiter, loginLimiter, validate(loginSchema), async
     if (!passwordMatch) return res.status(401).json({ error: 'Invalid email or password' });
 
     if (!user.is_active) return res.status(403).json({ error: 'Account deactivated' });
+
+    // Accounts created before email stopped working would otherwise be stuck unverified.
+    if (!user.is_verified && !canDeliverEmail()) {
+      await markVerified(user.id);
+      user.is_verified = true;
+    }
 
     const accessToken = await startSession(res, user.id);
     res.json({ user: { id: user.id, name: user.name, email: user.email, role: user.role, trust_score: user.trust_score, avatar_url: user.avatar_url, address: user.address, is_verified: user.is_verified, created_at: user.created_at }, accessToken });
@@ -160,16 +177,26 @@ router.post('/verify-otp', otpVerifyLimiter, validate(verifyOtpSchema), async (r
     if (user.is_verified) return res.status(400).json({ error: 'Email is already verified' });
     if (!(await checkOtp(pool, user, code))) return res.status(400).json({ error: 'Invalid or expired OTP' });
 
-    const updatedResult = await pool.query(
-      `UPDATE users SET is_verified = TRUE, otp_code = NULL, otp_expires_at = NULL, otp_attempts = 0 WHERE id = $1
-       RETURNING id, name, email, role, trust_score, avatar_url, address, is_verified, created_at`,
-      [user.id]
-    );
-
+    const updatedResult = await markVerified(user.id);
     res.json({ message: 'Email verified successfully', user: updatedResult.rows[0] });
   } catch (err) {
     console.error('Verify OTP error:', err);
     res.status(500).json({ error: 'Failed to verify OTP' });
+  }
+});
+
+// POST /api/auth/skip-verification
+// For a signed-in user, only while this deployment cannot send email.
+router.post('/skip-verification', auth, async (req, res) => {
+  if (canDeliverEmail()) {
+    return res.status(400).json({ error: 'Email delivery works here, so please verify with the code we sent.' });
+  }
+  try {
+    const result = await markVerified(req.user.id);
+    res.json({ message: 'Email verification skipped', user: result.rows[0] });
+  } catch (err) {
+    console.error('Skip verification error:', err);
+    res.status(500).json({ error: 'Could not continue' });
   }
 });
 

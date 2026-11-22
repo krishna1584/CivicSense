@@ -58,6 +58,7 @@ export const authApi = {
   me: () => api.get('/api/auth/me'),
   sendOtp: (data: { email: string }) => api.post('/api/auth/send-otp', data),
   verifyOtp: (data: { email: string; code: string }) => api.post('/api/auth/verify-otp', data),
+  skipVerification: () => api.post('/api/auth/skip-verification'),
   forgotPassword: (data: { email: string }) => api.post('/api/auth/forgot-password', data),
   resetPassword: (data: { email: string; code: string; password: string }) => api.post('/api/auth/reset-password', data),
 };

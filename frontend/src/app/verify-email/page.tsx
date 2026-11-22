@@ -62,6 +62,19 @@ function VerifyEmailContent() {
     } finally { setLoading(false); }
   };
 
+  // Only offered when the server reports it can't send email.
+  const handleSkip = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await authApi.skipVerification();
+      if (res.data.user) setUser(res.data.user);
+      router.push(res.data.user?.role === 'admin' ? '/admin' : '/dashboard');
+    } catch (err: any) {
+      setError(err?.response?.data?.error || 'Could not continue.');
+    } finally { setLoading(false); }
+  };
+
   const handleChange = (index: number, value: string) => {
     if (value.length > 1) {
       const pasted = value.replace(/\D/g, '').slice(0, 6);
@@ -128,7 +141,17 @@ function VerifyEmailContent() {
                 Enter it below to confirm your address.
               </p>
 
-              <EmailDeliveryNotice purpose="verify" />
+              <EmailDeliveryNotice
+                purpose="verify"
+                onUnavailable={user ? (
+                  <button type="button" onClick={handleSkip} disabled={loading}
+                    className="btn-accent w-full gap-2 py-2.5 text-sm disabled:opacity-60">
+                    {loading ? <Loader2 size={14} className="animate-spin" /> : null} Continue without verification
+                  </button>
+                ) : (
+                  <Link href="/login" className="btn-accent w-full py-2.5 text-sm">Sign in to continue</Link>
+                )}
+              />
 
               {error && (
                 <div className="flex items-start gap-3 rounded-xl p-3.5 mb-6 text-sm text-left bg-state-error/10 border border-state-error/20 text-state-error">

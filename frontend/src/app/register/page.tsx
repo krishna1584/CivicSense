@@ -91,7 +91,9 @@ export default function RegisterPage() {
       const res = await authApi.register({ name: form.name.trim(), email: form.email, password: form.password });
       setUser(res.data.user);
       setSuccess(true);
-      setTimeout(() => router.push('/verify-email?email=' + encodeURIComponent(form.email)), 1200);
+      // The server marks the account verified straight away when it can't send email.
+      const next = res.data.user?.is_verified ? '/dashboard' : '/verify-email?email=' + encodeURIComponent(form.email);
+      setTimeout(() => router.push(next), 1200);
     } catch (err: unknown) {
       const e = err as { response?: { data?: { error?: string; errors?: { message: string }[] }; status?: number } };
       const status = e?.response?.status;
@@ -125,7 +127,7 @@ export default function RegisterPage() {
             </div>
             <div>
               <p className="text-xl font-bold text-content-primary">Account created!</p>
-              <p className="text-content-muted text-sm mt-1">Redirecting to verification...</p>
+              <p className="text-content-muted text-sm mt-1">Redirecting...</p>
             </div>
           </div>
         )}

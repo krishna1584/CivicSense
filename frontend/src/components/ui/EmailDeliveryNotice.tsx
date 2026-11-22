@@ -9,7 +9,7 @@ type EmailStatus = 'available' | 'checking' | 'unavailable' | 'not_configured';
  * Explains, on pages that rely on emailed codes, when this deployment can't send email.
  * Hidden whenever email works.
  */
-export function EmailDeliveryNotice({ purpose }: { purpose: 'verify' | 'reset' }) {
+export function EmailDeliveryNotice({ purpose, onUnavailable }: { purpose: 'verify' | 'reset'; onUnavailable?: React.ReactNode }) {
   const [status, setStatus] = useState<EmailStatus | null>(null);
   const [onRender, setOnRender] = useState(false);
 
@@ -40,6 +40,17 @@ export function EmailDeliveryNotice({ purpose }: { purpose: 'verify' | 'reset' }
           {what} are sent by email over SMTP (Nodemailer). {reason} Email is delivered when the backend runs
           locally or on a host that allows SMTP.
         </p>
+        {purpose === 'verify' && (
+          <p className="text-content-secondary leading-relaxed">
+            Because of this, email verification is skipped on this deployment.
+          </p>
+        )}
+        {purpose === 'reset' && (
+          <p className="text-content-secondary leading-relaxed">
+            Password reset can&apos;t be completed here. Sign in with your password or the demo account.
+          </p>
+        )}
+        {onUnavailable && <div className="pt-2">{onUnavailable}</div>}
       </div>
     </div>
   );
