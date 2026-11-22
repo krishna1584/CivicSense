@@ -1,4 +1,5 @@
 require('dotenv').config();
+require('./config/env').assertEnv();
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -32,7 +33,6 @@ app.set('trust proxy', 1);
 // Credentialed requests are only accepted from origins listed here. Add preview
 // deployments explicitly through CORS_EXTRA_ORIGINS (comma separated).
 const allowedOrigins = [
-  process.env.CLIENT_URL,
   process.env.FRONTEND_URL,
   ...(process.env.CORS_EXTRA_ORIGINS || '').split(','),
   'http://localhost:3000',
@@ -121,6 +121,9 @@ server.listen(PORT, () => {
   console.log(`🚀 CivicSense API running on port ${PORT}`);
   console.log(`📡 Socket.io listening`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+
+  // Find out once whether email can be delivered from this host.
+  require('./services/mail').checkEmailDelivery();
 
   // Runs at startup too, so a sleeping free-tier instance catches up when it wakes.
   const closeUnanswered = () => closeUnansweredAnonymousReports().catch((err) => console.error('Auto-close failed:', err.message));

@@ -1,5 +1,4 @@
 const nodemailer = require('nodemailer');
-const { Resend } = require('resend');
 
 const isProduction = process.env.NODE_ENV === 'production';
 
@@ -8,94 +7,69 @@ const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (ch) => (
   { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]
 ));
 
-// ==========================================
-// RESEND CONFIGURATION (For Production)
-// ==========================================
-const resendApiKey = process.env.RESEND_API_KEY;
-const resendFrom = process.env.SMTP_FROM || 'CivicSense <onboarding@resend.dev>';
-let resend = null;
-if (resendApiKey) {
-  try {
-    resend = new Resend(resendApiKey);
-    if (isProduction) console.log('📧 Mailer initialized with Resend API (Production)');
-  } catch (err) {
-    console.error('❌ Failed to initialize Resend client:', err);
-  }
-}
-
-// ==========================================
-// NODEMAILER CONFIGURATION (For Local Dev)
-// ==========================================
-const smtpConfig = {
-  host: process.env.SMTP_HOST,
-  port: parseInt(process.env.SMTP_PORT || '587', 10),
-  secure: process.env.SMTP_PORT === '465',
-  family: 4,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-};
-const smtpFrom = process.env.SMTP_FROM || '"CivicSense" <no-reply@civicsense.org>';
+// All email goes out over SMTP (Gmail, Brevo, Mailgun, your host's mail server…).
 const isSmtpConfigured = !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
-let transporter = null;
-if (isSmtpConfigured && !isProduction) {
-  try {
-    transporter = nodemailer.createTransport(smtpConfig);
-    console.log('📧 Mailer initialized with Nodemailer (Local Development)');
-  } catch (err) {
-    console.error('❌ Failed to initialize Nodemailer transporter:', err);
-  }
-}
+const fromAddress = process.env.EMAIL_FROM || `"CivicSense" <${process.env.SMTP_USER || 'no-reply@civicsense.local'}>`;
 
-if (!isProduction && !isSmtpConfigured) {
-  console.log('⚡ No SMTP credentials in .env. Falling back to Developer Debug Mode locally.');
-}
+const transporter = isSmtpConfigured
+  ? nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: parseInt(process.env.SMTP_PORT || '587', 10),
+    secure: process.env.SMTP_PORT === '465',
+    family: 4, // some hosts can't reach mail servers over IPv6
+    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+  })
+  : null;
 
 /**
- * Helper function that routes the email via Resend (Production) or Nodemailer (Local)
+ * Whether this deployment can actually deliver email:
+ *   'not_configured' – no SMTP settings
+ *   'checking'       – startup check still running
+ *   'available'      – connected to the SMTP server
+ *   'unavailable'    – SMTP is set but the server can't be reached. Typical on Render's
+ *                      free plan, which blocks outgoing SMTP connections.
+ * The frontend reads this to tell users when codes won't arrive by email.
  */
+let emailStatus = isSmtpConfigured ? 'checking' : 'not_configured';
+const getEmailStatus = () => emailStatus;
+
+/** Connect to the SMTP server once at startup (with a time limit) to learn the status. */
+async function checkEmailDelivery() {
+  if (!transporter) {
+    console.log('⚡ No SMTP settings: email is not sent (codes are printed here in development).');
+    return emailStatus;
+  }
+  try {
+    await Promise.race([
+      transporter.verify(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timed out')), 15000)),
+    ]);
+    emailStatus = 'available';
+    console.log(`📧 Email is sent through ${process.env.SMTP_HOST}`);
+  } catch (err) {
+    emailStatus = 'unavailable';
+    console.warn(`⚠️  Cannot reach SMTP server ${process.env.SMTP_HOST} (${err.message}). Emails will not be delivered; ` +
+      'hosts such as Render\'s free plan block outgoing SMTP.');
+  }
+  return emailStatus;
+}
+
+/** Send one email. Failures are logged, never thrown, so a mail outage can't break sign-up. */
 const sendMailHelper = async (email, name, otp, subject, htmlContent) => {
-  if (isProduction && resend) {
-    // USE RESEND
-    try {
-      const { data, error } = await resend.emails.send({
-        from: resendFrom,
-        to: email,
-        subject: subject,
-        html: htmlContent,
-      });
-      if (error) {
-        console.error(`❌ Resend API error for ${email}:`, error);
-        if (otp) logOtpFallback(email, name, otp);
-      } else {
-        console.log(`📧 Email sent via Resend to: ${email}`);
-      }
-    } catch (err) {
-      console.error(`❌ Resend mail delivery failed for ${email}:`, err);
-      if (otp) logOtpFallback(email, name, otp);
-    }
-  } else if (!isProduction && isSmtpConfigured && transporter) {
-    // USE NODEMAILER
-    try {
-      await transporter.sendMail({
-        from: smtpFrom,
-        to: email,
-        subject: subject,
-        html: htmlContent,
-      });
-      console.log(`📧 Email sent via Nodemailer to: ${email}`);
-    } catch (err) {
-      console.error(`❌ Nodemailer delivery failed for ${email}:`, err);
-      if (otp) logOtpFallback(email, name, otp);
-    }
-  } else {
-    // DEV FALLBACK
-    if (otp) {
-      logOtpFallback(email, name, otp);
-    } else {
-      console.log(`[DEV FALLBACK] Email would be sent to ${email} | Subject: "${subject}"`);
-    }
+  if (!transporter) {
+    if (otp) logOtpFallback(email, name, otp);
+    else if (!isProduction) console.log(`[DEV] Email would be sent to ${email} | Subject: "${subject}"`);
+    return;
+  }
+  try {
+    await transporter.sendMail({ from: fromAddress, to: email, subject, html: htmlContent });
+    emailStatus = 'available';
+    console.log(`📧 Email sent to ${email}`);
+  } catch (err) {
+    // Connection-level failures mean the server can't reach SMTP at all
+    if (['ECONNECTION', 'ETIMEDOUT', 'ESOCKET', 'EDNS'].includes(err.code)) emailStatus = 'unavailable';
+    console.error(`❌ Email to ${email} failed:`, err.message);
+    if (otp) logOtpFallback(email, name, otp);
   }
 };
 
@@ -256,6 +230,8 @@ const sendResolvedEmail = async (email, name, issueTitle, issueId) => {
 const sendPasswordResetEmail = (email, name, otp) => sendOtpEmail(email, name, otp, RESET_PASSWORD_COPY);
 
 module.exports = {
+  getEmailStatus,
+  checkEmailDelivery,
   escapeHtml,
   sendOtpEmail,
   sendPasswordResetEmail,

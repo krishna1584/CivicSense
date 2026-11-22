@@ -12,9 +12,11 @@ const { issueOtp, checkOtp } = require('../services/otp.service');
 
 const router = express.Router();
 
+// Token lifetimes must match the cookie lifetimes and the refresh_tokens expiry below,
+// so they are fixed here rather than configurable.
 const signTokens = (userId) => {
-  const accessToken = jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '15m' });
-  const refreshToken = jwt.sign({ userId }, process.env.JWT_REFRESH_SECRET, { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d', jwtid: uuidv4() });
+  const accessToken = jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: '15m' });
+  const refreshToken = jwt.sign({ userId }, process.env.JWT_REFRESH_SECRET, { expiresIn: '7d', jwtid: uuidv4() });
   return { accessToken, refreshToken };
 };
 

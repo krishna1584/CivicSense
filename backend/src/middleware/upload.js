@@ -69,7 +69,8 @@ const stripImageMetadata = async (files) => {
 };
 
 const isCloudinaryConfigured = () =>
-  !!process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_CLOUD_NAME !== 'your_cloud_name';
+  !!process.env.CLOUDINARY_CLOUD_NAME && !!process.env.CLOUDINARY_API_KEY && !!process.env.CLOUDINARY_API_SECRET &&
+  process.env.CLOUDINARY_CLOUD_NAME !== 'your_cloud_name';
 
 /**
  * Store one uploaded file. Uses Cloudinary when configured and only falls back

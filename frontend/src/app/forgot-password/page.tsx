@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { authApi } from '@/lib/api';
+import { EmailDeliveryNotice } from '@/components/ui/EmailDeliveryNotice';
 import { AlertCircle, CheckCircle2, Hexagon, Loader2 } from 'lucide-react';
 
 type Step = 'email' | 'reset' | 'done';
@@ -86,6 +87,8 @@ export default function ForgotPasswordPage() {
                     : `If ${email} is registered, a code is on its way. It expires in 10 minutes.`}
                 </p>
               </div>
+
+              <EmailDeliveryNotice purpose="reset" />
 
               {error && (
                 <div className="flex items-start gap-3 rounded-xl p-3.5 mb-6 text-sm bg-state-error/10 border border-state-error/20 text-state-error">

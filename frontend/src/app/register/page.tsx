@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { authApi } from '@/lib/api';
 import { useAuthStore } from '@/lib/store';
+import { EmailDeliveryNotice } from '@/components/ui/EmailDeliveryNotice';
 import { Eye, EyeOff, Loader2, AlertCircle, Hexagon, ArrowRight, Check, X, CheckCircle2 } from 'lucide-react';
 
 type StrengthLevel = 'empty' | 'weak' | 'fair' | 'good' | 'strong';
@@ -135,6 +136,8 @@ export default function RegisterPage() {
               <h2 className="text-2xl font-bold text-content-primary tracking-tight">Create your account</h2>
               <p className="text-content-muted text-sm mt-1">Join the civic movement — it&apos;s free.</p>
             </div>
+
+            <EmailDeliveryNotice purpose="verify" />
 
             {error && (
               <div className="flex items-start gap-3 rounded-xl p-3.5 mb-6 text-sm bg-state-error/10 border border-state-error/20 text-state-error">

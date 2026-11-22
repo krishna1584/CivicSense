@@ -4,6 +4,7 @@ const { auth, requireRole } = require('../middleware/auth');
 const issuesService = require('../services/issues.service');
 const { uploadAvatar, storeUpload } = require('../middleware/upload');
 const { getSettings, updateSettings } = require('../services/settings.service');
+const { getEmailStatus } = require('../services/mail');
 const { uuidParam, UUID_RE } = require('../middleware/validate');
 
 const router = express.Router();
@@ -21,7 +22,10 @@ router.get('/settings/public', async (req, res) => {
       enableAnonymousReporting: settings.enableAnonymousReporting,
       enableAlertBanner: settings.enableAlertBanner,
       alertBannerText: settings.alertBannerText,
-      alertBannerType: settings.alertBannerType
+      alertBannerType: settings.alertBannerType,
+      // Lets sign-up and password-reset pages explain when codes can't be emailed
+      emailDelivery: getEmailStatus(),
+      hostedOnRender: !!process.env.RENDER, // Render sets RENDER=true on its servers
     });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch public settings' });

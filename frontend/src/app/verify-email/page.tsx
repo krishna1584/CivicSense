@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { authApi } from '@/lib/api';
 import { useAuthStore } from '@/lib/store';
+import { EmailDeliveryNotice } from '@/components/ui/EmailDeliveryNotice';
 import { Hexagon, AlertCircle, Loader2, Mail, CheckCircle2, ArrowRight } from 'lucide-react';
 
 function VerifyEmailContent() {
@@ -126,6 +127,8 @@ function VerifyEmailContent() {
                 We sent a 6-digit code to <span className="text-content-primary font-medium">{targetEmail}</span>.
                 Enter it below to confirm your address.
               </p>
+
+              <EmailDeliveryNotice purpose="verify" />
 
               {error && (
                 <div className="flex items-start gap-3 rounded-xl p-3.5 mb-6 text-sm text-left bg-state-error/10 border border-state-error/20 text-state-error">
