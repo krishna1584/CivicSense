@@ -24,12 +24,17 @@ function validateStep(step: number, form: ReportForm, files: File[]): string | n
     if (!form.category_id) return 'Please select a category.';
   }
   if (step === 1) {
-    if (!form.address.trim()) return 'Please enter a location description.';
-    if (!form.latitude || !form.longitude) return 'Please set GPS coordinates (use the GPS button or enter them manually).';
-    const lat = parseFloat(form.latitude);
-    const lng = parseFloat(form.longitude);
-    if (isNaN(lat) || lat < -90 || lat > 90) return 'Latitude must be between -90 and 90.';
-    if (isNaN(lng) || lng < -180 || lng > 180) return 'Longitude must be between -180 and 180.';
+    // Any short description works ("Sec 12 roundabout"); coordinates are optional.
+    if (form.address.trim().length < 2) return 'Please describe the location, e.g. "Sec 12 roundabout".';
+    const hasLat = !!form.latitude.trim();
+    const hasLng = !!form.longitude.trim();
+    if (hasLat !== hasLng) return 'Enter both latitude and longitude, or leave both empty.';
+    if (hasLat) {
+      const lat = Number(form.latitude);
+      const lng = Number(form.longitude);
+      if (isNaN(lat) || lat < -90 || lat > 90) return 'Latitude must be between -90 and 90.';
+      if (isNaN(lng) || lng < -180 || lng > 180) return 'Longitude must be between -180 and 180.';
+    }
   }
   if (step === 2 && files.length === 0) {
     return 'Evidence is mandatory. Please upload at least one file showing the issue.';

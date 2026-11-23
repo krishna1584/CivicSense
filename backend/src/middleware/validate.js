@@ -85,14 +85,18 @@ const createIssueSchema = Joi.object({
   category_id: Joi.string().uuid().required(),
   subcategory_id: Joi.string().uuid().optional().allow(''),
   severity: Joi.string().valid('low', 'medium', 'high', 'critical').required(),
-  latitude: Joi.number().min(-90).max(90).required(),
-  longitude: Joi.number().min(-180).max(180).required(),
-  address: Joi.string().max(500).optional().allow(''),
+  // A plain description such as "Sec 12 roundabout" is enough; GPS coordinates are optional,
+  // but if one is given the other must be too.
+  latitude: Joi.number().min(-90).max(90).empty('').allow(null),
+  longitude: Joi.number().min(-180).max(180).empty('').allow(null),
+  address: Joi.string().trim().min(2).max(500).required()
+    .messages({ 'any.required': 'Please describe the location', 'string.empty': 'Please describe the location', 'string.min': 'Please describe the location' }),
   is_anonymous: Joi.alternatives().try(
     Joi.boolean(),
     Joi.string().valid('true', 'false').custom((v) => v === 'true')
   ).default(false),
-});
+}).and('latitude', 'longitude')
+  .messages({ 'object.and': 'Enter both latitude and longitude, or leave both empty' });
 
 const anonymousReportSchema = createIssueSchema.keys({
   is_anonymous: Joi.any().strip(),

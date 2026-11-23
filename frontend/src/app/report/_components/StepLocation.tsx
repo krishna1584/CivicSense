@@ -42,11 +42,14 @@ export function StepLocation({ form, onChange, onError }: Props) {
       <div className="card p-5">
         <label className="label-micro block mb-2">Address / Location Description *</label>
         <input
-          className="input-dark mb-4"
-          placeholder="e.g. Main Street &amp; 5th Ave, near the bus stop"
+          className="input-dark mb-1.5"
+          placeholder="e.g. Sec 12 roundabout, near the bus stop"
           value={form.address}
           onChange={e => onChange('address', e.target.value)}
         />
+        <p className="text-xs text-content-muted mb-4">
+          A landmark or area is enough. GPS coordinates are optional.
+        </p>
 
         {/* GPS button */}
         <button
@@ -77,7 +80,7 @@ export function StepLocation({ form, onChange, onError }: Props) {
       {/* Manual coords */}
       <div className="card p-5">
         <label className="label-micro block mb-3">
-          Or enter coordinates manually
+          Or enter coordinates manually (optional)
         </label>
         <div className="grid grid-cols-2 gap-3">
           <div>

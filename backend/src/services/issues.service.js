@@ -49,6 +49,7 @@ const SLA_HOURS = { low: 120, medium: 72, high: 48, critical: 24 };
 /** Insert a report, its media and first history entry inside the caller's transaction. */
 async function insertReport(client, { userId, fields, isAnonymous, media, holdForReview, historyComment }) {
   const { title, description, category_id, subcategory_id, severity, latitude, longitude, address } = fields;
+  const hasCoords = latitude != null && longitude != null;
   const slaHours = SLA_HOURS[severity] || 72;
   const slaDeadline = new Date(Date.now() + slaHours * 60 * 60 * 1000);
   const publishAfter = holdForReview ? new Date(Date.now() + ANONYMOUS_REVIEW_HOURS * 60 * 60 * 1000) : null;
@@ -57,7 +58,11 @@ async function insertReport(client, { userId, fields, isAnonymous, media, holdFo
     INSERT INTO issues (user_id, title, description, category_id, subcategory_id, severity, location, latitude, longitude, address, is_anonymous, sla_hours, sla_deadline, moderation_status, publish_after)
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
     RETURNING *
-  `, [userId, title, description, category_id, subcategory_id || null, severity, `POINT(${longitude} ${latitude})`, parseFloat(latitude), parseFloat(longitude), address, isAnonymous, slaHours, slaDeadline, holdForReview ? 'held' : 'approved', publishAfter]);
+  `, [userId, title, description, category_id, subcategory_id || null, severity,
+      hasCoords ? `POINT(${longitude} ${latitude})` : null,
+      hasCoords ? parseFloat(latitude) : null,
+      hasCoords ? parseFloat(longitude) : null,
+      address, isAnonymous, slaHours, slaDeadline, holdForReview ? 'held' : 'approved', publishAfter]);
   const issue = result.rows[0];
 
   for (const { mediaUrl, publicId, mediaType } of media) {

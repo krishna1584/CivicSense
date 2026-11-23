@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { normalizeQuery, uuidParam, loginSchema, reviewSchema, updateProfileSchema } = require('../src/middleware/validate');
+const { normalizeQuery, uuidParam, loginSchema, reviewSchema, updateProfileSchema, createIssueSchema } = require('../src/middleware/validate');
 
 const run = (middleware, req, ...extra) => {
   const res = {
@@ -57,4 +57,14 @@ test('profile names must be 2 to 100 characters', () => {
   assert.ok(updateProfileSchema.validate({ name: '' }).error);
   assert.ok(updateProfileSchema.validate({ name: 'x'.repeat(101) }).error);
   assert.ifError(updateProfileSchema.validate({ name: 'Asha Rao' }).error);
+});
+
+test('a plain location description is enough; coordinates are optional but paired', () => {
+  const base = { title: 'Broken light', description: 'Light out at night', category_id: '0b6f1a3e-9c1d-4a2b-8f3e-1a2b3c4d5e6f', severity: 'low' };
+  assert.ifError(createIssueSchema.validate({ ...base, address: 'Sec 12 roundabout' }).error);
+  assert.ifError(createIssueSchema.validate({ ...base, address: 'Sec 12 roundabout', latitude: '', longitude: '' }).error);
+  assert.ifError(createIssueSchema.validate({ ...base, address: 'Near park', latitude: '28.6', longitude: '77.2' }).error);
+  assert.ok(createIssueSchema.validate({ ...base, address: 'Near park', latitude: '28.6' }).error);
+  assert.ok(createIssueSchema.validate({ ...base, address: '  ' }).error);
+  assert.ok(createIssueSchema.validate({ ...base, latitude: '28.6', longitude: '77.2' }).error);
 });
